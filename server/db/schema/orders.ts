@@ -37,6 +37,7 @@ export const orderItems = pgTable('order_items', {
   unitPrice: integer('unit_price').notNull(),
   quantity: integer('quantity').notNull(),
   totalPrice: integer('total_price').notNull(),
+  stockDeducted: integer('stock_deducted').notNull().default(0),
 }, table => ({
   orderIdIdx: index('order_items_order_id_idx').on(table.orderId),
   productIdIdx: index('order_items_product_id_idx').on(table.productId),

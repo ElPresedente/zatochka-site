@@ -33,7 +33,18 @@ interface OrderDetails extends OrderRow {
   items: OrderItem[]
 }
 
+interface AdminProduct {
+  id: number
+  name: string
+  category: string
+  price: number
+  stock: number
+  photos: string[]
+  active: boolean
+}
+
 const { data: orders, refresh } = await useFetch<OrderRow[]>('/api/admin/orders')
+const { data: adminProducts } = await useFetch<AdminProduct[]>('/api/admin/products')
 
 const selectedOrder = ref<OrderDetails | null>(null)
 const detailsOpen = ref(false)
@@ -43,6 +54,9 @@ const editSaving = ref(false)
 const actionError = ref('')
 const sellerCommentForm = ref('')
 const totalAmountForm = ref(0)
+const orderItemsForm = ref<OrderItem[]>([])
+const addProductId = ref<number | null>(null)
+const addQuantity = ref(1)
 
 const statusLabels: Record<OrderStatus, string> = {
   created: 'Создан',
@@ -71,6 +85,7 @@ async function openOrder(order: OrderRow) {
     selectedOrder.value = await $fetch<OrderDetails>(`/api/admin/orders/${order.id}`)
     sellerCommentForm.value = selectedOrder.value.sellerComment
     totalAmountForm.value = selectedOrder.value.totalAmount
+    orderItemsForm.value = selectedOrder.value.items.map(item => ({ ...item }))
   } finally {
     detailsLoading.value = false
   }
@@ -82,12 +97,34 @@ function closeOrder() {
   actionError.value = ''
   sellerCommentForm.value = ''
   totalAmountForm.value = 0
+  orderItemsForm.value = []
+  addProductId.value = null
+  addQuantity.value = 1
 }
+
+const orderItemsPayload = computed(() => orderItemsForm.value
+  .filter(item => item.productId)
+  .map(item => ({
+    productId: item.productId as number,
+    quantity: item.quantity,
+  })))
+
+const orderItemsSubtotal = computed(() => orderItemsForm.value
+  .reduce((sum, item) => sum + item.unitPrice * item.quantity, 0))
+
+const hasOrderItemsChanges = computed(() => {
+  if (!selectedOrder.value || selectedOrder.value.status !== 'created') return false
+  const original = selectedOrder.value.items
+    .filter(item => item.productId)
+    .map(item => ({ productId: item.productId, quantity: item.quantity }))
+  return JSON.stringify(orderItemsPayload.value) !== JSON.stringify(original)
+})
 
 const hasOrderEditChanges = computed(() => {
   if (!selectedOrder.value) return false
   return sellerCommentForm.value.trim() !== selectedOrder.value.sellerComment
     || totalAmountForm.value !== selectedOrder.value.totalAmount
+    || hasOrderItemsChanges.value
 })
 
 async function saveOrderEdits() {
@@ -101,11 +138,13 @@ async function saveOrderEdits() {
       body: {
         sellerComment: sellerCommentForm.value,
         totalAmount: totalAmountForm.value,
+        ...(hasOrderItemsChanges.value ? { items: orderItemsPayload.value } : {}),
       },
     })
-    selectedOrder.value = { ...selectedOrder.value, ...updated }
+    selectedOrder.value = await $fetch<OrderDetails>(`/api/admin/orders/${updated.id}`)
     sellerCommentForm.value = selectedOrder.value.sellerComment
     totalAmountForm.value = selectedOrder.value.totalAmount
+    orderItemsForm.value = selectedOrder.value.items.map(item => ({ ...item }))
     await refresh()
     return true
   } catch (err: any) {
@@ -190,7 +229,56 @@ function hasComment(value: string) {
 }
 
 function canEditTotalAmount(status: OrderStatus) {
-  return status === 'created' || status === 'in_progress'
+  return status === 'created' || status === 'accepted' || status === 'in_progress'
+}
+
+function canEditOrderItems(status: OrderStatus) {
+  return status === 'created'
+}
+
+function syncTotalFromItems() {
+  totalAmountForm.value = orderItemsSubtotal.value
+}
+
+function setOrderItemQuantity(index: number, quantity: number) {
+  if (!Number.isInteger(quantity) || quantity < 1) return
+  orderItemsForm.value[index].quantity = quantity
+  orderItemsForm.value[index].totalPrice = orderItemsForm.value[index].unitPrice * quantity
+  syncTotalFromItems()
+}
+
+function removeOrderItem(index: number) {
+  orderItemsForm.value.splice(index, 1)
+  syncTotalFromItems()
+}
+
+function addOrderItem() {
+  if (!addProductId.value) return
+  const product = adminProducts.value?.find(item => item.id === addProductId.value)
+  if (!product) return
+
+  const quantity = Number(addQuantity.value)
+  if (!Number.isInteger(quantity) || quantity < 1) return
+
+  const existingIndex = orderItemsForm.value.findIndex(item => item.productId === product.id)
+  if (existingIndex >= 0) {
+    setOrderItemQuantity(existingIndex, orderItemsForm.value[existingIndex].quantity + quantity)
+  } else {
+    orderItemsForm.value.push({
+      id: -Date.now(),
+      orderId: selectedOrder.value?.id ?? 0,
+      productId: product.id,
+      productName: product.name,
+      productPhoto: product.photos[0] ?? '',
+      unitPrice: product.price,
+      quantity,
+      totalPrice: product.price * quantity,
+    })
+    syncTotalFromItems()
+  }
+
+  addProductId.value = null
+  addQuantity.value = 1
 }
 </script>
 
@@ -297,7 +385,7 @@ function canEditTotalAmount(status: OrderStatus) {
                 class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand disabled:bg-[#f7f7f7] disabled:text-[#888]"
               />
               <p v-if="!canEditTotalAmount(selectedOrder.status)" class="text-xs text-[#aaa] mt-1.5">
-                Сумму можно менять только в статусах «Создан» или «В работе».
+                Сумму можно менять только в статусах «Создан», «Принят» или «В работе».
               </p>
             </div>
               <div>
@@ -328,9 +416,35 @@ function canEditTotalAmount(status: OrderStatus) {
 
           <div class="px-7 py-5">
             <h2 class="text-sm font-bold text-[#222] mb-3">Состав заказа</h2>
+            <div v-if="canEditOrderItems(selectedOrder.status)" class="mb-3 grid grid-cols-[1fr_90px_auto] gap-2">
+              <select
+                v-model.number="addProductId"
+                class="border border-[#ddd] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-brand bg-white"
+              >
+                <option :value="null">Добавить товар...</option>
+                <option v-for="product in adminProducts" :key="product.id" :value="product.id">
+                  {{ product.name }} - {{ formatPrice(product.price) }} / ост. {{ product.stock }}{{ product.active ? '' : ' / скрыт' }}
+                </option>
+              </select>
+              <input
+                v-model.number="addQuantity"
+                type="number"
+                min="1"
+                step="1"
+                class="border border-[#ddd] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-brand"
+              />
+              <button
+                class="px-4 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-50"
+                :disabled="!addProductId"
+                @click="addOrderItem"
+              >
+                Добавить
+              </button>
+            </div>
+
             <div class="border border-[#eee] rounded-xl overflow-hidden">
               <div
-                v-for="item in selectedOrder.items"
+                v-for="(item, index) in orderItemsForm"
                 :key="item.id"
                 class="flex items-center gap-4 px-4 py-3 border-b border-[#f0f0f0] last:border-0"
               >
@@ -342,8 +456,30 @@ function canEditTotalAmount(status: OrderStatus) {
                   <div class="font-semibold text-[#222]">{{ item.productName }}</div>
                   <div class="text-sm text-[#888]">{{ formatPrice(item.unitPrice) }} × {{ item.quantity }} шт.</div>
                 </div>
-                <div class="font-bold text-[#222]">{{ formatPrice(item.totalPrice) }}</div>
+                <input
+                  v-if="canEditOrderItems(selectedOrder.status)"
+                  :value="item.quantity"
+                  type="number"
+                  min="1"
+                  step="1"
+                  class="w-20 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand"
+                  @input="setOrderItemQuantity(index, Number(($event.target as HTMLInputElement).value))"
+                />
+                <div class="font-bold text-[#222] min-w-[100px] text-right">{{ formatPrice(item.totalPrice) }}</div>
+                <button
+                  v-if="canEditOrderItems(selectedOrder.status)"
+                  class="px-3 py-1.5 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100 transition-colors"
+                  @click="removeOrderItem(index)"
+                >
+                  Удалить
+                </button>
               </div>
+              <div v-if="orderItemsForm.length === 0" class="px-4 py-8 text-center text-sm text-[#aaa]">
+                Добавьте хотя бы одну позицию
+              </div>
+            </div>
+            <div v-if="canEditOrderItems(selectedOrder.status)" class="mt-3 text-right text-sm text-[#555]">
+              Сумма по позициям: <span class="font-bold text-brand">{{ formatPrice(orderItemsSubtotal) }}</span>
             </div>
           </div>
         </div>

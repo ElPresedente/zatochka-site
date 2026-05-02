@@ -153,17 +153,23 @@ const workingHours = [
       <div class="section-header">
         <span class="section-title">Отзывы о нас</span>
       </div>
-      <div class="flex flex-col gap-6 items-center">
-        <img
-          src="/images/reviews1.png"
-          alt="Отзывы"
-          class="max-w-[680px] w-full rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.10)]"
-        />
-        <img
-          src="/images/reviews2.png"
-          alt="Отзывы"
-          class="max-w-[1200px] w-full rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.10)]"
-        />
+      <div class="flex justify-center">
+        <div class="relative w-full max-w-[760px] h-[720px] max-h-[80vh] min-h-[560px] overflow-hidden rounded-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06]">
+          <iframe
+            src="https://yandex.ru/maps-reviews-widget/96290816208?comments"
+            title="Отзывы Яндекс Карт"
+            loading="lazy"
+            class="block h-full w-full border-0"
+          />
+          <a
+            href="https://yandex.ru/maps/org/ostry_kray/96290816208/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="absolute bottom-2 left-4 right-4 block overflow-hidden text-ellipsis whitespace-nowrap text-center font-sans text-[10px] leading-[14px] text-[#b3b3b3] no-underline"
+          >
+            Острый край на карте Орла - Яндекс Карты
+          </a>
+        </div>
       </div>
     </div>
   </section>

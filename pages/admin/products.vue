@@ -17,6 +17,8 @@ interface Product {
   sortOrder: number
 }
 
+type InlineField = 'price' | 'stock'
+
 const [{ data: products, refresh }, { data: categoriesData, refresh: refreshCategories }] = await Promise.all([
   useFetch<Product[]>('/api/admin/products'),
   useFetch<ProductCategory[]>('/api/product-categories'),
@@ -82,6 +84,63 @@ async function save() {
 async function toggleActive(p: Product) {
   await $fetch(`/api/admin/products/${p.id}`, { method: 'PUT', body: { active: !p.active } })
   await refresh()
+}
+
+const inlineEdit = ref<{ id: number; field: InlineField; value: string } | null>(null)
+const inlineSaving = ref(false)
+
+function inlineInputId(p: Product, field: InlineField) {
+  return `product-inline-${field}-${p.id}`
+}
+
+function isInlineEditing(p: Product, field: InlineField) {
+  return inlineEdit.value?.id === p.id && inlineEdit.value.field === field
+}
+
+function startInlineEdit(p: Product, field: InlineField) {
+  if (inlineSaving.value) return
+  inlineEdit.value = { id: p.id, field, value: String(p[field]) }
+  nextTick(() => {
+    const input = document.getElementById(inlineInputId(p, field)) as HTMLInputElement | null
+    input?.focus()
+    input?.select()
+  })
+}
+
+function cancelInlineEdit() {
+  if (inlineSaving.value) return
+  inlineEdit.value = null
+}
+
+async function saveInlineEdit(p: Product, field: InlineField) {
+  const edit = inlineEdit.value
+  if (!edit || edit.id !== p.id || edit.field !== field || inlineSaving.value) return
+
+  const nextValue = Number(edit.value)
+  if (!Number.isInteger(nextValue) || nextValue < 0) {
+    alert(field === 'price' ? 'Цена должна быть целым числом не меньше 0' : 'Остаток должен быть целым числом не меньше 0')
+    return
+  }
+
+  if (nextValue === p[field]) {
+    inlineEdit.value = null
+    return
+  }
+
+  inlineSaving.value = true
+  try {
+    const updated = await $fetch<Product>(`/api/admin/products/${p.id}`, {
+      method: 'PUT',
+      body: { [field]: nextValue },
+    })
+    const index = products.value?.findIndex(product => product.id === p.id) ?? -1
+    if (index >= 0 && products.value) products.value[index] = updated
+    inlineEdit.value = null
+  } catch (err: any) {
+    alert(err?.data?.message ?? 'Не удалось сохранить товар')
+  } finally {
+    inlineSaving.value = false
+  }
 }
 
 async function deleteProduct(p: Product) {
@@ -222,11 +281,49 @@ function formatPrice(p: number) {
             </td>
             <td class="px-5 py-3 font-semibold text-[#222] max-w-[240px]">{{ p.name }}</td>
             <td class="px-5 py-3 text-[#777]">{{ p.category }}</td>
-            <td class="px-5 py-3 font-bold text-brand">{{ formatPrice(p.price) }}</td>
             <td class="px-5 py-3">
+              <input
+                v-if="isInlineEditing(p, 'price')"
+                :id="inlineInputId(p, 'price')"
+                v-model="inlineEdit!.value"
+                type="number"
+                min="0"
+                step="1"
+                class="w-28 rounded-lg border border-brand px-2.5 py-1 text-sm font-bold text-brand outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
+                :disabled="inlineSaving"
+                @blur="saveInlineEdit(p, 'price')"
+                @keydown.enter.prevent="saveInlineEdit(p, 'price')"
+                @keydown.esc.prevent="cancelInlineEdit"
+              />
+              <button
+                v-else
+                class="rounded-lg px-2.5 py-1 -ml-2.5 font-bold text-brand transition-colors hover:bg-brand/10"
+                title="Изменить цену"
+                @click="startInlineEdit(p, 'price')"
+              >
+                {{ formatPrice(p.price) }}
+              </button>
+            </td>
+            <td class="px-5 py-3">
+              <input
+                v-if="isInlineEditing(p, 'stock')"
+                :id="inlineInputId(p, 'stock')"
+                v-model="inlineEdit!.value"
+                type="number"
+                min="0"
+                step="1"
+                class="w-20 rounded-lg border border-brand px-2.5 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
+                :disabled="inlineSaving"
+                @blur="saveInlineEdit(p, 'stock')"
+                @keydown.enter.prevent="saveInlineEdit(p, 'stock')"
+                @keydown.esc.prevent="cancelInlineEdit"
+              />
               <span
-                class="px-2.5 py-1 rounded-lg font-semibold text-xs"
+                v-else
+                class="px-2.5 py-1 rounded-lg font-semibold text-xs cursor-pointer transition-colors hover:ring-2 hover:ring-brand/20"
                 :class="p.stock === 0 ? 'bg-red-100 text-red-500' : p.stock < 5 ? 'bg-orange-100 text-orange-500' : 'bg-green-100 text-green-600'"
+                title="Изменить остаток"
+                @click="startInlineEdit(p, 'stock')"
               >{{ p.stock }} шт.</span>
             </td>
             <td class="px-5 py-3">

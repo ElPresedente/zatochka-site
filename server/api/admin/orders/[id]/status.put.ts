@@ -1,4 +1,4 @@
-import { and, eq, gte, sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { orderItems, orders, orderStatuses, products, type OrderStatus } from '~/server/db/schema'
 
@@ -49,24 +49,20 @@ export default defineEventHandler(async (event) => {
 
     if (currentStatus === 'created' && nextStatus === 'accepted') {
       for (const item of items) {
-        if (!item.productId) {
-          throw createError({
-            statusCode: 409,
-            message: `Товар «${item.productName}» уже удален из каталога`,
-          })
-        }
+        if (!item.productId) continue
 
-        const [product] = await tx.update(products)
-          .set({ stock: sql`${products.stock} - ${item.quantity}` })
-          .where(and(eq(products.id, item.productId), gte(products.stock, item.quantity)))
-          .returning({ id: products.id })
+        const [product] = await tx.select({ stock: products.stock })
+          .from(products)
+          .where(eq(products.id, item.productId))
+        const stockDeducted = Math.min(product?.stock ?? 0, item.quantity)
 
-        if (!product) {
-          throw createError({
-            statusCode: 409,
-            message: `Недостаточно товара «${item.productName}» в наличии`,
-          })
-        }
+        await tx.update(products)
+          .set({ stock: sql`greatest(${products.stock} - ${item.quantity}, 0)` })
+          .where(eq(products.id, item.productId))
+
+        await tx.update(orderItems)
+          .set({ stockDeducted })
+          .where(eq(orderItems.id, item.id))
       }
     }
 
@@ -75,7 +71,7 @@ export default defineEventHandler(async (event) => {
         if (!item.productId) continue
 
         await tx.update(products)
-          .set({ stock: sql`${products.stock} + ${item.quantity}` })
+          .set({ stock: sql`${products.stock} + ${item.stockDeducted}` })
           .where(eq(products.id, item.productId))
       }
     }
