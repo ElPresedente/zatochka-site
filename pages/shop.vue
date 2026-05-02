@@ -6,11 +6,22 @@ const [{ data: allProducts }, { data: categoriesRaw }] = await Promise.all([
   useFetch('/api/product-categories'),
 ])
 
-const categories = computed(() => ['Все', ...(categoriesRaw.value?.map(c => c.name) ?? [])])
-
 const search = ref('')
 const activeCategory = ref('Все')
 const sortBy = ref<'default' | 'price_asc' | 'price_desc' | 'name'>('default')
+
+const categories = computed(() => {
+  const visibleProductCategories = new Set((allProducts.value ?? []).map(p => p.category))
+  const visibleCategories = categoriesRaw.value
+    ?.map(c => c.name)
+    .filter(name => visibleProductCategories.has(name)) ?? []
+
+  return ['Все', ...visibleCategories]
+})
+
+watch(categories, (currentCategories) => {
+  if (!currentCategories.includes(activeCategory.value)) activeCategory.value = 'Все'
+})
 
 const filtered = computed(() => {
   let list = allProducts.value ?? []
@@ -47,6 +58,8 @@ const orderComment = ref('')
 
 await fetchUser()
 
+const productStockById = computed(() => new Map((allProducts.value ?? []).map(product => [product.id, product.stock])))
+
 function addAndNotify(product: typeof allProducts.value[0]) {
   addToCart(product)
 }
@@ -54,6 +67,38 @@ function addAndNotify(product: typeof allProducts.value[0]) {
 function cartQty(productId: number): number {
   return cart.value.find(i => i.id === productId)?.qty ?? 0
 }
+
+function productStock(productId: number): number {
+  return productStockById.value.get(productId) ?? 0
+}
+
+function canIncrease(productId: number): boolean {
+  return cartQty(productId) < productStock(productId)
+}
+
+watch([cart, allProducts], () => {
+  let changed = false
+
+  const nextCart = cart.value.flatMap((item) => {
+    const product = (allProducts.value ?? []).find(p => p.id === item.id)
+    if (!product || product.stock <= 0) {
+      changed = true
+      return []
+    }
+
+    const nextQty = Math.min(item.qty, product.stock)
+    if (nextQty !== item.qty || item.stock !== product.stock) changed = true
+
+    return [{ ...item, qty: nextQty, stock: product.stock }]
+  })
+
+  if (changed) {
+    cart.value = nextCart
+    if (import.meta.client) {
+      localStorage.setItem('ostriy_kray_cart', JSON.stringify(cart.value))
+    }
+  }
+}, { deep: true })
 
 async function checkout() {
   orderError.value = ''
@@ -170,9 +215,13 @@ function formatPrice(p: number) {
               </span>
             </div>
             <div v-if="cartQty(product.id) > 0" class="mt-2 flex items-center justify-between" @click.stop>
-              <button class="w-9 h-9 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center" @click="setQty(product.id, cartQty(product.id) - 1)">−</button>
+              <button class="w-9 h-9 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center" @click="setQty(product.id, cartQty(product.id) - 1, product.stock)">−</button>
               <span class="font-bold text-[#222] text-base">{{ cartQty(product.id) }}</span>
-              <button class="w-9 h-9 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center" @click="setQty(product.id, cartQty(product.id) + 1)">+</button>
+              <button
+                class="w-9 h-9 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center disabled:opacity-40 disabled:hover:bg-[#f0f0f0] disabled:hover:text-inherit"
+                :disabled="!canIncrease(product.id)"
+                @click="setQty(product.id, cartQty(product.id) + 1, product.stock)"
+              >+</button>
             </div>
             <button
               v-else
@@ -238,9 +287,13 @@ function formatPrice(p: number) {
               </div>
             </div>
             <div v-if="cartQty(modal.id) > 0" class="mt-auto flex items-center gap-3">
-              <button class="w-11 h-11 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center" @click="setQty(modal.id, cartQty(modal.id) - 1)">−</button>
+              <button class="w-11 h-11 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center" @click="setQty(modal.id, cartQty(modal.id) - 1, modal.stock)">−</button>
               <span class="font-bold text-[#222] text-xl min-w-[32px] text-center">{{ cartQty(modal.id) }}</span>
-              <button class="w-11 h-11 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center" @click="setQty(modal.id, cartQty(modal.id) + 1)">+</button>
+              <button
+                class="w-11 h-11 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center disabled:opacity-40 disabled:hover:bg-[#f0f0f0] disabled:hover:text-inherit"
+                :disabled="!canIncrease(modal.id)"
+                @click="setQty(modal.id, cartQty(modal.id) + 1, modal.stock)"
+              >+</button>
               <span class="text-[#888] text-sm">в корзине</span>
             </div>
             <button
@@ -281,9 +334,13 @@ function formatPrice(p: number) {
               <div class="text-sm font-semibold text-[#222] leading-snug mb-1 line-clamp-2">{{ item.name }}</div>
               <div class="text-brand font-bold">{{ formatPrice(item.price) }}</div>
               <div class="flex items-center gap-2 mt-2">
-                <button class="w-7 h-7 rounded-lg bg-[#f0f0f0] font-bold hover:bg-brand hover:text-white transition-colors" @click="setQty(item.id, item.qty - 1)">−</button>
+                <button class="w-7 h-7 rounded-lg bg-[#f0f0f0] font-bold hover:bg-brand hover:text-white transition-colors" @click="setQty(item.id, item.qty - 1, productStock(item.id))">−</button>
                 <span class="font-semibold min-w-[24px] text-center">{{ item.qty }}</span>
-                <button class="w-7 h-7 rounded-lg bg-[#f0f0f0] font-bold hover:bg-brand hover:text-white transition-colors" @click="setQty(item.id, item.qty + 1)">+</button>
+                <button
+                  class="w-7 h-7 rounded-lg bg-[#f0f0f0] font-bold hover:bg-brand hover:text-white transition-colors disabled:opacity-40 disabled:hover:bg-[#f0f0f0] disabled:hover:text-inherit"
+                  :disabled="item.qty >= productStock(item.id)"
+                  @click="setQty(item.id, item.qty + 1, productStock(item.id))"
+                >+</button>
               </div>
             </div>
             <button class="text-[#ccc] hover:text-red-400 text-xl shrink-0" @click="removeFromCart(item.id)">×</button>

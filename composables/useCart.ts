@@ -6,6 +6,7 @@ export interface CartItem {
   price: number
   photo: string
   qty: number
+  stock?: number
 }
 
 const cart = ref<CartItem[]>([])
@@ -30,10 +31,13 @@ export function useCart() {
   const totalQty = computed(() => cart.value.reduce((s, i) => s + i.qty, 0))
   const totalPrice = computed(() => cart.value.reduce((s, i) => s + i.price * i.qty, 0))
 
-  function addToCart(product: { id: number; name: string; price: number; photos: string[] }) {
+  function addToCart(product: { id: number; name: string; price: number; photos: string[]; stock: number }) {
+    if (product.stock <= 0) return
+
     const existing = cart.value.find(i => i.id === product.id)
     if (existing) {
-      existing.qty++
+      existing.stock = product.stock
+      existing.qty = Math.min(existing.qty + 1, product.stock)
     } else {
       cart.value.push({
         id: product.id,
@@ -41,6 +45,7 @@ export function useCart() {
         price: product.price,
         photo: product.photos[0] ?? '',
         qty: 1,
+        stock: product.stock,
       })
     }
     saveCart()
@@ -51,10 +56,15 @@ export function useCart() {
     saveCart()
   }
 
-  function setQty(id: number, qty: number) {
+  function setQty(id: number, qty: number, maxQty?: number) {
     if (qty <= 0) { removeFromCart(id); return }
     const item = cart.value.find(i => i.id === id)
-    if (item) { item.qty = qty; saveCart() }
+    if (item) {
+      if (maxQty !== undefined) item.stock = maxQty
+      const limit = maxQty ?? item.stock
+      item.qty = limit === undefined ? qty : Math.min(qty, limit)
+      saveCart()
+    }
   }
 
   function clearCart() {

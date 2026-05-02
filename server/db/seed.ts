@@ -128,6 +128,8 @@ async function seed() {
     { key: 'email', value: 'zatochka_test@yandex.ru' },
     { key: 'address', value: 'г. Орёл, ул. Полесская д. 2' },
     { key: 'map_embed_url', value: 'https://yandex.ru/map-widget/v1/?ll=36.067883%2C52.970466&z=16&pt=36.067883%2C52.970466%2Cpm2rdm~Острый+край&text=г.+Орёл%2C+ул.+Полесская+д.+2' },
+    { key: 'yandex_map_url', value: 'https://yandex.ru/maps/org/ostry_kray/96290816208/' },
+    { key: 'yandex_reviews_widget_url', value: 'https://yandex.ru/maps-reviews-widget/96290816208?comments' },
     { key: 'legal_name', value: 'ИП Бельцев В. А.' },
     { key: 'inn', value: '575207208997' },
     { key: 'working_hours', value: JSON.stringify([

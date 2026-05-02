@@ -4,12 +4,18 @@ useHead({ title: 'Админ — Настройки' })
 
 const { data: settings, refresh } = await useFetch<Record<string, string>>('/api/settings')
 
+const defaultMapEmbedUrl = 'https://yandex.ru/map-widget/v1/org/ostry_kray/96290816208/?from=mapframe&ll=36.059318%2C52.970957&utm_source=share&z=19'
+const defaultYandexMapUrl = 'https://yandex.ru/maps/org/ostry_kray/96290816208/'
+const defaultYandexReviewsWidgetUrl = 'https://yandex.ru/maps-reviews-widget/96290816208?comments'
+
 const form = ref({
   phone: '',
   phone_href: '',
   email: '',
   address: '',
   map_embed_url: '',
+  yandex_map_url: '',
+  yandex_reviews_widget_url: '',
   legal_name: '',
   inn: '',
 })
@@ -20,7 +26,9 @@ watch(settings, (s) => {
   form.value.phone_href = s.phone_href ?? ''
   form.value.email = s.email ?? ''
   form.value.address = s.address ?? ''
-  form.value.map_embed_url = s.map_embed_url ?? ''
+  form.value.map_embed_url = s.map_embed_url ?? defaultMapEmbedUrl
+  form.value.yandex_map_url = s.yandex_map_url ?? defaultYandexMapUrl
+  form.value.yandex_reviews_widget_url = s.yandex_reviews_widget_url ?? defaultYandexReviewsWidgetUrl
   form.value.legal_name = s.legal_name ?? ''
   form.value.inn = s.inn ?? ''
 }, { immediate: true })
@@ -71,6 +79,14 @@ async function save() {
         <div>
           <label class="block text-xs font-semibold text-[#777] mb-1.5">URL карты (Яндекс embed)</label>
           <input v-model="form.map_embed_url" type="text" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-[#777] mb-1.5">URL организации на Яндекс Картах</label>
+          <input v-model="form.yandex_map_url" type="text" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-[#777] mb-1.5">URL виджета отзывов Яндекс</label>
+          <input v-model="form.yandex_reviews_widget_url" type="text" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>

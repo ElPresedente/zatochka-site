@@ -2,6 +2,11 @@
 useHead({ title: 'Острый край — Заточка инструмента' })
 
 const { data: workers } = await useFetch('/api/workers')
+const { data: settings } = await useFetch<Record<string, string>>('/api/settings')
+
+const defaultMapEmbedUrl = 'https://yandex.ru/map-widget/v1/org/ostry_kray/96290816208/?from=mapframe&ll=36.059318%2C52.970957&utm_source=share&z=19'
+const defaultYandexMapUrl = 'https://yandex.ru/maps/org/ostry_kray/96290816208/'
+const defaultYandexReviewsWidgetUrl = 'https://yandex.ru/maps-reviews-widget/96290816208?comments'
 
 const serviceList = [
   'Заточка маникюрного инструмента',
@@ -156,13 +161,13 @@ const workingHours = [
       <div class="flex justify-center">
         <div class="relative w-full max-w-[760px] h-[720px] max-h-[80vh] min-h-[560px] overflow-hidden rounded-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06]">
           <iframe
-            src="https://yandex.ru/maps-reviews-widget/96290816208?comments"
+            :src="settings?.yandex_reviews_widget_url || defaultYandexReviewsWidgetUrl"
             title="Отзывы Яндекс Карт"
             loading="lazy"
             class="block h-full w-full border-0"
           />
           <a
-            href="https://yandex.ru/maps/org/ostry_kray/96290816208/"
+            :href="settings?.yandex_map_url || defaultYandexMapUrl"
             target="_blank"
             rel="noopener noreferrer"
             class="absolute bottom-2 left-4 right-4 block overflow-hidden text-ellipsis whitespace-nowrap text-center font-sans text-[10px] leading-[14px] text-[#b3b3b3] no-underline"
@@ -215,7 +220,7 @@ const workingHours = [
       <!-- Map -->
       <div class="flex-[1.2] min-h-[400px] rounded-2xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.12)] bg-[rgb(232,232,232)]">
         <iframe
-          src="https://yandex.ru/map-widget/v1/org/ostry_kray/96290816208/?from=mapframe&ll=36.059318%2C52.970957&utm_source=share&z=19"
+          :src="settings?.map_embed_url || defaultMapEmbedUrl"
           width="100%"
           height="420"
           frameborder="0"
