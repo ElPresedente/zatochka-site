@@ -1,6 +1,7 @@
 import { asc } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { products } from '~/server/db/schema'
+import { safeJsonParse } from '~/server/utils/validators'
 
 export default defineEventHandler(async () => {
   const db = useDb()
@@ -10,7 +11,7 @@ export default defineEventHandler(async () => {
 
   return rows.map(r => ({
     ...r,
-    photos: JSON.parse(r.photos),
-    specs: JSON.parse(r.specs),
+    photos: safeJsonParse<string[]>(r.photos, []),
+    specs: safeJsonParse<unknown[]>(r.specs, []),
   }))
 })

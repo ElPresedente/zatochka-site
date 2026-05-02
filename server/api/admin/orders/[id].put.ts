@@ -1,6 +1,7 @@
 import { eq, inArray } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { orderItems, orders, products, type OrderStatus } from '~/server/db/schema'
+import { safeJsonParse } from '~/server/utils/validators'
 
 const PRICE_EDITABLE_STATUSES = new Set<OrderStatus>(['created', 'accepted', 'in_progress'])
 const ITEMS_EDITABLE_STATUSES = new Set<OrderStatus>(['created'])
@@ -105,7 +106,7 @@ export default defineEventHandler(async (event) => {
           orderId: id,
           productId: product.id,
           productName: product.name,
-          productPhoto: (JSON.parse(product.photos) as string[])[0] ?? '',
+          productPhoto: safeJsonParse<string[]>(product.photos, [])[0] ?? '',
           unitPrice: product.price,
           quantity,
           totalPrice: product.price * quantity,

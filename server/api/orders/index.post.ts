@@ -1,6 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { orderItems, orders, products, users, type OrderStatus } from '~/server/db/schema'
+import { safeJsonParse } from '~/server/utils/validators'
 
 interface OrderItemInput {
   id: number
@@ -79,7 +80,7 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    const photos = JSON.parse(product.photos) as string[]
+    const photos = safeJsonParse<string[]>(product.photos, [])
     return {
       productId: product.id,
       productName: product.name,
