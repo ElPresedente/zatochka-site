@@ -1,0 +1,22 @@
+# Claude Code
+.claude/
+
+# Nuxt
+.nuxt/
+.output/
+.data/
+
+# Node
+node_modules/
+
+# Env secrets
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

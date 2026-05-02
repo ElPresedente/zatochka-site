@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Острый край — Заточка инструмента</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="components/Header.js"></script>
+  <script src="components/Footer.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { background: rgb(245,245,245); font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+    .btn-primary {
+      display: inline-block; background: rgb(0,186,250); color: #fff;
+      border: none; border-radius: 14px; padding: 14px 36px;
+      font-family: 'Inter', sans-serif; font-weight: 700; font-size: 22px;
+      cursor: pointer; text-decoration: none;
+      box-shadow: 0 4px 0 rgba(9,136,189,0.7);
+      transition: transform .1s, box-shadow .1s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 0 rgba(9,136,189,0.7); }
+    .btn-primary:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(9,136,189,0.7); }
+    .section-title {
+      font-size: 56px; font-weight: 700; text-align: center;
+      position: relative; display: inline-block; padding-bottom: 12px;
+    }
+    .section-title::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 5px; background: rgb(0,186,250); border-radius: 2px;
+    }
+    .section-header { text-align: center; margin-bottom: 48px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState } = React;
+
+    function ServiceCard({ title, text, img, href }) {
+      return (
+        <div style={{
+          borderRadius: 16, overflow: 'hidden', backgroundColor: 'rgb(36,35,35)',
+          display: 'flex', flexDirection: 'column', flex: 1,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+        }}>
+          <div style={{ height: 200, background: `url(${img}) center/cover no-repeat` }} />
+          <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+            <div style={{ fontSize: 26, fontWeight: 600, color: '#fff', lineHeight: 1.2 }}>{title}</div>
+            <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, flex: 1 }}>{text}</div>
+            <a href={href} className="btn-primary" style={{ textAlign: 'center', fontSize: 18, padding: '12px 24px' }}>Подробнее</a>
+          </div>
+        </div>
+      );
+    }
+
+    function ServiceListItem({ text }) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 0', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: 'rgb(0,186,250)', marginTop: 7, flexShrink: 0 }} />
+          <span style={{ fontSize: 20, lineHeight: 1.5, color: '#222' }}>{text}</span>
+        </div>
+      );
+    }
+
+    function WorkerCard({ img, name, role }) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, flex: 1 }}>
+          <div style={{
+            width: '100%', maxWidth: 360, aspectRatio: '5/6',
+            background: `url(${img}) center/cover no-repeat`,
+            borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+          }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 40, fontWeight: 700 }}>{name}</div>
+            <div style={{ fontSize: 20, color: '#555', marginTop: 4 }}>{role}</div>
+          </div>
+        </div>
+      );
+    }
+
+    function HomePage() {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <SiteHeader activePage="Главная" />
+
+          {/* Banner */}
+          <section style={{ position: 'relative', height: 520, overflow: 'hidden' }}>
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'url(assets/banner.png) center/cover no-repeat',
+            }} />
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'linear-gradient(to right, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.1) 60%)',
+              display: 'flex', flexDirection: 'column', justifyContent: 'center',
+              padding: '0 80px',
+            }}>
+              <h1 style={{ color: '#fff', fontSize: 60, fontWeight: 700, lineHeight: 1.15, maxWidth: 640, marginBottom: 20, textWrap: 'pretty' }}>
+                Профессиональная заточка инструмента
+              </h1>
+              <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: 22, maxWidth: 520, marginBottom: 32, lineHeight: 1.5 }}>
+                Маникюрный, парикмахерский, грумерский и домашний инструмент
+              </p>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <a href="services.html" className="btn-primary">Услуги и цены</a>
+                <a href="about.html" style={{
+                  display: 'inline-block', background: 'rgba(255,255,255,0.15)', color: '#fff',
+                  border: '2px solid rgba(255,255,255,0.6)', borderRadius: 14, padding: '14px 36px',
+                  fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 22, textDecoration: 'none',
+                  backdropFilter: 'blur(4px)', transition: 'background .2s',
+                }}>О нас</a>
+              </div>
+            </div>
+          </section>
+
+          {/* What we offer */}
+          <section style={{ padding: '72px 80px', maxWidth: 1440, margin: '0 auto', width: '100%' }}>
+            <div className="section-header">
+              <span className="section-title">Что мы предлагаем?</span>
+            </div>
+            <div style={{ display: 'flex', gap: 40, alignItems: 'stretch' }}>
+              {/* list */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                {[
+                  'Заточка маникюрного инструмента',
+                  'Заточка педикюрного инструмента',
+                  'Заточка парикмахерского инструмента',
+                  'Заточка грумерского инструмента',
+                  'Заточка домашнего и садового инструмента',
+                  'Ремонт маникюрных аппаратов',
+                  'Ремонт техники для салонов красоты',
+                ].map(s => <ServiceListItem key={s} text={s} />)}
+                <div style={{ marginTop: 32 }}>
+                  <a href="services.html" className="btn-primary">Узнать больше</a>
+                </div>
+              </div>
+              {/* photos */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div style={{ flex: 1, minHeight: 220, background: 'url(assets/services1.jpg) center/cover no-repeat', borderRadius: 12 }} />
+                <div style={{ flex: 1, minHeight: 220, background: 'url(assets/services2.jpg) center/cover no-repeat', borderRadius: 12 }} />
+              </div>
+            </div>
+          </section>
+
+          {/* Try now — service cards */}
+          <section style={{ padding: '72px 80px', background: '#fff', width: '100%' }}>
+            <div style={{ maxWidth: 1440, margin: '0 auto' }}>
+              <div className="section-header">
+                <span className="section-title">Попробуйте уже сейчас!</span>
+              </div>
+              <div style={{ display: 'flex', gap: 28 }}>
+                <ServiceCard
+                  title="Заточка маникюрного инструмента"
+                  text="Взгляните на прайс-лист предоставляемых услуг по заточке маникюрного инструмента и выберете подходящий вам тариф."
+                  img="assets/block1.jpg"
+                  href="services.html"
+                />
+                <ServiceCard
+                  title="Ремонт маникюрных аппаратов"
+                  text="Диагностика, чистка и ремонт маникюрных аппаратов. Гарантия на работу до 3-х месяцев. Скидки на последующий ремонт!"
+                  img="assets/services1.jpg"
+                  href="services.html"
+                />
+                <ServiceCard
+                  title="Домашний и садовый инструмент"
+                  text="Заточка домашних, садовых и портных ножниц, топоров, лопат, пил и др. Взгляните на полный прайс-лист."
+                  img="assets/services2.jpg"
+                  href="services.html"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Workers */}
+          <section style={{ padding: '72px 80px', maxWidth: 1440, margin: '0 auto', width: '100%' }}>
+            <div className="section-header">
+              <span className="section-title">Наши работники</span>
+            </div>
+            <div style={{ display: 'flex', gap: 80, justifyContent: 'center' }}>
+              <WorkerCard img="assets/vladimir.png" name="Владимир" role="Мастер-заточник" />
+              <WorkerCard img="assets/alexander.png" name="Александр" role="Мастер по ремонту оборудования" />
+            </div>
+          </section>
+
+          {/* Reviews */}
+          <section style={{ padding: '72px 80px', background: '#fff', width: '100%' }}>
+            <div style={{ maxWidth: 1440, margin: '0 auto' }}>
+              <div className="section-header">
+                <span className="section-title">Отзывы о нас</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center' }}>
+                <img src="assets/reviews1.png" alt="Отзывы" style={{ maxWidth: 680, width: '100%', borderRadius: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }} />
+                <img src="assets/reviews2.png" alt="Отзывы" style={{ maxWidth: 1200, width: '100%', borderRadius: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }} />
+              </div>
+            </div>
+          </section>
+
+          {/* How to find us */}
+          <section style={{ padding: '72px 80px', maxWidth: 1440, margin: '0 auto', width: '100%' }}>
+            <div className="section-header">
+              <span className="section-title">Как нас найти</span>
+            </div>
+            <div style={{ display: 'flex', gap: 60, alignItems: 'flex-start' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 28 }}>
+                <div style={{ fontSize: 32, fontWeight: 700, textAlign: 'center', lineHeight: 1.3 }}>
+                  Мы не прячемся!<br />Найдите нас по адресу:
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <img src="assets/map_pin.png" style={{ width: 52, height: 52, objectFit: 'contain' }} />
+                  <span style={{ fontSize: 28, lineHeight: 1.3 }}>г. Орёл, ул. Полесская д. 2</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                  <img src="assets/clock_icon.png" style={{ width: 52, height: 64, objectFit: 'contain', marginTop: 4 }} />
+                  <div>
+                    <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Режим работы:</div>
+                    {[
+                      ['Понедельник:', '10:00 – 18:00'],
+                      ['Вторник:', '10:00 – 18:00'],
+                      ['Среда:', '10:00 – 18:00'],
+                      ['Четверг:', '10:00 – 18:00'],
+                      ['Пятница:', '10:00 – 18:00'],
+                      ['Суббота:', 'Выходной'],
+                      ['Воскресенье:', 'Выходной'],
+                    ].map(([day, time]) => (
+                      <div key={day} style={{ display: 'flex', gap: 16, fontSize: 20, lineHeight: 1.8 }}>
+                        <span style={{ minWidth: 150, color: '#555' }}>{day}</span>
+                        <span style={{ fontWeight: time === 'Выходной' ? 400 : 600, color: time === 'Выходной' ? '#999' : '#111' }}>{time}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontSize: 20, lineHeight: 1.6, color: '#444' }}>
+                  Свяжитесь с нами по телефону{' '}
+                  <a href="tel:+79103043040" style={{ color: 'rgb(0,186,250)', textDecoration: 'none', fontWeight: 600 }}>8 (910) 304-30-40</a>
+                  {' '}или напишите на{' '}
+                  <a href="mailto:zatochka_test@yandex.ru" style={{ color: 'rgb(0,186,250)', textDecoration: 'none', fontWeight: 600 }}>zatochka_test@yandex.ru</a>
+                </div>
+              </div>
+              <div style={{ flex: 1.2, minHeight: 400, borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.12)', background: 'rgb(232,232,232)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <iframe
+                  src="https://yandex.ru/map-widget/v1/?ll=36.067883%2C52.970466&z=16&pt=36.067883%2C52.970466%2Cpm2rdm~Острый+край&text=г.+Орёл%2C+ул.+Полесская+д.+2"
+                  width="100%" height="420" frameBorder="0"
+                  allowFullScreen={true}
+                  style={{ border: 'none', display: 'block' }}
+                />
+              </div>
+            </div>
+          </section>
+
+          <SiteFooter />
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<HomePage />);
+  </script>
+</body>
+</html>

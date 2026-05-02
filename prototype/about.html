@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Острый край — О нас</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="components/Header.js"></script>
+  <script src="components/Footer.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: rgb(245,245,245); font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+    .section-title {
+      font-size: 52px; font-weight: 700; text-align: center;
+      position: relative; display: inline-block; padding-bottom: 12px;
+    }
+    .section-title::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 5px; background: rgb(0,186,250); border-radius: 2px;
+    }
+    .bullet-item { display: flex; align-items: flex-start; gap: 12; padding: 8px 0; }
+    .bullet-dot { width: 10px; height: 10px; border-radius: 50%; background: rgb(0,186,250); margin-top: 8px; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    function BulletList({ items }) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 8 }}>
+          {items.map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '6px 0' }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgb(0,186,250)', marginTop: 8, flexShrink: 0 }} />
+              <span style={{ fontSize: 20, lineHeight: 1.6 }}>{item}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function SectionTitle({ children }) {
+      return (
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <span className="section-title">{children}</span>
+        </div>
+      );
+    }
+
+    function AboutPage() {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <SiteHeader activePage="О нас" />
+
+          <main style={{ flex: 1, maxWidth: 1100, margin: '0 auto', padding: '64px 40px', width: '100%' }}>
+
+            {/* Кто мы */}
+            <section style={{ marginBottom: 72 }}>
+              <SectionTitle>Кто мы</SectionTitle>
+              <div style={{ fontSize: 20, lineHeight: 1.8, color: '#333', marginBottom: 24 }}>
+                Мы — профессиональная заточная мастерская, специализирующаяся на восстановлении остроты и качества различных режущих инструментов.
+                Наша команда — это опытные мастера с многолетним стажем, которые знают все тонкости заточки и ухода за инструментами.
+              </div>
+              <div style={{ fontSize: 20, lineHeight: 1.8, color: '#333', marginBottom: 20 }}>
+                Мы предлагаем широкий спектр услуг по заточке:
+              </div>
+              <BulletList items={[
+                'Маникюрного инструмента',
+                'Педикюрного инструмента',
+                'Парикмахерского инструмента',
+                'Грумерского инструмента',
+                'Садового инструмента',
+                'Домашнего инструмента',
+              ]} />
+              <div style={{ fontSize: 20, lineHeight: 1.8, color: '#333', margin: '24px 0 16px' }}>
+                Также мы выполняем ремонтные работы разной сложности техники для салонов красоты, а именно:
+              </div>
+              <BulletList items={['УФ-лампы', 'Машинки для стрижки', 'Другое оборудование']} />
+              <div style={{ fontSize: 20, lineHeight: 1.8, color: '#333', margin: '24px 0 16px' }}>
+                В нашей мастерской вы можете приобрести новый инструмент, расходники, технику для работы:
+              </div>
+              <BulletList items={[
+                'Кутикульные и ногтевые кусачки',
+                'Различные виды парикмахерских ножниц',
+                'Твизеры', 'Пинцеты', 'Пушеры', 'Книпсеры',
+                'Наборы инструментов',
+                'Маникюрные аппараты', 'Фрезы', 'Пылесосы', 'УФ-лампы',
+                'Пилочки одноразовые и многоразовые',
+                'Резиновые перчатки', 'Одноразовые маски', 'Многое другое',
+              ]} />
+            </section>
+
+            {/* Почему выбирают нас */}
+            <section style={{ background: '#fff', borderRadius: 20, padding: '48px 48px', marginBottom: 72, boxShadow: '0 4px 24px rgba(0,0,0,0.07)' }}>
+              <SectionTitle>Почему выбирают нас</SectionTitle>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {[
+                  { icon: '🎯', title: 'Опыт и знания', text: 'Наши мастера имеют глубокие знания в области заточки и постоянно совершенствуют свои навыки.' },
+                  { icon: '🤝', title: 'Индивидуальный подход', text: 'Мы учитываем особенности каждого инструмента и потребности наших клиентов.' },
+                  { icon: '✨', title: 'Дополнительный сервис', text: 'У нас в мастерской вы можете выпить чашечку кофе, индивидуализировать свой инструмент при помощи лазерной гравировки, очистить инструмент от налёта, а также многое другое.' },
+                ].map(({ icon, title, text }) => (
+                  <div key={title} style={{
+                    display: 'flex', gap: 20, alignItems: 'flex-start',
+                    padding: '20px 24px', borderRadius: 12,
+                    border: '2px solid rgba(0,186,250,0.2)',
+                    background: 'rgba(0,186,250,0.03)',
+                  }}>
+                    <div style={{ fontSize: 32, flexShrink: 0 }}>{icon}</div>
+                    <div>
+                      <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>{title}</div>
+                      <div style={{ fontSize: 18, lineHeight: 1.7, color: '#444' }}>{text}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Наша миссия */}
+            <section style={{ marginBottom: 72 }}>
+              <SectionTitle>Наша миссия</SectionTitle>
+              <div style={{ fontSize: 20, lineHeight: 1.8, color: '#333', textAlign: 'center', maxWidth: 820, margin: '0 auto 40px' }}>
+                Мы стремимся обеспечить наших клиентов острыми и надёжными инструментами, которые прослужат долгие годы.
+                Мы гордимся своей работой и тем, что можем помочь вам сохранить ваши инструменты в идеальном состоянии.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+                {['assets/services1.jpg', 'assets/services2.jpg', 'assets/block1.jpg', 'assets/services1.jpg'].map((src, i) => (
+                  <div key={i} style={{
+                    aspectRatio: '4/3',
+                    background: `url(${src}) center/cover no-repeat`,
+                    borderRadius: 12,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
+                  }} />
+                ))}
+              </div>
+            </section>
+
+            {/* Контакты */}
+            <section style={{ background: 'rgb(36,35,35)', color: '#fff', borderRadius: 20, padding: '48px 48px' }}>
+              <SectionTitle><span style={{ color: '#fff' }}>Контакты</span></SectionTitle>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20, fontSize: 20 }}>
+                  <div>Наша мастерская расположена по адресу <strong>г. Орёл, ул. Полесская д. 2</strong>, и мы всегда рады видеть вас в числе наших клиентов.</div>
+                  <div>
+                    Свяжитесь с нами:<br />
+                    <a href="tel:+79103043040" style={{ color: 'rgb(0,186,250)', textDecoration: 'none' }}>8 (910) 304-30-40</a><br />
+                    <a href="mailto:zatochka_test@yandex.ru" style={{ color: 'rgb(0,186,250)', textDecoration: 'none' }}>zatochka_test@yandex.ru</a>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 14, color: 'rgb(0,186,250)' }}>Режим работы мастерской:</div>
+                  {[
+                    ['Понедельник', '10:00–18:00'],
+                    ['Вторник', '10:00–18:00'],
+                    ['Среда', '10:00–18:00'],
+                    ['Четверг', '10:00–18:00'],
+                    ['Пятница', '10:00–18:00'],
+                    ['Суббота', 'Выходной'],
+                    ['Воскресенье', 'Выходной'],
+                  ].map(([d, t]) => (
+                    <div key={d} style={{ display: 'flex', gap: 24, fontSize: 18, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <span style={{ minWidth: 140, color: 'rgba(255,255,255,0.7)' }}>{d}</span>
+                      <span style={{ color: t === 'Выходной' ? '#777' : 'rgb(0,186,250)', fontWeight: t !== 'Выходной' ? 600 : 400 }}>{t}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </main>
+
+          <SiteFooter />
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<AboutPage />);
+  </script>
+</body>
+</html>

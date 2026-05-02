@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Острый край — Услуги</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="components/Header.js"></script>
+  <script src="components/Footer.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: rgb(245,245,245); font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+    .section-title {
+      font-size: 52px; font-weight: 700; text-align: center;
+      position: relative; display: inline-block; padding-bottom: 12px;
+    }
+    .section-title::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 5px; background: rgb(0,186,250); border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const SERVICES = [
+      {
+        title: 'Маникюрный инструмент',
+        rows: [
+          ['Кусачки ногтевые (кутикульные)', '400 ₽'],
+          ['Ножницы маникюрные прямые', '400 ₽'],
+          ['Ножницы маникюрные изогнутые', '400 ₽'],
+          ['Ножницы для кутикулы', '350–400 ₽'],
+          ['Пушер', '250 ₽'],
+          ['Книпсер', '200 ₽'],
+          ['Пинцет для ресниц', '200 ₽'],
+          ['Твизер', '200 ₽'],
+          ['Кусачки педикюрные', '450–500 ₽'],
+        ]
+      },
+      {
+        title: 'Парикмахерский инструмент',
+        rows: [
+          ['Ножницы парикмахерские прямые', '400 ₽'],
+          ['Ножницы филировочные', '450 ₽'],
+          ['Ножевой блок машинки для стрижки', '500 ₽'],
+        ]
+      },
+      {
+        title: 'Грумерский инструмент',
+        rows: [
+          ['Ножницы грумерские прямые', 'от 550 ₽'],
+          ['Ножницы грумерские изогнутые', 'от 550 ₽'],
+          ['Ножницы грумерские филировочные', 'от 500 ₽'],
+          ['Нож грумерский', 'от 100 ₽'],
+        ]
+      },
+      {
+        title: 'Домашний инструмент',
+        rows: [
+          ['Ножи кухонные', 'от 300 ₽'],
+          ['Ножницы домашние', 'от 300 ₽'],
+          ['Ножницы портновские', 'от 300 ₽'],
+          ['Ножницы садовые', 'от 300 ₽'],
+          ['Топор', 'от 300 ₽'],
+          ['Лопата', 'от 150 ₽'],
+          ['Стамеска', 'от 250 ₽'],
+          ['Рубанок', 'от 300 ₽'],
+          ['Пила ручная', 'от 150 ₽'],
+          ['Секатор', 'от 100–300 ₽'],
+          ['Садовые ножницы-кусторез', 'от 100–300 ₽'],
+        ]
+      },
+      {
+        title: 'Ремонт маникюрных аппаратов',
+        rows: [
+          ['Диагностика', '200 ₽'],
+          ['Чистка аппарата', '200 ₽'],
+          ['Замена 2-х подшипников', '1 100 ₽'],
+          ['Замена ротора', '500 ₽'],
+          ['Замена платы управления', '2 000 ₽'],
+          ['Замена сетевого шнура', '300 ₽'],
+          ['Прочие ремонтные работы', 'от 250 ₽'],
+        ]
+      },
+      {
+        title: 'Ремонт другой техники',
+        rows: [
+          ['Ремонт машинки для стрижки', 'от 600 ₽'],
+          ['Ремонт УФ-лампы', 'от 500 ₽'],
+          ['Ремонт фена', 'от 600 ₽'],
+          ['Прочее оборудование', 'от 1 000 ₽'],
+        ]
+      },
+    ];
+
+    const NOTES = [
+      'Исправление геометрии полотен после падения: +20% к стоимости работ.',
+      'Реставрация инструмента после некорректной заточки: +50% к стоимости работ.',
+      'Цены на заточку или ремонт оборудования могут быть изменены после оценки проделанной работы мастером. Клиент извещается об изменении цены по телефону или лично при посещении мастерской.',
+    ];
+
+    function PriceTable({ title, rows }) {
+      return (
+        <section style={{ marginBottom: 56 }}>
+          <div style={{ marginBottom: 28, textAlign: 'center' }}>
+            <span style={{
+              fontSize: 44, fontWeight: 700, position: 'relative', display: 'inline-block', paddingBottom: 10,
+            }}>
+              {title}
+              <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 5, background: 'rgb(0,186,250)', borderRadius: 2, display: 'block' }} />
+            </span>
+          </div>
+          <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.07)' }}>
+            {rows.map(([service, price], i) => (
+              <div key={i} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '16px 32px',
+                borderBottom: i < rows.length - 1 ? '1px solid rgb(232,232,232)' : 'none',
+                background: i % 2 === 0 ? '#fff' : 'rgba(0,186,250,0.03)',
+                transition: 'background .15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,186,250,0.08)'}
+              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : 'rgba(0,186,250,0.03)'}
+              >
+                <span style={{ fontSize: 20, color: '#222', lineHeight: 1.4 }}>{service}</span>
+                <span style={{ fontSize: 22, fontWeight: 700, color: 'rgb(0,186,250)', whiteSpace: 'nowrap', marginLeft: 24 }}>{price}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    function ServicesPage() {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <SiteHeader activePage="Услуги" />
+          <main style={{ flex: 1, maxWidth: 1100, margin: '0 auto', padding: '64px 40px', width: '100%' }}>
+            <div style={{ textAlign: 'center', marginBottom: 60 }}>
+              <span className="section-title" style={{ fontSize: 52 }}>Услуги и цены</span>
+            </div>
+            {SERVICES.map(s => <PriceTable key={s.title} {...s} />)}
+
+            {/* Additional info */}
+            <section style={{
+              background: 'rgb(36,35,35)', color: '#fff', borderRadius: 16,
+              padding: '36px 40px', marginTop: 16,
+            }}>
+              <div style={{ fontSize: 30, fontWeight: 700, marginBottom: 20, color: 'rgb(0,186,250)' }}>
+                Дополнительная информация
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {NOTES.map((n, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: 18, lineHeight: 1.6 }}>
+                    <span style={{ color: 'rgb(0,186,250)', fontWeight: 700, fontSize: 22, marginTop: 1 }}>!</span>
+                    <span>{n}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </main>
+          <SiteFooter />
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<ServicesPage />);
+  </script>
+</body>
+</html>
