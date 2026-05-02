@@ -15,6 +15,13 @@ function getSessionSecret() {
   return secret
 }
 
+function isSecureRequest(event: H3Event) {
+  const forwardedProto = getHeader(event, 'x-forwarded-proto')?.split(',')[0]?.trim()
+  if (forwardedProto) return forwardedProto === 'https'
+
+  return getRequestURL(event).protocol === 'https:'
+}
+
 export async function getAuthSession(event: H3Event) {
   return useSession<{ userId: number }>(event, {
     password: getSessionSecret(),
@@ -23,7 +30,7 @@ export async function getAuthSession(event: H3Event) {
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecureRequest(event),
       path: '/',
     },
   })

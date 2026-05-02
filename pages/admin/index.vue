@@ -16,9 +16,9 @@ const { data: stats } = await useFetch('/api/admin/stats')
         <div class="text-xs text-[#aaa] mt-0.5">{{ stats?.products.active ?? '—' }} активных</div>
       </div>
       <div class="bg-white rounded-2xl p-6 shadow-sm border border-[#eee]">
-        <div class="text-[40px] font-bold text-brand">{{ stats?.gallery.sections ?? '—' }}</div>
-        <div class="text-sm text-[#888] mt-1">Разделов галереи</div>
-        <div class="text-xs text-[#aaa] mt-0.5">{{ stats?.gallery.images ?? '—' }} фотографий</div>
+        <div class="text-[40px] font-bold text-brand">{{ stats?.orders.total ?? '—' }}</div>
+        <div class="text-sm text-[#888] mt-1">Заказов всего</div>
+        <div class="text-xs text-[#aaa] mt-0.5">{{ stats?.orders.created ?? '—' }} созданных</div>
       </div>
       <div class="bg-white rounded-2xl p-6 shadow-sm border border-[#eee]">
         <div class="text-[40px] font-bold text-brand">{{ stats?.services.items ?? '—' }}</div>
@@ -34,9 +34,9 @@ const { data: stats } = await useFetch('/api/admin/stats')
     <div class="grid grid-cols-3 gap-5">
       <NuxtLink
         v-for="link in [
+          { to: '/admin/orders', label: 'Обработка заказов', desc: 'Новые, принятые и завершенные заказы магазина', icon: '📋' },
           { to: '/admin/products', label: 'Управление товарами', desc: 'Добавить, изменить, удалить товары в магазине', icon: '🛒' },
           { to: '/admin/gallery', label: 'Галерея', desc: 'Разделы и фотографии галереи', icon: '🖼️' },
-          { to: '/admin/prices', label: 'Прайс-лист', desc: 'Категории, услуги и примечания', icon: '💰' },
         ]"
         :key="link.to"
         :to="link.to"

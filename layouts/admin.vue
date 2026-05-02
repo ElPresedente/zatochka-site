@@ -6,6 +6,7 @@ await fetchUser()
 
 const navItems = [
   { to: '/admin', label: 'Дашборд', icon: '📊', exact: true },
+  { to: '/admin/orders', label: 'Заказы', icon: '📋' },
   { to: '/admin/products', label: 'Товары', icon: '🛒' },
   { to: '/admin/gallery', label: 'Галерея', icon: '🖼️' },
   { to: '/admin/prices', label: 'Прайс', icon: '💰' },

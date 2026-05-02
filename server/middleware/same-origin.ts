@@ -16,7 +16,7 @@ function assertSameOrigin(event: H3Event) {
 }
 
 export default defineEventHandler((event) => {
-  if (!event.path.startsWith('/api/auth/')) return
+  if (!event.path.startsWith('/api/auth/') && !event.path.startsWith('/api/orders')) return
 
   assertSameOrigin(event)
 })

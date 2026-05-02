@@ -40,6 +40,10 @@ const { user, fetchUser } = useAuth()
 const cartOpen = ref(false)
 const orderSuccess = ref(false)
 const orderAuthRequired = ref(false)
+const orderError = ref('')
+const checkoutLoading = ref(false)
+const createdOrderId = ref<number | null>(null)
+const orderComment = ref('')
 
 await fetchUser()
 
@@ -51,15 +55,35 @@ function cartQty(productId: number): number {
   return cart.value.find(i => i.id === productId)?.qty ?? 0
 }
 
-function checkout() {
+async function checkout() {
+  orderError.value = ''
+
   if (!user.value) {
     orderAuthRequired.value = true
     return
   }
 
-  clearCart()
-  cartOpen.value = false
-  orderSuccess.value = true
+  if (cart.value.length === 0) return
+
+  checkoutLoading.value = true
+  try {
+    const order = await $fetch<{ id: number }>('/api/orders', {
+      method: 'POST',
+      body: {
+        items: cart.value.map(item => ({ id: item.id, qty: item.qty })),
+        comment: orderComment.value,
+      },
+    })
+    createdOrderId.value = order.id
+    clearCart()
+    orderComment.value = ''
+    cartOpen.value = false
+    orderSuccess.value = true
+  } catch (err: any) {
+    orderError.value = err?.data?.message ?? 'Не удалось оформить заказ'
+  } finally {
+    checkoutLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -271,10 +295,25 @@ function formatPrice(p: number) {
             <span>Итого:</span>
             <span class="text-brand">{{ formatPrice(totalPrice) }}</span>
           </div>
+          <div>
+            <label class="block text-xs font-semibold text-[#777] mb-1.5">Комментарий к заказу</label>
+            <textarea
+              v-model="orderComment"
+              rows="3"
+              maxlength="1000"
+              placeholder="Например: удобное время для звонка или пожелания по заказу"
+              class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand resize-none"
+            />
+          </div>
           <div v-if="orderAuthRequired && !user" class="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-3 leading-relaxed">
             Для оформления заказа нужно войти в аккаунт.
           </div>
-          <button class="btn-primary py-3.5 text-lg" @click="checkout">Оформить заказ</button>
+          <div v-if="orderError" class="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-3 leading-relaxed">
+            {{ orderError }}
+          </div>
+          <button class="btn-primary py-3.5 text-lg disabled:opacity-50" :disabled="checkoutLoading" @click="checkout">
+            {{ checkoutLoading ? 'Оформляем...' : 'Оформить заказ' }}
+          </button>
           <NuxtLink
             v-if="!user"
             to="/login?next=/shop"
@@ -299,7 +338,7 @@ function formatPrice(p: number) {
         <div class="text-[64px] mb-4">✅</div>
         <div class="text-[26px] font-bold mb-3">Заказ оформлен!</div>
         <p class="text-[#555] text-lg leading-relaxed mb-6">
-          Спасибо за покупку! Мы свяжемся с вами в ближайшее время для подтверждения заказа.
+          Заказ №{{ createdOrderId }} сохранен. Мы свяжемся с вами в ближайшее время для подтверждения.
         </p>
         <button class="btn-primary px-10 py-3 text-lg" @click="orderSuccess = false">Закрыть</button>
       </div>

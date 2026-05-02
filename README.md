@@ -1,188 +1,292 @@
-# Острый край — сайт мастерской по заточке
+# Острый край
 
-Сайт мастерской по заточке инструментов «Острый край», г. Орёл.  
-Стек: Nuxt 3, Vue 3, TypeScript, Drizzle ORM, Tailwind CSS, PostgreSQL.
+Сайт мастерской по заточке инструментов «Острый край» с магазином, авторизацией, корзиной, заказами и админ-панелью.
 
----
+Стек: Nuxt 3, Vue 3, TypeScript, Tailwind CSS, Drizzle ORM, PostgreSQL.
 
-## Развёртывание на чистой Debian-машине
+## Возможности
 
-### 1. Установка Node.js
+- Публичные страницы: главная, услуги, галерея, о мастерской, магазин.
+- Регистрация и вход пользователей.
+- Корзина и оформление заказа только для авторизованных пользователей.
+- Заказы с комментариями клиента и продавца.
+- Админка: товары, категории, заказы, пользователи, галерея, прайс, работники, контакты.
+- Обработка заказов по статусам: `Создан`, `Принят`, `В работе`, `Готов к выдаче`, `Завершен`, `Отменен`.
 
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
-sudo apt-get install -y nodejs
-node --version   # >= 18
-```
+## Требования
 
-### 2. Установка PostgreSQL
+- Node.js 20+ или 22 LTS.
+- PostgreSQL 16+.
+- Git.
 
-```bash
-sudo apt-get install -y postgresql postgresql-client
-sudo service postgresql start
-```
-
-Создать пользователя и базу данных:
-
-```bash
-sudo -u postgres psql <<EOF
-CREATE USER zatochka WITH PASSWORD 'ваш_пароль';
-CREATE DATABASE zatochka OWNER zatochka;
-EOF
-```
-
-### 3. Клонирование репозитория
+## Быстрый запуск локально
 
 ```bash
 git clone https://github.com/ElPresedente/zatochka-site.git
 cd zatochka-site
-```
-
-### 4. Переменные окружения
-
-```bash
+npm install
 cp .env.example .env
 ```
 
-Открыть `.env` и задать строку подключения:
-
-```
-DATABASE_URL=postgresql://zatochka:ваш_пароль@localhost:5432/zatochka
-```
-
-### 5. Установка зависимостей
+Заполнить `.env`, затем:
 
 ```bash
-npm install
-```
-
-### 6. Инициализация базы данных
-
-```bash
-npm run db:push   # создать таблицы
-npm run db:seed   # заполнить начальными данными
-```
-
-### 7. Запуск
-
-**Режим разработки:**
-
-```bash
+npm run db:migrate
+npm run db:seed
 npm run dev
-# Сайт доступен на http://localhost:3000
 ```
 
-**Продакшн-сборка:**
+Сайт будет доступен на `http://localhost:3000`.
+
+## Переменные окружения
+
+Пример находится в `.env.example`.
+
+| Переменная | Обязательна | Описание |
+|---|---:|---|
+| `DATABASE_URL` | да | Строка подключения к PostgreSQL |
+| `NODE_ENV` | нет | `development` или `production` |
+| `SESSION_SECRET` | да | Секрет подписи cookie, минимум 32 символа |
+| `ADMIN_PHONE` | да для seed | Телефон первого администратора |
+| `ADMIN_PASSWORD` | да для seed | Пароль первого администратора |
+
+Пример:
+
+```env
+DATABASE_URL=postgresql://zatochka:strong_password@localhost:5432/zatochka
+NODE_ENV=development
+SESSION_SECRET=replace-with-a-random-string-at-least-32-chars
+ADMIN_PHONE=+79000000000
+ADMIN_PASSWORD=replace-with-admin-password
+```
+
+`SESSION_SECRET` нельзя оставлять дефолтным. Приложение намеренно падает, если секрет не задан безопасно.
+
+## Развёртывание на Debian/Ubuntu
+
+### 1. Node.js
 
 ```bash
-npm run build
-npm run preview   # проверить сборку локально
-node .output/server/index.mjs   # запустить production-сервер
-```
-
----
-
-## Развёртывание на Windows (для разработки)
-
-### 1. Установка Node.js
-
-Скачать и установить Node.js 22 LTS с [nodejs.org](https://nodejs.org/) (установщик `.msi`).
-
-Проверить после установки (в новом окне терминала):
-
-```powershell
-node --version   # >= 18
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
+sudo apt-get install -y nodejs
+node --version
 npm --version
 ```
 
-### 2. PostgreSQL — два варианта
+### 2. PostgreSQL
 
-**Вариант А: Docker Desktop (рекомендуется)**
+```bash
+sudo apt-get update
+sudo apt-get install -y postgresql postgresql-client
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
+```
 
-1. Установить [Docker Desktop для Windows](https://www.docker.com/products/docker-desktop/).
-2. Запустить контейнер с PostgreSQL:
+Создать пользователя и базу:
+
+```bash
+sudo -u postgres psql
+```
+
+```sql
+CREATE USER zatochka WITH PASSWORD 'strong_password';
+CREATE DATABASE zatochka OWNER zatochka;
+\q
+```
+
+### 3. Код и зависимости
+
+```bash
+git clone https://github.com/ElPresedente/zatochka-site.git
+cd zatochka-site
+npm ci
+cp .env.example .env
+nano .env
+```
+
+Минимально заполнить:
+
+```env
+DATABASE_URL=postgresql://zatochka:strong_password@localhost:5432/zatochka
+NODE_ENV=production
+SESSION_SECRET=replace-with-a-random-string-at-least-32-chars
+ADMIN_PHONE=+79000000000
+ADMIN_PASSWORD=replace-with-admin-password
+```
+
+### 4. База данных
+
+```bash
+npm run db:migrate
+npm run db:seed
+```
+
+Если базовые данные уже есть, а нужно только создать/обновить администратора:
+
+```bash
+npm run db:seed-admin
+```
+
+### 5. Сборка и запуск
+
+```bash
+npm run build
+node .output/server/index.mjs
+```
+
+По умолчанию Nuxt слушает порт `3000`. Для другого порта:
+
+```bash
+PORT=3001 node .output/server/index.mjs
+```
+
+### 6. systemd service
+
+Пример `/etc/systemd/system/zatochka-site.service`:
+
+```ini
+[Unit]
+Description=Zatochka Site
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/zatochka-site
+EnvironmentFile=/var/www/zatochka-site/.env
+Environment=PORT=3000
+ExecStart=/usr/bin/node .output/server/index.mjs
+Restart=always
+RestartSec=5
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Затем:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable zatochka-site
+sudo systemctl start zatochka-site
+sudo systemctl status zatochka-site
+```
+
+### 7. Nginx reverse proxy
+
+Пример server block:
+
+```nginx
+server {
+    listen 80;
+    server_name example.com www.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+После настройки HTTPS важно сохранять `X-Forwarded-Proto`, потому что cookie session выставляет `secure` по фактическому протоколу запроса.
+
+## Развёртывание на Windows для разработки
+
+### 1. Node.js
+
+Установить Node.js 22 LTS с `https://nodejs.org/`.
+
+Проверить:
+
+```powershell
+node --version
+npm --version
+```
+
+### 2. PostgreSQL через Docker
 
 ```powershell
 docker run -d `
   --name zatochka-pg `
   -e POSTGRES_USER=zatochka `
-  -e POSTGRES_PASSWORD=ваш_пароль `
+  -e POSTGRES_PASSWORD=strong_password `
   -e POSTGRES_DB=zatochka `
   -p 5432:5432 `
   postgres:16
 ```
 
-Контейнер будет стартовать автоматически вместе с Docker Desktop.
-
-**Вариант Б: Нативная установка PostgreSQL**
-
-1. Скачать и установить PostgreSQL 16 с [postgresql.org](https://www.postgresql.org/download/windows/).
-2. В ходе установки задать пароль для пользователя `postgres`.
-3. После установки открыть **SQL Shell (psql)** из меню «Пуск» и создать базу:
-
-```sql
-CREATE USER zatochka WITH PASSWORD 'ваш_пароль';
-CREATE DATABASE zatochka OWNER zatochka;
-\q
-```
-
-### 3. Клонирование репозитория
+### 3. Проект
 
 ```powershell
 git clone https://github.com/ElPresedente/zatochka-site.git
 cd zatochka-site
-```
-
-> Если Git не установлен — скачать с [git-scm.com](https://git-scm.com/download/win).
-
-### 4. Переменные окружения
-
-```powershell
-copy .env.example .env
-```
-
-Открыть `.env` в любом редакторе и задать строку подключения:
-
-```
-DATABASE_URL=postgresql://zatochka:ваш_пароль@localhost:5432/zatochka
-```
-
-### 5. Установка зависимостей
-
-```powershell
 npm install
-```
-
-### 6. Инициализация базы данных
-
-```powershell
-npm run db:push   # создать таблицы
-npm run db:seed   # заполнить начальными данными
-```
-
-### 7. Запуск dev-сервера
-
-```powershell
+copy .env.example .env
+notepad .env
+npm run db:migrate
+npm run db:seed
 npm run dev
-# Сайт доступен на http://localhost:3000
 ```
 
----
-
-## Обновление сайта
+## Обновление уже развернутого сайта
 
 ```bash
+cd /var/www/zatochka-site
 git pull
-npm install          # если изменился package.json
-npm run db:migrate   # если появились новые миграции
+npm ci
+npm run db:migrate
 npm run build
-# перезапустить процесс node .output/server/index.mjs
+sudo systemctl restart zatochka-site
 ```
 
----
+Если менялись только тексты/стили без зависимостей, `npm ci` можно пропустить, но `npm run build` и restart всё равно нужны.
 
-## Переменные окружения
+## Работа с базой
 
-| Переменная | Пример | Описание |
-|---|---|---|
-| `DATABASE_URL` | `postgresql://user:pass@localhost:5432/zatochka` | Строка подключения к PostgreSQL |
+```bash
+npm run db:generate  # создать SQL-миграцию после изменения schema
+npm run db:migrate   # применить миграции
+npm run db:push      # только локально, без migration files
+npm run db:studio    # UI Drizzle Studio
+```
+
+Для production использовать `db:migrate`, не `db:push`.
+
+## Админка
+
+Админка находится по адресу `/admin`. Кнопка админки в шапке видна только пользователям с записью в таблице `admins`.
+
+Первый админ создается через:
+
+```bash
+npm run db:seed
+```
+
+или отдельно:
+
+```bash
+npm run db:seed-admin
+```
+
+Команды берут `ADMIN_PHONE` и `ADMIN_PASSWORD` из `.env`.
+
+## Заказы
+
+Покупатель набирает корзину, пишет необязательный комментарий и оформляет заказ. Заказ сохраняется в `orders` и `order_items`; уведомление пока реализовано заглушкой в логах, позднее сюда подключается Telegram.
+
+Админ в `/admin/orders` видит таблицу заказов, открывает модалку состава, может менять комментарий продавца и сумму заказа в статусах `Создан` или `В работе`. При изменении суммы комментарий продавца обязателен.
+
+При принятии заказа остатки товаров списываются. При отмене после принятия остатки возвращаются.
+
+## Проверка перед релизом
+
+```bash
+npm run build
+```
+
+Сборка должна завершиться без ошибок. Warning из зависимостей Node/Nuxt не блокирует запуск, если build успешен.
