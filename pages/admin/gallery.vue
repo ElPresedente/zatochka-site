@@ -66,6 +66,31 @@ async function deleteImage(img: GalleryImage) {
   await $fetch(`/api/admin/gallery-images/${img.id}`, { method: 'DELETE' })
   await refresh()
 }
+
+// ── File upload ───────────────────────────────────────────────────────
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
+const uploadError = ref('')
+
+async function onFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  input.value = ''
+
+  uploading.value = true
+  uploadError.value = ''
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await $fetch<{ url: string }>('/api/admin/upload', { method: 'POST', body: fd })
+    imageForm.value.src = res.url
+  } catch (err: any) {
+    uploadError.value = err?.data?.message ?? 'Ошибка загрузки'
+  } finally {
+    uploading.value = false
+  }
+}
 </script>
 
 <template>
@@ -147,10 +172,28 @@ async function deleteImage(img: GalleryImage) {
         </div>
         <div class="px-6 py-5 flex flex-col gap-4">
           <div>
-            <label class="block text-xs font-semibold text-[#777] mb-1.5">URL фотографии *</label>
-            <input v-model="imageForm.src" type="text" placeholder="https://..." class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+            <label class="block text-xs font-semibold text-[#777] mb-2">Фотография *</label>
+
+            <!-- File upload -->
+            <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" @change="onFileChange" />
+            <button
+              class="w-full py-2.5 border-2 border-dashed border-[#ddd] rounded-xl text-sm text-[#888] hover:border-brand hover:text-brand transition-colors flex items-center justify-center gap-2 disabled:opacity-50 mb-2"
+              :disabled="uploading"
+              @click="fileInput?.click()"
+            >
+              <svg v-if="!uploading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <svg v-else class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              {{ uploading ? 'Загрузка...' : 'Загрузить с компьютера' }}
+            </button>
+            <p v-if="uploadError" class="text-xs text-red-500 mb-2">{{ uploadError }}</p>
+
+            <!-- URL input -->
+            <input v-model="imageForm.src" type="text" placeholder="или вставить URL..." class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
           </div>
+
+          <!-- Preview -->
           <div v-if="imageForm.src" class="h-[160px] rounded-xl bg-center bg-cover bg-[#eee]" :style="`background-image: url('${imageForm.src}')`" />
+
           <div>
             <label class="block text-xs font-semibold text-[#777] mb-1.5">Подпись (необязательно)</label>
             <input v-model="imageForm.label" type="text" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
