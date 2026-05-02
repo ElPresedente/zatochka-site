@@ -43,6 +43,10 @@ function addAndNotify(product: typeof allProducts.value[0]) {
   addToCart(product)
 }
 
+function cartQty(productId: number): number {
+  return cart.value.find(i => i.id === productId)?.qty ?? 0
+}
+
 function checkout() {
   clearCart()
   cartOpen.value = false
@@ -132,7 +136,13 @@ function formatPrice(p: number) {
                 {{ product.stock === 0 ? 'Нет в наличии' : product.stock < 5 ? `Осталось ${product.stock}` : 'В наличии' }}
               </span>
             </div>
+            <div v-if="cartQty(product.id) > 0" class="mt-2 flex items-center justify-between" @click.stop>
+              <button class="w-9 h-9 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center" @click="setQty(product.id, cartQty(product.id) - 1)">−</button>
+              <span class="font-bold text-[#222] text-base">{{ cartQty(product.id) }}</span>
+              <button class="w-9 h-9 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center" @click="setQty(product.id, cartQty(product.id) + 1)">+</button>
+            </div>
             <button
+              v-else
               class="mt-2 btn-primary py-2.5 text-base w-full"
               :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
               :disabled="product.stock === 0"
@@ -194,11 +204,18 @@ function formatPrice(p: number) {
                 <span class="font-semibold text-[#222]">{{ spec.value }}</span>
               </div>
             </div>
+            <div v-if="cartQty(modal.id) > 0" class="mt-auto flex items-center gap-3">
+              <button class="w-11 h-11 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center" @click="setQty(modal.id, cartQty(modal.id) - 1)">−</button>
+              <span class="font-bold text-[#222] text-xl min-w-[32px] text-center">{{ cartQty(modal.id) }}</span>
+              <button class="w-11 h-11 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center" @click="setQty(modal.id, cartQty(modal.id) + 1)">+</button>
+              <span class="text-[#888] text-sm">в корзине</span>
+            </div>
             <button
+              v-else
               class="btn-primary py-3 text-lg mt-auto"
               :disabled="modal.stock === 0"
               :class="{ 'opacity-50 cursor-not-allowed': modal.stock === 0 }"
-              @click="addAndNotify(modal); closeModal()"
+              @click="addAndNotify(modal)"
             >Добавить в корзину</button>
           </div>
         </div>
