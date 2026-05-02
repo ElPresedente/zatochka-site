@@ -140,6 +140,121 @@ async function seed() {
     ]) },
   ])
 
+  // --- Products ---
+  const defaultProducts = [
+    {
+      name: 'Кусачки ногтевые Zinger', category: 'Кусачки', price: 1850, stock: 12,
+      description: 'Профессиональные ногтевые кусачки из нержавеющей стали. Идеальный срез, эргономичные ручки.',
+      photos: ['/images/block1.jpg'],
+      specs: [{ key: 'Материал', value: 'Нержавеющая сталь' }, { key: 'Длина', value: '13 см' }],
+    },
+    {
+      name: 'Кусачки педикюрные Classic', category: 'Кусачки', price: 2200, stock: 8,
+      description: 'Усиленные кусачки для педикюра, работают с толстыми ногтями.',
+      photos: ['/images/block1.jpg'],
+      specs: [{ key: 'Материал', value: 'Хирургическая сталь' }, { key: 'Длина', value: '16 см' }],
+    },
+    {
+      name: 'Кусачки кутикульные Pro', category: 'Кусачки', price: 2400, stock: 15,
+      description: 'Прецизионные кусачки для кутикулы. Острый режущий край, пружинный механизм.',
+      photos: ['/images/block1.jpg'],
+      specs: [{ key: 'Диаметр режущей части', value: '5 мм' }],
+    },
+    {
+      name: 'Ножницы маникюрные прямые', category: 'Ножницы', price: 1200, stock: 20,
+      description: 'Классические прямые маникюрные ножницы из немецкой стали.',
+      photos: ['/images/services1.jpg'],
+      specs: [{ key: 'Длина', value: '10 см' }, { key: 'Страна', value: 'Германия' }],
+    },
+    {
+      name: 'Ножницы парикмахерские 6.0"', category: 'Ножницы', price: 2800, stock: 5,
+      description: 'Профессиональные парикмахерские ножницы для точной стрижки.',
+      photos: ['/images/services1.jpg'],
+      specs: [{ key: 'Длина', value: '6 дюймов' }, { key: 'Тип', value: 'Прямые' }],
+    },
+    {
+      name: 'Ножницы филировочные', category: 'Ножницы', price: 3200, stock: 7,
+      description: 'Филировочные ножницы с 28 зубьями. Для естественного объёма и текстуры.',
+      photos: ['/images/services1.jpg'],
+      specs: [{ key: 'Зубьев', value: '28' }, { key: 'Длина', value: '6.5 дюймов' }],
+    },
+    {
+      name: 'Пинцет косой Staleks', category: 'Пинцеты и пушеры', price: 780, stock: 25,
+      description: 'Классический косой пинцет для точного захвата ресниц и бровей.',
+      photos: ['/images/services2.jpg'],
+      specs: [{ key: 'Тип', value: 'Косой' }],
+    },
+    {
+      name: 'Пушер двусторонний', category: 'Пинцеты и пушеры', price: 850, stock: 18,
+      description: 'Двусторонний пушер для отодвигания кутикулы. Лопатка + закруглённая форма.',
+      photos: ['/images/services2.jpg'],
+      specs: [{ key: 'Количество рабочих концов', value: '2' }],
+    },
+    {
+      name: 'Твизер прямой', category: 'Пинцеты и пушеры', price: 920, stock: 10,
+      description: 'Прямой твизер для укладки ресниц при наращивании.',
+      photos: ['/images/services2.jpg'],
+      specs: [{ key: 'Тип', value: 'Прямой' }, { key: 'Применение', value: 'Наращивание ресниц' }],
+    },
+    {
+      name: 'Пилочки одноразовые (100 шт)', category: 'Расходники', price: 280, stock: 50,
+      description: 'Набор одноразовых пилочек для маникюра. Зернистость 180/240.',
+      photos: ['/images/services2.jpg'],
+      specs: [{ key: 'Зернистость', value: '180/240' }, { key: 'Количество', value: '100 шт' }],
+    },
+    {
+      name: 'Перчатки нитриловые (S)', category: 'Расходники', price: 350, stock: 100,
+      description: 'Нитриловые перчатки без пудры. Размер S.',
+      photos: ['/images/services2.jpg'],
+      specs: [{ key: 'Материал', value: 'Нитрил' }, { key: 'Размер', value: 'S' }],
+    },
+    {
+      name: 'Маски одноразовые (50 шт)', category: 'Расходники', price: 450, stock: 80,
+      description: 'Трёхслойные одноразовые маски. Упаковка 50 штук.',
+      photos: ['/images/services2.jpg'],
+      specs: [{ key: 'Слоёв', value: '3' }, { key: 'Количество', value: '50 шт' }],
+    },
+    {
+      name: 'Маникюрный аппарат Strong 210', category: 'Аппараты', price: 8900, stock: 3,
+      description: 'Профессиональный маникюрный аппарат с регулировкой оборотов до 35000 об/мин.',
+      photos: ['/images/block1.jpg'],
+      specs: [{ key: 'Макс. обороты', value: '35 000 об/мин' }, { key: 'Мощность', value: '65 Вт' }],
+    },
+    {
+      name: 'УФ-лампа 48W', category: 'Аппараты', price: 1650, stock: 6,
+      description: 'UV/LED лампа для полимеризации гель-лака. 48 Вт, сенсорное управление.',
+      photos: ['/images/block1.jpg'],
+      specs: [{ key: 'Мощность', value: '48 Вт' }, { key: 'Тип', value: 'UV/LED' }],
+    },
+    {
+      name: 'Набор маникюрный базовый', category: 'Наборы', price: 4200, stock: 4,
+      description: 'Базовый набор для маникюра: ножницы, кусачки, пилочка, пушер, пинцет.',
+      photos: ['/images/block1.jpg'],
+      specs: [{ key: 'Предметов в наборе', value: '5' }],
+    },
+    {
+      name: 'Набор профессиональный Premium', category: 'Наборы', price: 7500, stock: 2,
+      description: 'Профессиональный набор из 10 инструментов в фирменном чехле.',
+      photos: ['/images/block1.jpg'],
+      specs: [{ key: 'Предметов в наборе', value: '10' }, { key: 'Чехол', value: 'В комплекте' }],
+    },
+  ]
+
+  for (let i = 0; i < defaultProducts.length; i++) {
+    const p = defaultProducts[i]
+    await db.insert(schema.products).values({
+      name: p.name,
+      category: p.category,
+      price: p.price,
+      stock: p.stock,
+      description: p.description,
+      photos: JSON.stringify(p.photos),
+      specs: JSON.stringify(p.specs),
+      active: true,
+      sortOrder: i,
+    })
+  }
+
   console.log('Seed complete!')
   await pool.end()
 }

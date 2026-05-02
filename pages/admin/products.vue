@@ -1,0 +1,284 @@
+<script setup lang="ts">
+definePageMeta({ layout: 'admin' })
+useHead({ title: 'Админ — Товары' })
+
+const CATEGORIES = ['Кусачки', 'Ножницы', 'Пинцеты и пушеры', 'Расходники', 'Аппараты', 'Наборы']
+
+interface Spec { key: string; value: string }
+interface Product {
+  id: number
+  name: string
+  category: string
+  price: number
+  stock: number
+  description: string
+  photos: string[]
+  specs: Spec[]
+  active: boolean
+  sortOrder: number
+}
+
+const { data: products, refresh } = await useFetch<Product[]>('/api/products', {
+  query: { activeOnly: 'false' },
+})
+
+const search = ref('')
+const filterCat = ref('Все')
+
+const filtered = computed(() => {
+  let list = products.value ?? []
+  if (filterCat.value !== 'Все') list = list.filter(p => p.category === filterCat.value)
+  if (search.value.trim()) {
+    const q = search.value.toLowerCase()
+    list = list.filter(p => p.name.toLowerCase().includes(q))
+  }
+  return list
+})
+
+// ── Editor modal ──────────────────────────────────────────────────────
+const editor = ref(false)
+const isNew = ref(false)
+const form = ref<Partial<Product> & { specs: Spec[]; photos: string[] }>({
+  name: '', category: CATEGORIES[0], price: 0, stock: 0,
+  description: '', photos: [], specs: [], active: true, sortOrder: 0,
+})
+
+function openNew() {
+  isNew.value = true
+  form.value = { name: '', category: CATEGORIES[0], price: 0, stock: 0, description: '', photos: [], specs: [], active: true, sortOrder: 0 }
+  editor.value = true
+}
+
+function openEdit(p: Product) {
+  isNew.value = false
+  form.value = { ...p, specs: [...p.specs.map(s => ({ ...s }))], photos: [...p.photos] }
+  editor.value = true
+}
+
+function closeEditor() { editor.value = false }
+
+const saving = ref(false)
+async function save() {
+  if (!form.value.name?.trim()) return
+  saving.value = true
+  try {
+    if (isNew.value) {
+      await $fetch('/api/products', { method: 'POST', body: form.value })
+    } else {
+      await $fetch(`/api/products/${form.value.id}`, { method: 'PUT', body: form.value })
+    }
+    await refresh()
+    closeEditor()
+  } finally {
+    saving.value = false
+  }
+}
+
+async function toggleActive(p: Product) {
+  await $fetch(`/api/products/${p.id}`, { method: 'PUT', body: { active: !p.active } })
+  await refresh()
+}
+
+async function deleteProduct(p: Product) {
+  if (!confirm(`Удалить товар «${p.name}»?`)) return
+  await $fetch(`/api/products/${p.id}`, { method: 'DELETE' })
+  await refresh()
+}
+
+// ── Spec helpers ──────────────────────────────────────────────────────
+function addSpec() { form.value.specs.push({ key: '', value: '' }) }
+function removeSpec(i: number) { form.value.specs.splice(i, 1) }
+
+// ── Photo helpers ─────────────────────────────────────────────────────
+const photoUrl = ref('')
+function addPhotoByUrl() {
+  if (!photoUrl.value.trim()) return
+  form.value.photos.push(photoUrl.value.trim())
+  photoUrl.value = ''
+}
+function removePhoto(i: number) { form.value.photos.splice(i, 1) }
+
+function formatPrice(p: number) {
+  return p.toLocaleString('ru-RU') + ' ₽'
+}
+</script>
+
+<template>
+  <!-- Header -->
+  <div class="bg-white border-b border-[#eee] px-8 py-5 flex items-center justify-between shrink-0">
+    <h1 class="text-xl font-bold text-[#222]">Товары магазина</h1>
+    <button class="bg-brand text-white rounded-xl px-5 py-2.5 font-bold text-sm hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)]" @click="openNew">
+      + Добавить товар
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-white border-b border-[#eee] px-8 py-3 flex gap-3 items-center shrink-0">
+    <input
+      v-model="search"
+      type="text"
+      placeholder="Поиск..."
+      class="border border-[#ddd] rounded-xl px-4 py-2 text-sm outline-none focus:border-brand transition-colors w-[220px]"
+    />
+    <div class="flex gap-2">
+      <button
+        v-for="cat in ['Все', ...CATEGORIES]"
+        :key="cat"
+        class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
+        :class="filterCat === cat ? 'bg-brand text-white border-brand' : 'border-[#e0e0e0] text-[#555] hover:border-brand hover:text-brand'"
+        @click="filterCat = cat"
+      >{{ cat }}</button>
+    </div>
+    <span class="text-sm text-[#aaa] ml-auto">{{ filtered.length }} товаров</span>
+  </div>
+
+  <!-- Table -->
+  <div class="flex-1 overflow-y-auto px-8 py-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-[#f8f8f8] border-b border-[#eee]">
+          <tr>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">Фото</th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">Название</th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">Категория</th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">Цена</th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">Остаток</th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">Статус</th>
+            <th class="px-5 py-3" />
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="p in filtered"
+            :key="p.id"
+            class="border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors"
+          >
+            <td class="px-5 py-3">
+              <div
+                class="w-12 h-12 rounded-xl bg-center bg-cover bg-[#eee]"
+                :style="p.photos[0] ? `background-image: url('${p.photos[0]}')` : ''"
+              />
+            </td>
+            <td class="px-5 py-3 font-semibold text-[#222] max-w-[240px]">{{ p.name }}</td>
+            <td class="px-5 py-3 text-[#777]">{{ p.category }}</td>
+            <td class="px-5 py-3 font-bold text-brand">{{ formatPrice(p.price) }}</td>
+            <td class="px-5 py-3">
+              <span
+                class="px-2.5 py-1 rounded-lg font-semibold text-xs"
+                :class="p.stock === 0 ? 'bg-red-100 text-red-500' : p.stock < 5 ? 'bg-orange-100 text-orange-500' : 'bg-green-100 text-green-600'"
+              >{{ p.stock }} шт.</span>
+            </td>
+            <td class="px-5 py-3">
+              <button
+                class="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+                :class="p.active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-[#eee] text-[#999] hover:bg-[#e0e0e0]'"
+                @click="toggleActive(p)"
+              >{{ p.active ? 'Активен' : 'Скрыт' }}</button>
+            </td>
+            <td class="px-5 py-3">
+              <div class="flex gap-2 justify-end">
+                <button class="px-3 py-1.5 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20 transition-colors" @click="openEdit(p)">Изменить</button>
+                <button class="px-3 py-1.5 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100 transition-colors" @click="deleteProduct(p)">Удалить</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="filtered.length === 0" class="py-16 text-center text-[#aaa]">Нет товаров</div>
+    </div>
+  </div>
+
+  <!-- Editor modal -->
+  <Teleport to="body">
+    <div
+      v-if="editor"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4"
+      @click.self="closeEditor"
+    >
+      <div class="bg-white rounded-2xl w-full max-w-[720px] max-h-[90vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between px-7 py-5 border-b border-[#eee]">
+          <div class="text-lg font-bold">{{ isNew ? 'Новый товар' : 'Редактировать товар' }}</div>
+          <button class="text-[#aaa] hover:text-[#333] text-2xl" @click="closeEditor">×</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-7 py-5 flex flex-col gap-5">
+          <!-- Basic info -->
+          <div class="grid grid-cols-2 gap-4">
+            <div class="col-span-2">
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Название *</label>
+              <input v-model="form.name" type="text" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Категория</label>
+              <select v-model="form.category" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand bg-white">
+                <option v-for="cat in CATEGORIES" :key="cat">{{ cat }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Активен</label>
+              <div class="flex items-center gap-3 pt-2">
+                <input :id="`active-toggle`" v-model="form.active" type="checkbox" class="w-4 h-4 accent-brand" />
+                <label :for="`active-toggle`" class="text-sm text-[#444]">Показывать в магазине</label>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Цена (₽)</label>
+              <input v-model.number="form.price" type="number" min="0" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Остаток (шт.)</label>
+              <input v-model.number="form.stock" type="number" min="0" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+            </div>
+            <div class="col-span-2">
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Описание</label>
+              <textarea v-model="form.description" rows="3" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand resize-none" />
+            </div>
+          </div>
+
+          <!-- Photos -->
+          <div>
+            <label class="block text-xs font-semibold text-[#777] mb-2">Фотографии (URL)</label>
+            <div class="flex gap-2 mb-3">
+              <input v-model="photoUrl" type="text" placeholder="https://..." class="flex-1 border border-[#ddd] rounded-xl px-4 py-2 text-sm outline-none focus:border-brand" @keydown.enter.prevent="addPhotoByUrl" />
+              <button class="px-4 py-2 bg-brand text-white rounded-xl text-sm font-semibold hover:brightness-110" @click="addPhotoByUrl">+ Добавить</button>
+            </div>
+            <div v-if="form.photos.length > 0" class="flex gap-2 flex-wrap">
+              <div v-for="(ph, i) in form.photos" :key="i" class="relative group">
+                <div
+                  class="w-20 h-20 rounded-xl bg-center bg-cover bg-[#eee]"
+                  :style="ph ? `background-image: url('${ph}')` : ''"
+                />
+                <button
+                  class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click="removePhoto(i)"
+                >×</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Specs -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-xs font-semibold text-[#777]">Характеристики</label>
+              <button class="text-xs text-brand font-semibold hover:underline" @click="addSpec">+ Добавить</button>
+            </div>
+            <div v-for="(spec, i) in form.specs" :key="i" class="flex gap-2 mb-2">
+              <input v-model="spec.key" type="text" placeholder="Параметр" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand" />
+              <input v-model="spec.value" type="text" placeholder="Значение" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand" />
+              <button class="w-8 h-9 text-[#aaa] hover:text-red-400 flex items-center justify-center text-xl" @click="removeSpec(i)">×</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-7 py-5 border-t border-[#eee] flex justify-end gap-3">
+          <button class="px-6 py-2.5 rounded-xl border-2 border-[#ddd] text-[#555] text-sm font-semibold hover:bg-[#f5f5f5] transition-colors" @click="closeEditor">Отмена</button>
+          <button
+            class="px-6 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold shadow-[0_3px_0_rgba(9,136,189,0.5)] hover:brightness-110 transition-all disabled:opacity-50"
+            :disabled="saving"
+            @click="save"
+          >{{ saving ? 'Сохранение...' : 'Сохранить' }}</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+</template>

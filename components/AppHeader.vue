@@ -7,6 +7,7 @@ const navLinks = [
   { label: 'Галерея', to: '/gallery' },
   { label: 'О нас', to: '/about' },
   { label: 'Магазин', to: '/shop' },
+  { label: 'Админ', to: '/admin' },
 ]
 
 function isActive(to: string) {
