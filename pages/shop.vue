@@ -36,8 +36,12 @@ function closeModal() { modal.value = null }
 
 // Корзина
 const { cart, totalQty, totalPrice, addToCart, removeFromCart, setQty, clearCart } = useCart()
+const { user, fetchUser } = useAuth()
 const cartOpen = ref(false)
 const orderSuccess = ref(false)
+const orderAuthRequired = ref(false)
+
+await fetchUser()
 
 function addAndNotify(product: typeof allProducts.value[0]) {
   addToCart(product)
@@ -48,6 +52,11 @@ function cartQty(productId: number): number {
 }
 
 function checkout() {
+  if (!user.value) {
+    orderAuthRequired.value = true
+    return
+  }
+
   clearCart()
   cartOpen.value = false
   orderSuccess.value = true
@@ -262,7 +271,17 @@ function formatPrice(p: number) {
             <span>Итого:</span>
             <span class="text-brand">{{ formatPrice(totalPrice) }}</span>
           </div>
+          <div v-if="orderAuthRequired && !user" class="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-3 leading-relaxed">
+            Для оформления заказа нужно войти в аккаунт.
+          </div>
           <button class="btn-primary py-3.5 text-lg" @click="checkout">Оформить заказ</button>
+          <NuxtLink
+            v-if="!user"
+            to="/login?next=/shop"
+            class="text-sm text-brand font-semibold text-center no-underline hover:underline"
+          >
+            Войти или зарегистрироваться
+          </NuxtLink>
           <button class="text-sm text-[#aaa] hover:text-red-400 transition-colors text-center" @click="clearCart">Очистить корзину</button>
         </div>
       </div>

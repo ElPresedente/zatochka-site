@@ -18,7 +18,7 @@ interface Product {
 }
 
 const [{ data: products, refresh }, { data: categoriesData, refresh: refreshCategories }] = await Promise.all([
-  useFetch<Product[]>('/api/products', { query: { activeOnly: 'false' } }),
+  useFetch<Product[]>('/api/admin/products'),
   useFetch<ProductCategory[]>('/api/product-categories'),
 ])
 
@@ -68,9 +68,9 @@ async function save() {
   saving.value = true
   try {
     if (isNew.value) {
-      await $fetch('/api/products', { method: 'POST', body: form.value })
+      await $fetch('/api/admin/products', { method: 'POST', body: form.value })
     } else {
-      await $fetch(`/api/products/${form.value.id}`, { method: 'PUT', body: form.value })
+      await $fetch(`/api/admin/products/${form.value.id}`, { method: 'PUT', body: form.value })
     }
     await refresh()
     closeEditor()
@@ -80,13 +80,13 @@ async function save() {
 }
 
 async function toggleActive(p: Product) {
-  await $fetch(`/api/products/${p.id}`, { method: 'PUT', body: { active: !p.active } })
+  await $fetch(`/api/admin/products/${p.id}`, { method: 'PUT', body: { active: !p.active } })
   await refresh()
 }
 
 async function deleteProduct(p: Product) {
   if (!confirm(`Удалить товар «${p.name}»?`)) return
-  await $fetch(`/api/products/${p.id}`, { method: 'DELETE' })
+  await $fetch(`/api/admin/products/${p.id}`, { method: 'DELETE' })
   await refresh()
 }
 

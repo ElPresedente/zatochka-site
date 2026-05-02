@@ -1,5 +1,8 @@
 <script setup lang="ts">
 const route = useRoute()
+const { user, fetchUser } = useAuth()
+
+await fetchUser()
 
 const navLinks = [
   { label: 'Главная', to: '/' },
@@ -9,6 +12,10 @@ const navLinks = [
   { label: 'Магазин', to: '/shop' },
   { label: 'Админ', to: '/admin' },
 ]
+
+const visibleNavLinks = computed(() =>
+  navLinks.filter(link => link.to !== '/admin' || user.value?.isAdmin)
+)
 
 function isActive(to: string) {
   if (to === '/') return route.path === '/'
@@ -27,7 +34,7 @@ function isActive(to: string) {
       <!-- Nav -->
       <nav class="flex gap-2 items-center">
         <NuxtLink
-          v-for="link in navLinks"
+          v-for="link in visibleNavLinks"
           :key="link.to"
           :to="link.to"
           class="px-[18px] py-2.5 rounded-xl font-bold text-lg transition-all duration-150 no-underline border-[3px]"
@@ -39,8 +46,8 @@ function isActive(to: string) {
         </NuxtLink>
       </nav>
 
-      <!-- Contacts -->
-      <div class="flex flex-col gap-1.5">
+      <!-- Contacts and auth -->
+      <div class="flex flex-col gap-2 items-end">
         <a
           href="tel:+79103043040"
           class="flex items-center gap-2 no-underline text-black text-base"
@@ -55,6 +62,7 @@ function isActive(to: string) {
           <img src="/images/email_icon.png" class="w-5 h-4 object-contain" alt="" />
           zatochka_test@yandex.ru
         </a>
+        <AuthStatus />
       </div>
     </div>
 

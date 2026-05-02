@@ -1,6 +1,6 @@
+import { eq } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { products } from '~/server/db/schema'
-import { eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   const db = useDb()

@@ -8,6 +8,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL,
+    sessionSecret: process.env.SESSION_SECRET,
   },
 
   app: {

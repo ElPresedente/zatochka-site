@@ -1,5 +1,8 @@
 <script setup lang="ts">
 const route = useRoute()
+const { user, fetchUser, logout } = useAuth()
+
+await fetchUser()
 
 const navItems = [
   { to: '/admin', label: 'Дашборд', icon: '📊', exact: true },
@@ -8,6 +11,7 @@ const navItems = [
   { to: '/admin/prices', label: 'Прайс', icon: '💰' },
   { to: '/admin/workers', label: 'Работники', icon: '👷' },
   { to: '/admin/contacts', label: 'Настройки', icon: '⚙️' },
+  { to: '/admin/users', label: 'Пользователи', icon: '👤' },
 ]
 
 function isActive(item: { to: string; exact?: boolean }) {
@@ -40,10 +44,21 @@ function isActive(item: { to: string; exact?: boolean }) {
           {{ item.label }}
         </NuxtLink>
       </nav>
-      <div class="px-5 py-4 border-t border-white/10">
-        <NuxtLink to="/" class="text-white/50 text-xs hover:text-white/80 no-underline transition-colors">
-          ← На сайт
-        </NuxtLink>
+      <div class="px-5 py-4 border-t border-white/10 flex flex-col gap-2">
+        <div v-if="user" class="text-white/50 text-xs truncate px-1">
+          {{ user.firstName }} {{ user.lastName }}
+        </div>
+        <div class="flex items-center justify-between">
+          <NuxtLink to="/" class="text-white/50 text-xs hover:text-white/80 no-underline transition-colors">
+            ← На сайт
+          </NuxtLink>
+          <button
+            class="text-white/40 text-xs hover:text-red-400 transition-colors"
+            @click="logout('/admin/login')"
+          >
+            Выйти
+          </button>
+        </div>
       </div>
     </aside>
 

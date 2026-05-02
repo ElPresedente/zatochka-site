@@ -40,6 +40,7 @@
         </div>
         <div class="flex flex-col gap-1">
           <a href="#" class="text-brand text-base no-underline">Публичная оферта</a>
+          <NuxtLink to="/privacy" class="text-brand text-base no-underline">Политика обработки ПДн</NuxtLink>
           <span class="text-[#aaa] text-sm">ИП Бельцев В. А.&nbsp;&nbsp;ИНН: 575207208997</span>
         </div>
       </div>

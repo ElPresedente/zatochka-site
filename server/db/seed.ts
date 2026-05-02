@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
+import bcrypt from 'bcryptjs'
 import * as schema from './schema'
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL! })
@@ -259,6 +260,24 @@ async function seed() {
       active: true,
       sortOrder: i,
     })
+  }
+
+  // --- First admin (from .env) ---
+  const adminPhone = process.env.ADMIN_PHONE
+  const adminPassword = process.env.ADMIN_PASSWORD
+  if (adminPhone && adminPassword) {
+    const passwordHash = await bcrypt.hash(adminPassword, 12)
+    const [adminUser] = await db.insert(schema.users).values({
+      lastName: 'Администратор',
+      firstName: 'Главный',
+      phone: adminPhone,
+      passwordHash,
+    }).onConflictDoUpdate({
+      target: schema.users.phone,
+      set: { passwordHash },
+    }).returning()
+    await db.insert(schema.admins).values({ userId: adminUser.id }).onConflictDoNothing()
+    console.log(`Admin created: ${adminPhone}`)
   }
 
   console.log('Seed complete!')
