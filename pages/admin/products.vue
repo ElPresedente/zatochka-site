@@ -103,6 +103,30 @@ function addPhotoByUrl() {
 }
 function removePhoto(i: number) { form.value.photos.splice(i, 1) }
 
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
+const uploadError = ref('')
+
+async function onFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  input.value = ''
+
+  uploading.value = true
+  uploadError.value = ''
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await $fetch<{ url: string }>('/api/admin/upload', { method: 'POST', body: fd })
+    form.value.photos.push(res.url)
+  } catch (err: any) {
+    uploadError.value = err?.data?.message ?? 'Ошибка загрузки'
+  } finally {
+    uploading.value = false
+  }
+}
+
 // ── Category management ───────────────────────────────────────────────
 const catPanel = ref(false)
 const catEditor = ref(false)
@@ -273,12 +297,37 @@ function formatPrice(p: number) {
 
           <!-- Photos -->
           <div>
-            <label class="block text-xs font-semibold text-[#777] mb-2">Фотографии (URL)</label>
-            <div class="flex gap-2 mb-3">
-              <input v-model="photoUrl" type="text" placeholder="https://..." class="flex-1 border border-[#ddd] rounded-xl px-4 py-2 text-sm outline-none focus:border-brand" @keydown.enter.prevent="addPhotoByUrl" />
-              <button class="px-4 py-2 bg-brand text-white rounded-xl text-sm font-semibold hover:brightness-110" @click="addPhotoByUrl">+ Добавить</button>
+            <label class="block text-xs font-semibold text-[#777] mb-2">Фотографии</label>
+
+            <!-- URL input -->
+            <div class="flex gap-2 mb-2">
+              <input
+                v-model="photoUrl"
+                type="text"
+                placeholder="Вставить URL..."
+                class="flex-1 border border-[#ddd] rounded-xl px-4 py-2 text-sm outline-none focus:border-brand"
+                @keydown.enter.prevent="addPhotoByUrl"
+              />
+              <button class="px-4 py-2 bg-brand/10 text-brand rounded-xl text-sm font-semibold hover:bg-brand/20 transition-colors whitespace-nowrap" @click="addPhotoByUrl">
+                + URL
+              </button>
             </div>
-            <div v-if="form.photos.length > 0" class="flex gap-2 flex-wrap">
+
+            <!-- File upload -->
+            <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" @change="onFileChange" />
+            <button
+              class="w-full py-2.5 border-2 border-dashed border-[#ddd] rounded-xl text-sm text-[#888] hover:border-brand hover:text-brand transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              :disabled="uploading"
+              @click="fileInput?.click()"
+            >
+              <svg v-if="!uploading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <svg v-else class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              {{ uploading ? 'Загрузка...' : 'Загрузить с компьютера' }}
+            </button>
+            <p v-if="uploadError" class="text-xs text-red-500 mt-1.5">{{ uploadError }}</p>
+
+            <!-- Preview grid -->
+            <div v-if="form.photos.length > 0" class="flex gap-2 flex-wrap mt-3">
               <div v-for="(ph, i) in form.photos" :key="i" class="relative group">
                 <div class="w-20 h-20 rounded-xl bg-center bg-cover bg-[#eee]" :style="ph ? `background-image: url('${ph}')` : ''" />
                 <button
