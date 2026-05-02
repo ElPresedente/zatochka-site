@@ -102,7 +102,7 @@ async function onFileChange(e: Event) {
     </button>
   </div>
 
-  <div class="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-6">
+  <div class="flex-1 overflow-y-auto px-8 py-6 space-y-6">
     <div
       v-for="section in sections"
       :key="section.id"

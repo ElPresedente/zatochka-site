@@ -95,7 +95,7 @@ async function deleteNote(n: ServiceNote) {
     </button>
   </div>
 
-  <div class="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-5">
+  <div class="flex-1 overflow-y-auto px-8 py-6 space-y-5">
     <!-- Categories -->
     <div
       v-for="cat in categories"
