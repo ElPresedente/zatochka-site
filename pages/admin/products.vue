@@ -2,8 +2,7 @@
 definePageMeta({ layout: 'admin' })
 useHead({ title: 'Админ — Товары' })
 
-const CATEGORIES = ['Кусачки', 'Ножницы', 'Пинцеты и пушеры', 'Расходники', 'Аппараты', 'Наборы']
-
+interface ProductCategory { id: number; name: string; sortOrder: number }
 interface Spec { key: string; value: string }
 interface Product {
   id: number
@@ -18,9 +17,12 @@ interface Product {
   sortOrder: number
 }
 
-const { data: products, refresh } = await useFetch<Product[]>('/api/products', {
-  query: { activeOnly: 'false' },
-})
+const [{ data: products, refresh }, { data: categoriesData, refresh: refreshCategories }] = await Promise.all([
+  useFetch<Product[]>('/api/products', { query: { activeOnly: 'false' } }),
+  useFetch<ProductCategory[]>('/api/product-categories'),
+])
+
+const categoryNames = computed(() => categoriesData.value?.map(c => c.name) ?? [])
 
 const search = ref('')
 const filterCat = ref('Все')
@@ -35,23 +37,26 @@ const filtered = computed(() => {
   return list
 })
 
-// ── Editor modal ──────────────────────────────────────────────────────
+// ── Product editor ────────────────────────────────────────────────────
 const editor = ref(false)
 const isNew = ref(false)
 const form = ref<Partial<Product> & { specs: Spec[]; photos: string[] }>({
-  name: '', category: CATEGORIES[0], price: 0, stock: 0,
+  name: '', category: '', price: 0, stock: 0,
   description: '', photos: [], specs: [], active: true, sortOrder: 0,
 })
 
 function openNew() {
   isNew.value = true
-  form.value = { name: '', category: CATEGORIES[0], price: 0, stock: 0, description: '', photos: [], specs: [], active: true, sortOrder: 0 }
+  form.value = {
+    name: '', category: categoryNames.value[0] ?? '', price: 0, stock: 0,
+    description: '', photos: [], specs: [], active: true, sortOrder: 0,
+  }
   editor.value = true
 }
 
 function openEdit(p: Product) {
   isNew.value = false
-  form.value = { ...p, specs: [...p.specs.map(s => ({ ...s }))], photos: [...p.photos] }
+  form.value = { ...p, specs: p.specs.map(s => ({ ...s })), photos: [...p.photos] }
   editor.value = true
 }
 
@@ -98,6 +103,31 @@ function addPhotoByUrl() {
 }
 function removePhoto(i: number) { form.value.photos.splice(i, 1) }
 
+// ── Category management ───────────────────────────────────────────────
+const catPanel = ref(false)
+const catEditor = ref(false)
+const catForm = ref({ id: 0, name: '', isNew: true })
+
+function openNewCat() { catForm.value = { id: 0, name: '', isNew: true }; catEditor.value = true }
+function openEditCat(c: ProductCategory) { catForm.value = { id: c.id, name: c.name, isNew: false }; catEditor.value = true }
+
+async function saveCat() {
+  if (!catForm.value.name.trim()) return
+  if (catForm.value.isNew) {
+    await $fetch('/api/admin/product-categories', { method: 'POST', body: { name: catForm.value.name } })
+  } else {
+    await $fetch(`/api/admin/product-categories/${catForm.value.id}`, { method: 'PUT', body: { name: catForm.value.name } })
+  }
+  await refreshCategories()
+  catEditor.value = false
+}
+
+async function deleteCat(c: ProductCategory) {
+  if (!confirm(`Удалить категорию «${c.name}»?`)) return
+  await $fetch(`/api/admin/product-categories/${c.id}`, { method: 'DELETE' })
+  await refreshCategories()
+}
+
 function formatPrice(p: number) {
   return p.toLocaleString('ru-RU') + ' ₽'
 }
@@ -107,9 +137,16 @@ function formatPrice(p: number) {
   <!-- Header -->
   <div class="bg-white border-b border-[#eee] px-8 py-5 flex items-center justify-between shrink-0">
     <h1 class="text-xl font-bold text-[#222]">Товары магазина</h1>
-    <button class="bg-brand text-white rounded-xl px-5 py-2.5 font-bold text-sm hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)]" @click="openNew">
-      + Добавить товар
-    </button>
+    <div class="flex gap-3">
+      <button
+        class="px-5 py-2.5 rounded-xl border-2 border-brand text-brand font-bold text-sm hover:bg-brand/10 transition-colors"
+        @click="catPanel = true"
+      >Категории</button>
+      <button
+        class="bg-brand text-white rounded-xl px-5 py-2.5 font-bold text-sm hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)]"
+        @click="openNew"
+      >+ Добавить товар</button>
+    </div>
   </div>
 
   <!-- Filters -->
@@ -120,9 +157,9 @@ function formatPrice(p: number) {
       placeholder="Поиск..."
       class="border border-[#ddd] rounded-xl px-4 py-2 text-sm outline-none focus:border-brand transition-colors w-[220px]"
     />
-    <div class="flex gap-2">
+    <div class="flex gap-2 flex-wrap">
       <button
-        v-for="cat in ['Все', ...CATEGORIES]"
+        v-for="cat in ['Все', ...categoryNames]"
         :key="cat"
         class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
         :class="filterCat === cat ? 'bg-brand text-white border-brand' : 'border-[#e0e0e0] text-[#555] hover:border-brand hover:text-brand'"
@@ -188,7 +225,7 @@ function formatPrice(p: number) {
     </div>
   </div>
 
-  <!-- Editor modal -->
+  <!-- Product editor modal -->
   <Teleport to="body">
     <div
       v-if="editor"
@@ -202,7 +239,6 @@ function formatPrice(p: number) {
         </div>
 
         <div class="flex-1 overflow-y-auto px-7 py-5 flex flex-col gap-5">
-          <!-- Basic info -->
           <div class="grid grid-cols-2 gap-4">
             <div class="col-span-2">
               <label class="block text-xs font-semibold text-[#777] mb-1.5">Название *</label>
@@ -211,14 +247,14 @@ function formatPrice(p: number) {
             <div>
               <label class="block text-xs font-semibold text-[#777] mb-1.5">Категория</label>
               <select v-model="form.category" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand bg-white">
-                <option v-for="cat in CATEGORIES" :key="cat">{{ cat }}</option>
+                <option v-for="cat in categoryNames" :key="cat">{{ cat }}</option>
               </select>
             </div>
             <div>
               <label class="block text-xs font-semibold text-[#777] mb-1.5">Активен</label>
               <div class="flex items-center gap-3 pt-2">
-                <input :id="`active-toggle`" v-model="form.active" type="checkbox" class="w-4 h-4 accent-brand" />
-                <label :for="`active-toggle`" class="text-sm text-[#444]">Показывать в магазине</label>
+                <input id="active-toggle" v-model="form.active" type="checkbox" class="w-4 h-4 accent-brand" />
+                <label for="active-toggle" class="text-sm text-[#444]">Показывать в магазине</label>
               </div>
             </div>
             <div>
@@ -244,10 +280,7 @@ function formatPrice(p: number) {
             </div>
             <div v-if="form.photos.length > 0" class="flex gap-2 flex-wrap">
               <div v-for="(ph, i) in form.photos" :key="i" class="relative group">
-                <div
-                  class="w-20 h-20 rounded-xl bg-center bg-cover bg-[#eee]"
-                  :style="ph ? `background-image: url('${ph}')` : ''"
-                />
+                <div class="w-20 h-20 rounded-xl bg-center bg-cover bg-[#eee]" :style="ph ? `background-image: url('${ph}')` : ''" />
                 <button
                   class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                   @click="removePhoto(i)"
@@ -277,6 +310,65 @@ function formatPrice(p: number) {
             :disabled="saving"
             @click="save"
           >{{ saving ? 'Сохранение...' : 'Сохранить' }}</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Categories panel -->
+  <Teleport to="body">
+    <div v-if="catPanel" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4" @click.self="catPanel = false">
+      <div class="bg-white rounded-2xl w-full max-w-[480px] max-h-[80vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between px-7 py-5 border-b border-[#eee]">
+          <div class="text-lg font-bold">Категории товаров</div>
+          <button class="text-[#aaa] hover:text-[#333] text-2xl" @click="catPanel = false">×</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-7 py-4">
+          <div v-if="!categoriesData?.length" class="py-8 text-center text-[#aaa] text-sm">Нет категорий</div>
+          <div
+            v-for="c in categoriesData"
+            :key="c.id"
+            class="flex items-center justify-between py-3 border-b border-[#f0f0f0] last:border-0 group"
+          >
+            <span class="text-sm font-semibold text-[#222]">{{ c.name }}</span>
+            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="px-3 py-1 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20" @click="openEditCat(c)">✏️ Изменить</button>
+              <button class="px-3 py-1 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100" @click="deleteCat(c)">Удалить</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-7 py-4 border-t border-[#eee]">
+          <button class="w-full py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)]" @click="openNewCat">
+            + Новая категория
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Category editor modal -->
+  <Teleport to="body">
+    <div v-if="catEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4" @click.self="catEditor = false">
+      <div class="bg-white rounded-2xl w-full max-w-[380px] shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-[#eee]">
+          <div class="font-bold">{{ catForm.isNew ? 'Новая категория' : 'Изменить категорию' }}</div>
+          <button class="text-[#aaa] hover:text-[#333] text-2xl" @click="catEditor = false">×</button>
+        </div>
+        <div class="px-6 py-5">
+          <label class="block text-xs font-semibold text-[#777] mb-1.5">Название</label>
+          <input
+            v-model="catForm.name"
+            type="text"
+            class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand"
+            @keydown.enter="saveCat"
+          />
+          <p v-if="!catForm.isNew" class="text-xs text-[#aaa] mt-2">При переименовании все товары этой категории обновятся автоматически.</p>
+        </div>
+        <div class="px-6 py-4 border-t border-[#eee] flex justify-end gap-3">
+          <button class="px-5 py-2 rounded-xl border-2 border-[#ddd] text-[#555] text-sm font-semibold hover:bg-[#f5f5f5]" @click="catEditor = false">Отмена</button>
+          <button class="px-5 py-2 rounded-xl bg-brand text-white text-sm font-semibold hover:brightness-110" @click="saveCat">Сохранить</button>
         </div>
       </div>
     </div>

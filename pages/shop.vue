@@ -1,9 +1,12 @@
 <script setup lang="ts">
 useHead({ title: 'Острый край — Магазин' })
 
-const { data: allProducts, refresh } = await useFetch('/api/products')
+const [{ data: allProducts }, { data: categoriesRaw }] = await Promise.all([
+  useFetch('/api/products'),
+  useFetch('/api/product-categories'),
+])
 
-const CATEGORIES = ['Все', 'Кусачки', 'Ножницы', 'Пинцеты и пушеры', 'Расходники', 'Аппараты', 'Наборы']
+const categories = computed(() => ['Все', ...(categoriesRaw.value?.map(c => c.name) ?? [])])
 
 const search = ref('')
 const activeCategory = ref('Все')
@@ -72,7 +75,7 @@ function formatPrice(p: number) {
         <!-- Categories -->
         <div class="flex gap-2 flex-wrap flex-1">
           <button
-            v-for="cat in CATEGORIES"
+            v-for="cat in categories"
             :key="cat"
             class="px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-colors"
             :class="activeCategory === cat

@@ -140,6 +140,12 @@ async function seed() {
     ]) },
   ])
 
+  // --- Product categories ---
+  const productCategoryNames = ['Кусачки', 'Ножницы', 'Пинцеты и пушеры', 'Расходники', 'Аппараты', 'Наборы']
+  for (let i = 0; i < productCategoryNames.length; i++) {
+    await db.insert(schema.productCategories).values({ name: productCategoryNames[i], sortOrder: i })
+  }
+
   // --- Products ---
   const defaultProducts = [
     {
