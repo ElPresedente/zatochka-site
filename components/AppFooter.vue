@@ -1,14 +1,14 @@
 <template>
   <footer class="bg-dark text-white font-sans py-8 mt-auto">
-    <div class="max-w-[1440px] mx-auto px-12 grid grid-cols-[200px_1fr_1fr] gap-10 items-start">
+    <div class="max-w-[1440px] mx-auto px-12 grid grid-cols-[230px_1fr_1fr] gap-10 items-start">
       <!-- Logo -->
       <div class="flex flex-col items-center gap-2.5">
         <img src="/images/logo_footer.png" alt="Острый край" class="w-[120px] h-[120px] object-contain" />
-        <span class="text-base text-white text-center">2024 © Заточка Орёл</span>
+        <span class="text-base text-white text-center">2026 © Заточка Острый Край</span>
       </div>
 
       <!-- Contacts + socials -->
-      <div class="flex flex-col gap-3">
+      <div class="max-w-[400px] flex flex-col gap-3">
         <div class="flex flex-col gap-2">
           <a :href="settings?.phone_href || 'tel:+79103043040'" class="flex items-center gap-2.5 text-white no-underline text-lg">
             <img src="/images/phone_icon.png" class="w-5 h-4 object-contain invert" alt="" />

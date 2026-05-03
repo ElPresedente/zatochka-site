@@ -8,6 +8,12 @@ const defaultMapEmbedUrl = 'https://yandex.ru/map-widget/v1/org/ostry_kray/96290
 const defaultYandexMapUrl = 'https://yandex.ru/maps/org/ostry_kray/96290816208/'
 const defaultYandexReviewsWidgetUrl = 'https://yandex.ru/maps-reviews-widget/96290816208?comments'
 
+const bannerStats = [
+  { value: '10', label: 'Более десяти\nлет на рынке', raised: true },
+  { value: '10', label: 'Десятки тысяч\nдовольных клиентов', raised: false },
+  { value: '100', label: 'Сотни тысяч\nзаточенных инструментов', raised: true },
+]
+
 const serviceList = [
   'Заточка маникюрного инструмента',
   'Заточка педикюрного инструмента',
@@ -50,27 +56,51 @@ const workingHours = [
 <template>
   <!-- Banner -->
   <section class="relative h-[520px] overflow-hidden">
+    <div class="absolute inset-0 bg-[url('/images/banner.png')] bg-center bg-cover" />
     <div
-      class="absolute inset-0 bg-[url('/images/banner.png')] bg-center bg-cover"
-    />
-    <div
-      class="absolute inset-0 flex flex-col justify-center px-20"
-      style="background: linear-gradient(to right, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.1) 60%)"
+      class="absolute inset-0 flex items-stretch"
+      style="background: linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.15) 52%, rgba(0,0,0,0.60) 100%)"
     >
-      <h1 class="text-white text-[60px] font-bold leading-[1.15] max-w-[640px] mb-5">
-        Профессиональная заточка инструмента
-      </h1>
-      <p class="text-white/90 text-[22px] max-w-[520px] mb-8 leading-relaxed">
-        Маникюрный, парикмахерский, грумерский и домашний инструмент
-      </p>
-      <div class="flex gap-4">
-        <NuxtLink to="/services" class="btn-primary text-[22px]">Услуги и цены</NuxtLink>
-        <NuxtLink
-          to="/about"
-          class="inline-block bg-white/15 text-white border-2 border-white/60 rounded-2xl px-9 py-3.5 font-bold text-[22px] no-underline backdrop-blur-sm transition-colors hover:bg-white/25"
-        >
-          О нас
-        </NuxtLink>
+      <!-- Left: text content -->
+      <div class="flex flex-col justify-center pl-20 pr-5">
+        <h1 class="text-white text-[60px] font-bold leading-[1.15] max-w-[640px] mb-5">
+          Профессиональная заточка инструмента
+        </h1>
+        <p class="text-white/90 text-[22px] max-w-[520px] mb-8 leading-relaxed">
+          Маникюрный, парикмахерский, грумерский и домашний инструмент
+        </p>
+        <div class="flex gap-4">
+          <NuxtLink to="/services" class="btn-primary text-[22px]">Услуги и цены</NuxtLink>
+          <NuxtLink
+            to="/about"
+            class="inline-block bg-white/15 text-white border-2 border-white/60 rounded-2xl px-9 py-3.5 font-bold text-[22px] no-underline backdrop-blur-sm transition-colors hover:bg-white/25"
+          >
+            О нас
+          </NuxtLink>
+        </div>
+      </div>
+
+      <!-- Right: logo + stats -->
+      <div class="flex-1 flex flex-col items-center justify-center gap-2 px-6">
+        <img
+          src="/images/logo_footer.png"
+          alt="Острый край"
+          class="w-[300px] h-[300px] object-contain"
+        />
+        <div class="flex items-end gap-8">
+          <div
+            v-for="stat in bannerStats"
+            :key="stat.label"
+            class="flex flex-col items-center text-center gap-1"
+            :class="stat.raised ? 'mb-9' : 'mb-0'"
+          >
+            <div class="relative flex items-center justify-center w-[120px] h-[88px]">
+              <img src="/images/gold.png" alt="" class="absolute inset-0 w-full h-full object-contain" />
+              <span class="relative z-10 text-[34px] font-bold leading-none -mt-2" style="color: #D4AF37; text-shadow: 0 1px 6px rgba(0,0,0,0.5)">{{ stat.value }}</span>
+            </div>
+            <span class="text-[12px] leading-snug whitespace-pre-line font-medium" style="color: #D4AF37">{{ stat.label }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </section>
