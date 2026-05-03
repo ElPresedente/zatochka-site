@@ -16,6 +16,8 @@ const form = ref({
   map_embed_url: '',
   yandex_map_url: '',
   yandex_reviews_widget_url: '',
+  vk_url: '',
+  dgis_url: '',
   legal_name: '',
   inn: '',
 })
@@ -29,6 +31,8 @@ watch(settings, (s) => {
   form.value.map_embed_url = s.map_embed_url ?? defaultMapEmbedUrl
   form.value.yandex_map_url = s.yandex_map_url ?? defaultYandexMapUrl
   form.value.yandex_reviews_widget_url = s.yandex_reviews_widget_url ?? defaultYandexReviewsWidgetUrl
+  form.value.vk_url = s.vk_url ?? ''
+  form.value.dgis_url = s.dgis_url ?? ''
   form.value.legal_name = s.legal_name ?? ''
   form.value.inn = s.inn ?? ''
 }, { immediate: true })
@@ -87,6 +91,14 @@ async function save() {
         <div>
           <label class="block text-xs font-semibold text-[#777] mb-1.5">URL виджета отзывов Яндекс</label>
           <input v-model="form.yandex_reviews_widget_url" type="text" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-[#777] mb-1.5">Ссылка ВКонтакте (футер)</label>
+          <input v-model="form.vk_url" type="url" placeholder="https://vk.com/..." class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-[#777] mb-1.5">Ссылка 2ГИС (футер)</label>
+          <input v-model="form.dgis_url" type="url" placeholder="https://2gis.ru/..." class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div>
