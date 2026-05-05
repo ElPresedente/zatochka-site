@@ -2,6 +2,8 @@
 import type { ProductDto } from '~/types/api'
 
 type InlineField = 'price' | 'stock'
+type SortKey = 'name' | 'category' | 'price' | 'stock' | 'active'
+type SortDir = 'asc' | 'desc'
 
 const props = defineProps<{ products: ProductDto[] }>()
 const emit = defineEmits<{
@@ -13,6 +15,41 @@ const emit = defineEmits<{
 
 const { formatPrice } = useFormatters()
 
+// ── Sort ──────────────────────────────────────────────────────────────
+const sortKey = ref<SortKey | null>(null)
+const sortDir = ref<SortDir>('asc')
+
+function setSort(key: SortKey) {
+  if (sortKey.value === key) {
+    if (sortDir.value === 'asc') sortDir.value = 'desc'
+    else resetSort()
+  } else {
+    sortKey.value = key
+    sortDir.value = 'asc'
+  }
+}
+
+function resetSort() {
+  sortKey.value = null
+  sortDir.value = 'asc'
+}
+
+const sorted = computed(() => {
+  if (!sortKey.value) return props.products
+  const key = sortKey.value
+  const mul = sortDir.value === 'asc' ? 1 : -1
+  return [...props.products].sort((a, b) => {
+    if (key === 'active') return ((a.active ? 0 : 1) - (b.active ? 0 : 1)) * mul
+    const va = a[key]
+    const vb = b[key]
+    if (typeof va === 'string' && typeof vb === 'string') return va.localeCompare(vb, 'ru') * mul
+    if (va < vb) return -mul
+    if (va > vb) return mul
+    return 0
+  })
+})
+
+// ── Inline edit ───────────────────────────────────────────────────────
 const inlineEdit = ref<{ id: number; field: InlineField; value: string } | null>(null)
 const inlineSaving = ref(false)
 
@@ -76,17 +113,85 @@ async function saveInlineEdit(p: ProductDto, field: InlineField) {
       <thead class="bg-[#f8f8f8] border-b border-[#eee]">
         <tr>
           <th class="text-left px-5 py-3 font-semibold text-[#555]">Фото</th>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">Название</th>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">Категория</th>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">Цена</th>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">Остаток</th>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">Статус</th>
-          <th class="px-5 py-3" />
+          <th class="text-left px-5 py-3 font-semibold text-[#555]">
+            <button
+              class="flex items-center gap-1 hover:text-brand transition-colors group"
+              :class="sortKey === 'name' ? 'text-brand' : ''"
+              @click="setSort('name')"
+            >
+              Название
+              <span class="text-xs w-3 text-center">
+                <template v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
+                <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
+              </span>
+            </button>
+          </th>
+          <th class="text-left px-5 py-3 font-semibold text-[#555]">
+            <button
+              class="flex items-center gap-1 hover:text-brand transition-colors group"
+              :class="sortKey === 'category' ? 'text-brand' : ''"
+              @click="setSort('category')"
+            >
+              Категория
+              <span class="text-xs w-3 text-center">
+                <template v-if="sortKey === 'category'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
+                <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
+              </span>
+            </button>
+          </th>
+          <th class="text-left px-5 py-3 font-semibold text-[#555]">
+            <button
+              class="flex items-center gap-1 hover:text-brand transition-colors group"
+              :class="sortKey === 'price' ? 'text-brand' : ''"
+              @click="setSort('price')"
+            >
+              Цена
+              <span class="text-xs w-3 text-center">
+                <template v-if="sortKey === 'price'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
+                <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
+              </span>
+            </button>
+          </th>
+          <th class="text-left px-5 py-3 font-semibold text-[#555]">
+            <button
+              class="flex items-center gap-1 hover:text-brand transition-colors group"
+              :class="sortKey === 'stock' ? 'text-brand' : ''"
+              @click="setSort('stock')"
+            >
+              Остаток
+              <span class="text-xs w-3 text-center">
+                <template v-if="sortKey === 'stock'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
+                <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
+              </span>
+            </button>
+          </th>
+          <th class="text-left px-5 py-3 font-semibold text-[#555]">
+            <button
+              class="flex items-center gap-1 hover:text-brand transition-colors group"
+              :class="sortKey === 'active' ? 'text-brand' : ''"
+              @click="setSort('active')"
+            >
+              Статус
+              <span class="text-xs w-3 text-center">
+                <template v-if="sortKey === 'active'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
+                <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
+              </span>
+            </button>
+          </th>
+          <th class="px-5 py-3 text-right">
+            <button
+              v-if="sortKey"
+              class="text-xs text-[#aaa] hover:text-red-400 transition-colors font-normal"
+              @click="resetSort"
+            >
+              Сбросить ↺
+            </button>
+          </th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="p in products"
+          v-for="p in sorted"
           :key="p.id"
           class="border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors"
         >

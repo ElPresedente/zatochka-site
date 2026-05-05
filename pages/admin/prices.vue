@@ -10,6 +10,58 @@ const { data, refresh } = await useFetch<{ categories: ServiceCategory[]; notes:
 const categories = computed(() => data.value?.categories ?? [])
 const notes = computed(() => data.value?.notes ?? [])
 
+// ── Drag-and-drop state ───────────────────────────────────────────────
+const localItems = ref<Record<number, ServiceItem[]>>({})
+const dirtyCategories = ref<Set<number>>(new Set())
+const dragging = ref<{ catId: number; index: number } | null>(null)
+const dragOverPos = ref<{ catId: number; index: number } | null>(null)
+
+watch(() => data.value?.categories, (cats) => {
+  if (!cats) return
+  for (const cat of cats) {
+    if (!dirtyCategories.value.has(cat.id)) {
+      localItems.value[cat.id] = [...cat.items]
+    }
+  }
+}, { immediate: true, deep: true })
+
+function onDragStart(catId: number, index: number, e: DragEvent) {
+  dragging.value = { catId, index }
+  e.dataTransfer!.effectAllowed = 'move'
+}
+
+function onDragOver(catId: number, index: number) {
+  if (dragging.value?.catId === catId) {
+    dragOverPos.value = { catId, index }
+  }
+}
+
+function onDrop(catId: number, toIndex: number) {
+  if (!dragging.value || dragging.value.catId !== catId) return
+  const fromIndex = dragging.value.index
+  if (fromIndex === toIndex) return
+  const items = [...localItems.value[catId]]
+  const [moved] = items.splice(fromIndex, 1)
+  items.splice(toIndex, 0, moved)
+  localItems.value[catId] = items
+  dirtyCategories.value = new Set([...dirtyCategories.value, catId])
+}
+
+function onDragEnd() {
+  dragging.value = null
+  dragOverPos.value = null
+}
+
+async function saveOrder(catId: number) {
+  const items = localItems.value[catId]
+  await $fetch('/api/admin/service-items/reorder', {
+    method: 'POST',
+    body: { items: items.map((item, i) => ({ id: item.id, sortOrder: i })) },
+  })
+  dirtyCategories.value = new Set([...dirtyCategories.value].filter(id => id !== catId))
+  await refresh()
+}
+
 // ── Category CRUD ─────────────────────────────────────────────────────
 const catEditor = ref(false)
 const catForm = ref({ id: 0, title: '', isNew: true })
@@ -48,6 +100,8 @@ function openEditItem(item: ServiceItem) {
 
 async function saveItem() {
   if (!itemForm.value.name.trim()) return
+  const catId = itemForm.value.categoryId
+  dirtyCategories.value = new Set([...dirtyCategories.value].filter(id => id !== catId))
   if (itemForm.value.isNew) {
     await $fetch('/api/admin/service-items', { method: 'POST', body: itemForm.value })
   } else {
@@ -58,6 +112,7 @@ async function saveItem() {
 
 async function deleteItem(item: ServiceItem) {
   if (!confirm(`Удалить «${item.name}»?`)) return
+  dirtyCategories.value = new Set([...dirtyCategories.value].filter(id => id !== item.categoryId))
   await $fetch(`/api/admin/service-items/${item.id}`, { method: 'DELETE' })
   await refresh()
 }
@@ -105,6 +160,13 @@ async function deleteNote(n: ServiceNote) {
       <div class="flex items-center justify-between px-6 py-4 bg-[#f8f8f8] border-b border-[#eee]">
         <div class="font-bold text-[#222]">{{ cat.title }}</div>
         <div class="flex gap-2">
+          <button
+            v-if="dirtyCategories.has(cat.id)"
+            class="px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold hover:bg-green-600 transition-colors"
+            @click="saveOrder(cat.id)"
+          >
+            Сохранить порядок
+          </button>
           <button class="px-3 py-1.5 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20" @click="openNewItem(cat.id)">+ Позиция</button>
           <button class="px-3 py-1.5 rounded-lg bg-[#f0f0f0] text-[#555] text-xs font-semibold hover:bg-[#e5e5e5]" @click="openEditCat(cat)">Изменить</button>
           <button class="px-3 py-1.5 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100" @click="deleteCat(cat)">Удалить</button>
@@ -112,10 +174,20 @@ async function deleteNote(n: ServiceNote) {
       </div>
       <div>
         <div
-          v-for="item in cat.items"
+          v-for="(item, i) in localItems[cat.id] ?? []"
           :key="item.id"
-          class="flex items-center justify-between px-6 py-3 border-b border-[#f5f5f5] last:border-0 hover:bg-[#fafafa] transition-colors group"
+          draggable="true"
+          class="flex items-center px-6 py-3 border-b border-[#f5f5f5] last:border-0 transition-colors group"
+          :class="[
+            dragOverPos?.catId === cat.id && dragOverPos?.index === i ? 'bg-brand/10' : 'hover:bg-[#fafafa]',
+            dragging?.catId === cat.id && dragging?.index === i ? 'opacity-40' : '',
+          ]"
+          @dragstart="onDragStart(cat.id, i, $event)"
+          @dragover.prevent="onDragOver(cat.id, i)"
+          @drop.prevent="onDrop(cat.id, i)"
+          @dragend="onDragEnd"
         >
+          <span class="text-[#bbb] mr-3 cursor-grab active:cursor-grabbing select-none text-base shrink-0" title="Перетащить">⠿</span>
           <span class="text-sm text-[#222] flex-1">{{ item.name }}</span>
           <span class="text-sm font-bold text-brand mr-6">{{ item.price }}</span>
           <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -123,7 +195,7 @@ async function deleteNote(n: ServiceNote) {
             <button class="px-2.5 py-1 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100" @click="deleteItem(item)">×</button>
           </div>
         </div>
-        <div v-if="cat.items.length === 0" class="px-6 py-4 text-sm text-[#aaa]">Нет позиций</div>
+        <div v-if="(localItems[cat.id] ?? []).length === 0" class="px-6 py-4 text-sm text-[#aaa]">Нет позиций</div>
       </div>
     </div>
 
