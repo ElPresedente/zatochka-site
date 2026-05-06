@@ -132,7 +132,7 @@ onMounted(() => {
 
 <template>
   <main class="flex-1 w-full bg-[rgb(245,245,245)]">
-    <div class="bg-white border-b border-[#e8e8e8] sticky top-[88px] z-30">
+    <div class="bg-white border-b border-[#e8e8e8] sticky top-[130px] z-30">
       <div class="max-w-[1440px] mx-auto px-10 py-4 flex gap-4 items-center flex-wrap">
         <input
           v-model="search"

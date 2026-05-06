@@ -46,17 +46,13 @@ const stockBadgeText = computed(() => {
           {{ stockBadgeText }}
         </span>
       </div>
-      <div v-if="cartQty > 0" class="mt-2 flex items-center justify-between" @click.stop>
-        <button
-          class="w-9 h-9 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center"
-          @click="emit('setQty', product.id, cartQty - 1, product.stock)"
-        >−</button>
-        <span class="font-bold text-[#222] text-base">{{ cartQty }}</span>
-        <button
-          class="w-9 h-9 rounded-xl bg-[#f0f0f0] font-bold text-xl hover:bg-brand hover:text-white transition-colors flex items-center justify-center disabled:opacity-40 disabled:hover:bg-[#f0f0f0] disabled:hover:text-inherit"
-          :disabled="!canIncrease"
-          @click="emit('setQty', product.id, cartQty + 1, product.stock)"
-        >+</button>
+      <div v-if="cartQty > 0" class="mt-2 flex justify-center" @click.stop>
+        <ShopQtyInput
+          :qty="cartQty"
+          :stock="product.stock"
+          size="md"
+          @update="emit('setQty', product.id, $event, product.stock)"
+        />
       </div>
       <button
         v-else

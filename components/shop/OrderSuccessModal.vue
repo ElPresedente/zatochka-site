@@ -15,7 +15,14 @@ const emit = defineEmits<{ close: [] }>()
         <p class="text-[#555] text-lg leading-relaxed mb-6">
           Заказ №{{ orderId }} сохранен. Мы свяжемся с вами в ближайшее время для подтверждения.
         </p>
-        <button class="btn-primary px-10 py-3 text-lg" @click="emit('close')">Закрыть</button>
+        <div class="flex flex-col gap-3">
+          <button class="btn-primary px-10 py-3 text-lg" @click="emit('close')">Закрыть</button>
+          <NuxtLink
+            to="/account?tab=orders"
+            class="text-brand font-semibold text-sm hover:underline no-underline"
+            @click="emit('close')"
+          >Посмотреть в личном кабинете →</NuxtLink>
+        </div>
       </div>
     </div>
   </Teleport>

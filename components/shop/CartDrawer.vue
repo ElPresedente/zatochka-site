@@ -48,17 +48,13 @@ const { formatPrice } = useFormatters()
             <div class="flex-1 min-w-0">
               <div class="text-sm font-semibold text-[#222] leading-snug mb-1 line-clamp-2">{{ item.name }}</div>
               <div class="text-brand font-bold">{{ formatPrice(item.price) }}</div>
-              <div class="flex items-center gap-2 mt-2">
-                <button
-                  class="w-7 h-7 rounded-lg bg-[#f0f0f0] font-bold hover:bg-brand hover:text-white transition-colors"
-                  @click="emit('setQty', item.id, item.qty - 1, productStock(item.id))"
-                >−</button>
-                <span class="font-semibold min-w-[24px] text-center">{{ item.qty }}</span>
-                <button
-                  class="w-7 h-7 rounded-lg bg-[#f0f0f0] font-bold hover:bg-brand hover:text-white transition-colors disabled:opacity-40 disabled:hover:bg-[#f0f0f0] disabled:hover:text-inherit"
-                  :disabled="item.qty >= productStock(item.id)"
-                  @click="emit('setQty', item.id, item.qty + 1, productStock(item.id))"
-                >+</button>
+              <div class="mt-2">
+                <ShopQtyInput
+                  :qty="item.qty"
+                  :stock="productStock(item.id)"
+                  size="sm"
+                  @update="emit('setQty', item.id, $event, productStock(item.id))"
+                />
               </div>
             </div>
             <button class="text-[#ccc] hover:text-red-400 text-xl shrink-0" @click="emit('remove', item.id)">×</button>

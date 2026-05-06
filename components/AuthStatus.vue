@@ -7,12 +7,12 @@ await fetchUser()
 <template>
   <div class="flex items-center justify-end gap-3 text-sm">
     <template v-if="user">
-      <div class="text-right leading-tight">
+      <NuxtLink to="/account" class="text-right leading-tight no-underline group">
         <div class="text-[#777] text-xs">Здравствуйте,</div>
-        <div class="font-semibold text-[#222] max-w-[160px] truncate">
+        <div class="font-semibold text-[#222] max-w-[160px] truncate group-hover:text-brand transition-colors">
           {{ user.firstName }}
         </div>
-      </div>
+      </NuxtLink>
       <button
         type="button"
         class="px-3 py-1.5 rounded-lg border border-[#ddd] text-[#555] font-semibold hover:border-brand hover:text-brand transition-colors"
