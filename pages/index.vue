@@ -15,13 +15,12 @@ const bannerStats = [
 ]
 
 const serviceList = [
-  'Заточка маникюрного инструмента',
-  'Заточка педикюрного инструмента',
-  'Заточка парикмахерского инструмента',
-  'Заточка грумерского инструмента',
-  'Заточка домашнего и садового инструмента',
-  'Ремонт маникюрных аппаратов',
-  'Ремонт техники для салонов красоты',
+  { label: 'Заточка маникюрного инструмента', img: '/images/svg/scissors.svg' },
+  { label: 'Заточка педикюрного инструмента', img: '/images/svg/wire_cutters.svg' },
+  { label: 'Заточка парикмахерского инструмента', img: '/images/svg/hairdressers.svg' },
+  { label: 'Заточка грумерского инструмента', img: '/images/svg/groomers.svg' },
+  { label: 'Заточка домашнего и садового инструмента', img: '/images/svg/knife.svg' },
+  { label: 'Ремонт маникюрных аппаратов', img: '/images/svg/apparat.svg' },
 ]
 
 const serviceCards = [
@@ -110,26 +109,27 @@ const workingHours = [
     <div class="section-header">
       <span class="section-title">Что мы предлагаем?</span>
     </div>
-    <div class="flex gap-10 items-stretch">
+    <div class="flex gap-10 items-stretch justify-between">
       <!-- List -->
       <div class="flex-1 flex flex-col">
         <div
           v-for="item in serviceList"
-          :key="item"
-          class="flex items-start gap-3 py-2.5 border-b border-black/[0.08]"
+          :key="item.label"
+          class="flex items-center gap-5 border-b border-black/[0.08]"
+          style="padding-top: 10px; padding-bottom: 10px;"
         >
-          <div class="w-2.5 h-2.5 rounded-full bg-brand mt-[7px] shrink-0" />
-          <span class="text-xl leading-relaxed text-[#222]">{{ item }}</span>
-        </div>
-        <div class="mt-8">
-          <NuxtLink to="/services" class="btn-primary">Узнать больше</NuxtLink>
+          <img :src="item.img" :alt="item.label" class="w-20 h-20 shrink-0" />
+          <span class="text-2xl leading-snug text-[#222]">{{ item.label }}</span>
         </div>
       </div>
       <!-- Photos -->
-      <div class="flex-1 flex flex-col gap-5">
+      <div class="flex flex-col gap-5 w-[450px] shrink-0 self-stretch">
         <div class="flex-1 min-h-[220px] bg-[url('/images/services1.jpg')] bg-center bg-cover rounded-xl" />
         <div class="flex-1 min-h-[220px] bg-[url('/images/services2.jpg')] bg-center bg-cover rounded-xl" />
       </div>
+    </div>
+    <div class="flex justify-center mt-10">
+      <NuxtLink to="/services" class="btn-primary text-center w-[800px]">Узнать больше</NuxtLink>
     </div>
   </section>
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES } from '~/types/api'
-import type { OrderItemDto } from '~/types/api'
+import type { OrderHistoryDto, OrderItemDto } from '~/types/api'
 import type { OrderStatus } from '~/server/db/schema'
 
 definePageMeta({ middleware: 'account' })
@@ -25,9 +25,10 @@ interface OrderWithItems {
   createdAt: string
   updatedAt: string
   items: OrderItemDto[]
+  history: OrderHistoryDto[]
 }
 
-const { formatPrice } = useFormatters()
+const { formatPrice, formatDate } = useFormatters()
 const { fetchUser } = useAuth()
 
 const route = useRoute()
@@ -68,11 +69,7 @@ async function saveProfile() {
   }
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleString('ru-RU', {
-    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  })
-}
+
 </script>
 
 <template>
@@ -206,6 +203,13 @@ function formatDate(dateStr: string) {
                 />
                 <div class="flex-1 min-w-0">
                   <div class="text-sm font-semibold text-[#222] truncate">{{ item.productName }}</div>
+                  <div v-if="item.services?.length" class="flex flex-wrap gap-1 mt-0.5 mb-1">
+                    <span
+                      v-for="svc in item.services"
+                      :key="svc.name"
+                      class="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-medium"
+                    >+ {{ svc.name }}</span>
+                  </div>
                   <div class="text-xs text-[#888]">{{ formatPrice(item.unitPrice) }} × {{ item.quantity }}</div>
                 </div>
                 <div class="text-sm font-bold text-[#222] shrink-0">{{ formatPrice(item.totalPrice) }}</div>
@@ -225,6 +229,21 @@ function formatDate(dateStr: string) {
 
               <div v-if="order.sellerComment" class="text-sm text-[#444] bg-brand/5 border border-brand/20 rounded-xl px-4 py-2.5">
                 <span class="font-semibold text-brand">Комментарий мастерской: </span>{{ order.sellerComment }}
+              </div>
+            </div>
+
+            <!-- History -->
+            <div v-if="order.history.length > 0" class="border-t border-[#f0f0f0] px-6 py-4">
+              <div class="text-xs font-semibold text-[#aaa] uppercase tracking-wide mb-3">История</div>
+              <div class="flex flex-col">
+                <div
+                  v-for="entry in order.history"
+                  :key="entry.id"
+                  class="flex gap-3 items-start py-2 border-b border-[#f4f4f4] last:border-0"
+                >
+                  <div class="text-xs text-[#bbb] whitespace-nowrap pt-0.5 min-w-[110px]">{{ formatDate(entry.createdAt) }}</div>
+                  <div class="text-sm text-[#555] leading-snug">{{ entry.description }}</div>
+                </div>
               </div>
             </div>
           </div>

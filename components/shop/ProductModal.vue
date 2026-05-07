@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import type { ProductDto } from '~/types/api'
+import { makeCartKey } from '~/composables/useCart'
+import type { CartItemService } from '~/composables/useCart'
 
 const props = defineProps<{
   product: ProductDto
-  cartQty: number
-  canIncrease: boolean
+  cartQtyByKey: (cartKey: string) => number
+  canIncreaseByKey: (cartKey: string) => boolean
 }>()
 
 const emit = defineEmits<{
   close: []
-  add: [product: ProductDto]
-  setQty: [productId: number, qty: number, stock: number]
+  add: [product: ProductDto, services: CartItemService[]]
+  setQty: [cartKey: string, qty: number, stock: number]
 }>()
 
 const { formatPrice } = useFormatters()
@@ -18,10 +20,12 @@ const { formatPrice } = useFormatters()
 const photoIdx = ref(0)
 const zoomed = ref(false)
 const zoomEl = ref<HTMLElement | null>(null)
+const selectedServiceIds = ref(new Set<string>())
 
 watch(() => props.product, () => {
   photoIdx.value = 0
   zoomed.value = false
+  selectedServiceIds.value = new Set()
 })
 
 watch(zoomed, (val) => {
@@ -30,6 +34,25 @@ watch(zoomed, (val) => {
 
 const multiplePhotos = computed(() => props.product.photos.length > 1)
 const currentPhoto = computed(() => props.product.photos[photoIdx.value] ?? '')
+
+const selectedServices = computed<CartItemService[]>(() =>
+  props.product.services.filter(s => selectedServiceIds.value.has(s.id)),
+)
+const currentCartKey = computed(() =>
+  makeCartKey(props.product.id, selectedServices.value.map(s => s.id)),
+)
+const servicesTotal = computed(() =>
+  selectedServices.value.reduce((s, sv) => s + sv.price, 0),
+)
+const displayPrice = computed(() => props.product.price + servicesTotal.value)
+const cartQty = computed(() => props.cartQtyByKey(currentCartKey.value))
+const canIncrease = computed(() => props.canIncreaseByKey(currentCartKey.value))
+
+function toggleService(id: string) {
+  const next = new Set(selectedServiceIds.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  selectedServiceIds.value = next
+}
 
 function prev() {
   photoIdx.value = (photoIdx.value - 1 + props.product.photos.length) % props.product.photos.length
@@ -178,11 +201,43 @@ const stockBadgeText = computed(() => {
             <button class="self-end text-[#aaa] hover:text-[#333] text-2xl leading-none" @click="emit('close')">×</button>
             <div class="text-sm text-[#888]">{{ product.category }}</div>
             <div class="text-[26px] font-bold text-[#111] leading-snug">{{ product.name }}</div>
-            <div class="text-[30px] font-bold text-brand">{{ formatPrice(product.price) }}</div>
+
+            <!-- Price: updates dynamically with services -->
+            <div class="flex items-baseline gap-3">
+              <div class="text-[30px] font-bold text-brand">{{ formatPrice(displayPrice) }}</div>
+              <div v-if="servicesTotal > 0" class="text-sm text-[#888]">
+                {{ formatPrice(product.price) }} + услуги {{ formatPrice(servicesTotal) }}
+              </div>
+            </div>
+
             <span class="text-sm font-semibold px-3 py-1 rounded-lg w-fit" :class="stockBadgeClass">
               {{ stockBadgeText }}
             </span>
-            <p class="text-base text-[#555] leading-relaxed">{{ product.description }}</p>
+            <p v-if="product.description" class="text-base text-[#555] leading-relaxed">{{ product.description }}</p>
+
+            <!-- Optional services -->
+            <div v-if="product.services.length > 0" class="border border-[#eee] rounded-xl overflow-hidden">
+              <div class="px-4 py-2.5 bg-[#fafafa] border-b border-[#eee] text-xs font-semibold text-[#777] uppercase tracking-wide">
+                Дополнительные услуги
+              </div>
+              <label
+                v-for="svc in product.services"
+                :key="svc.id"
+                class="flex items-center justify-between px-4 py-3 border-b border-[#f5f5f5] last:border-0 cursor-pointer hover:bg-[#fafafa] transition-colors"
+              >
+                <div class="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    :checked="selectedServiceIds.has(svc.id)"
+                    class="w-4 h-4 accent-brand cursor-pointer"
+                    @change="toggleService(svc.id)"
+                  />
+                  <span class="text-sm font-medium text-[#222]">{{ svc.name }}</span>
+                </div>
+                <span class="text-sm font-bold text-brand">+{{ formatPrice(svc.price) }}</span>
+              </label>
+            </div>
+
             <div v-if="product.specs.length > 0" class="border border-[#eee] rounded-xl overflow-hidden">
               <div
                 v-for="spec in product.specs"
@@ -193,12 +248,13 @@ const stockBadgeText = computed(() => {
                 <span class="font-semibold text-[#222]">{{ spec.value }}</span>
               </div>
             </div>
+
             <div v-if="cartQty > 0" class="mt-auto flex items-center gap-3">
               <ShopQtyInput
                 :qty="cartQty"
                 :stock="product.stock"
                 size="lg"
-                @update="emit('setQty', product.id, $event, product.stock)"
+                @update="emit('setQty', currentCartKey, $event, product.stock)"
               />
               <span class="text-[#888] text-sm">в корзине</span>
             </div>
@@ -207,7 +263,7 @@ const stockBadgeText = computed(() => {
               class="btn-primary py-3 text-lg mt-auto"
               :disabled="product.stock === 0"
               :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
-              @click="emit('add', product)"
+              @click="emit('add', product, selectedServices)"
             >Добавить в корзину</button>
           </div>
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { ProductDto, ProductSpec } from '~/types/api'
+import type { ProductDto, ProductService, ProductSpec } from '~/types/api'
 
-type ProductForm = Partial<ProductDto> & { specs: ProductSpec[]; photos: string[] }
+type ProductForm = Partial<ProductDto> & { specs: ProductSpec[]; photos: string[]; services: ProductService[] }
 
 const props = defineProps<{
   product: ProductDto | null
@@ -23,11 +23,12 @@ function initialForm(): ProductForm {
       ...props.product,
       specs: props.product.specs.map(s => ({ ...s })),
       photos: [...props.product.photos],
+      services: props.product.services.map(s => ({ ...s })),
     }
   }
   return {
     name: '', category: props.categoryNames[0] ?? '', price: 0, stock: 0,
-    description: '', photos: [], specs: [], active: true, sortOrder: 0,
+    description: '', photos: [], specs: [], services: [], active: true, sortOrder: 0,
   }
 }
 
@@ -50,6 +51,11 @@ async function save() {
 
 function addSpec() { form.value.specs.push({ key: '', value: '' }) }
 function removeSpec(i: number) { form.value.specs.splice(i, 1) }
+
+function addService() {
+  form.value.services.push({ id: crypto.randomUUID(), name: '', price: 0 })
+}
+function removeService(i: number) { form.value.services.splice(i, 1) }
 
 const photoUrl = ref('')
 function addPhotoByUrl() {
@@ -177,6 +183,36 @@ async function onFileChange(e: Event) {
               <input v-model="spec.key" type="text" placeholder="Параметр" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand" />
               <input v-model="spec.value" type="text" placeholder="Значение" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand" />
               <button class="w-8 h-9 text-[#aaa] hover:text-red-400 flex items-center justify-center text-xl" @click="removeSpec(i)">×</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <div>
+                <label class="text-xs font-semibold text-[#777]">Дополнительные услуги</label>
+                <p class="text-xs text-[#aaa] mt-0.5">Покупатель выбирает перед добавлением в корзину. Стоимость прибавляется к цене товара.</p>
+              </div>
+              <button class="text-xs text-brand font-semibold hover:underline whitespace-nowrap ml-4" @click="addService">+ Добавить</button>
+            </div>
+            <div v-if="form.services.length === 0" class="text-xs text-[#bbb] py-2">Услуги не добавлены</div>
+            <div v-for="(svc, i) in form.services" :key="svc.id" class="flex gap-2 mb-2 items-center">
+              <input
+                v-model="svc.name"
+                type="text"
+                placeholder="Название услуги (напр. Гравировка)"
+                class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand"
+              />
+              <div class="relative shrink-0">
+                <input
+                  v-model.number="svc.price"
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  class="w-28 border border-[#ddd] rounded-xl px-3 py-2 pr-7 text-sm outline-none focus:border-brand"
+                />
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#aaa]">₽</span>
+              </div>
+              <button class="w-8 h-9 text-[#aaa] hover:text-red-400 flex items-center justify-center text-xl" @click="removeService(i)">×</button>
             </div>
           </div>
         </div>

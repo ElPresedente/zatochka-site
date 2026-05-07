@@ -9,6 +9,7 @@ export const products = pgTable('products', {
   description: text('description').notNull().default(''),
   photos: text('photos').notNull().default('[]'),
   specs: text('specs').notNull().default('[]'),
+  services: text('services').notNull().default('[]'),
   active: boolean('active').notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),

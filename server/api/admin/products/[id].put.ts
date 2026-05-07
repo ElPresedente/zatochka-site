@@ -31,6 +31,12 @@ export default defineEventHandler(async (event) => {
     }
     update.specs = JSON.stringify(body.specs)
   }
+  if (body.services !== undefined) {
+    if (!Array.isArray(body.services)) {
+      throw createError({ statusCode: 400, message: 'Некорректный формат услуг' })
+    }
+    update.services = JSON.stringify(body.services)
+  }
   if (body.active !== undefined) update.active = !!body.active
   if (body.sortOrder !== undefined) update.sortOrder = parseNonNegativeInteger(body.sortOrder, 'Порядок сортировки', 1_000_000)
 
@@ -45,5 +51,6 @@ export default defineEventHandler(async (event) => {
     ...row,
     photos: safeJsonParse<string[]>(row.photos, []),
     specs: safeJsonParse<unknown[]>(row.specs, []),
+    services: safeJsonParse<unknown[]>(row.services, []),
   }
 })

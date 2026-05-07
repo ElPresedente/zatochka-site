@@ -14,8 +14,8 @@ defineProps<{
 
 const emit = defineEmits<{
   close: []
-  setQty: [id: number, qty: number, stock: number]
-  remove: [id: number]
+  setQty: [cartKey: string, qty: number, stock: number]
+  remove: [cartKey: string]
   clear: []
   checkout: []
   'update:comment': [value: string]
@@ -28,7 +28,7 @@ const { formatPrice } = useFormatters()
   <Teleport to="body">
     <div class="fixed inset-0 z-[200]" @click.self="emit('close')">
       <div class="absolute inset-0 bg-black/50" @click="emit('close')" />
-      <div class="absolute right-0 top-0 bottom-0 w-[400px] bg-white shadow-2xl flex flex-col">
+      <div class="absolute right-0 top-0 bottom-0 w-[420px] bg-white shadow-2xl flex flex-col">
         <div class="flex items-center justify-between px-6 py-5 border-b border-[#eee]">
           <div class="text-xl font-bold">Корзина</div>
           <button class="text-[#aaa] hover:text-[#333] text-2xl" @click="emit('close')">×</button>
@@ -40,24 +40,32 @@ const { formatPrice } = useFormatters()
         </div>
 
         <div v-else class="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-4">
-          <div v-for="item in cart" :key="item.id" class="flex gap-3 items-start">
+          <div v-for="item in cart" :key="item.cartKey" class="flex gap-3 items-start">
             <div
               class="w-16 h-16 rounded-xl bg-center bg-cover bg-[#f0f0f0] shrink-0"
               :style="item.photo ? `background-image: url('${item.photo}')` : ''"
             />
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-semibold text-[#222] leading-snug mb-1 line-clamp-2">{{ item.name }}</div>
+              <div class="text-sm font-semibold text-[#222] leading-snug mb-0.5 line-clamp-2">{{ item.name }}</div>
+              <!-- Services list -->
+              <div v-if="item.services.length > 0" class="flex flex-col gap-0.5 mb-1">
+                <span
+                  v-for="svc in item.services"
+                  :key="svc.id"
+                  class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 w-fit font-medium"
+                >+ {{ svc.name }}</span>
+              </div>
               <div class="text-brand font-bold">{{ formatPrice(item.price) }}</div>
               <div class="mt-2">
                 <ShopQtyInput
                   :qty="item.qty"
                   :stock="productStock(item.id)"
                   size="sm"
-                  @update="emit('setQty', item.id, $event, productStock(item.id))"
+                  @update="emit('setQty', item.cartKey, $event, productStock(item.id))"
                 />
               </div>
             </div>
-            <button class="text-[#ccc] hover:text-red-400 text-xl shrink-0" @click="emit('remove', item.id)">×</button>
+            <button class="text-[#ccc] hover:text-red-400 text-xl shrink-0" @click="emit('remove', item.cartKey)">×</button>
           </div>
         </div>
 

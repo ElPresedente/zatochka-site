@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
 
   const photos = Array.isArray(body?.photos) ? body.photos : []
   const specs = Array.isArray(body?.specs) ? body.specs : []
+  const services = Array.isArray(body?.services) ? body.services : []
   const active = body?.active !== false
 
   const [row] = await db.insert(products).values({
@@ -25,6 +26,7 @@ export default defineEventHandler(async (event) => {
     description,
     photos: JSON.stringify(photos),
     specs: JSON.stringify(specs),
+    services: JSON.stringify(services),
     active,
     sortOrder,
   }).returning()
@@ -33,5 +35,6 @@ export default defineEventHandler(async (event) => {
     ...row,
     photos: safeJsonParse<string[]>(row.photos, []),
     specs: safeJsonParse<unknown[]>(row.specs, []),
+    services: safeJsonParse<unknown[]>(row.services, []),
   }
 })

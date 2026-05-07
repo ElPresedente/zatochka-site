@@ -1,6 +1,7 @@
-import { desc, eq, inArray } from 'drizzle-orm'
+import { asc, desc, eq, inArray } from 'drizzle-orm'
 import { useDb } from '~/server/db'
-import { orders, orderItems } from '~/server/db/schema'
+import { orderHistory, orderItems, orders } from '~/server/db/schema'
+import { safeJsonParse } from '~/server/utils/validators'
 
 export default defineEventHandler(async (event) => {
   const session = await getAuthSession(event)
@@ -19,17 +20,39 @@ export default defineEventHandler(async (event) => {
   if (!userOrders.length) return []
 
   const ids = userOrders.map(o => o.id)
-  const items = await db
-    .select()
-    .from(orderItems)
-    .where(inArray(orderItems.orderId, ids))
 
-  const byOrderId = new Map<number, typeof items>()
+  const [items, history] = await Promise.all([
+    db.select().from(orderItems).where(inArray(orderItems.orderId, ids)),
+    db.select({
+      id: orderHistory.id,
+      orderId: orderHistory.orderId,
+      description: orderHistory.description,
+      createdAt: orderHistory.createdAt,
+    }).from(orderHistory)
+      .where(inArray(orderHistory.orderId, ids))
+      .orderBy(asc(orderHistory.createdAt)),
+  ])
+
+  const itemsByOrder = new Map<number, typeof items>()
   for (const item of items) {
-    const arr = byOrderId.get(item.orderId) ?? []
+    const arr = itemsByOrder.get(item.orderId) ?? []
     arr.push(item)
-    byOrderId.set(item.orderId, arr)
+    itemsByOrder.set(item.orderId, arr)
   }
 
-  return userOrders.map(order => ({ ...order, items: byOrderId.get(order.id) ?? [] }))
+  const historyByOrder = new Map<number, typeof history>()
+  for (const entry of history) {
+    const arr = historyByOrder.get(entry.orderId) ?? []
+    arr.push(entry)
+    historyByOrder.set(entry.orderId, arr)
+  }
+
+  return userOrders.map(order => ({
+    ...order,
+    items: (itemsByOrder.get(order.id) ?? []).map(item => ({
+      ...item,
+      services: safeJsonParse<unknown[]>(item.services, []),
+    })),
+    history: historyByOrder.get(order.id) ?? [],
+  }))
 })

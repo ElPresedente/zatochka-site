@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ProductDto, ProductCategoryDto } from '~/types/api'
+import type { CartItemService } from '~/composables/useCart'
 
 useHead({ title: 'Острый край — Магазин' })
 
@@ -60,12 +61,23 @@ function productStock(id: number): number {
   return productStockById.value.get(id) ?? 0
 }
 
+// total qty across all service combos for card display
 function cartQty(id: number): number {
-  return cart.value.find(i => i.id === id)?.qty ?? 0
+  return cart.value.filter(i => i.id === id).reduce((s, i) => s + i.qty, 0)
+}
+
+function cartQtyByKey(cartKey: string): number {
+  return cart.value.find(i => i.cartKey === cartKey)?.qty ?? 0
 }
 
 function canIncrease(id: number): boolean {
   return cartQty(id) < productStock(id)
+}
+
+function canIncreaseByKey(cartKey: string): boolean {
+  const item = cart.value.find(i => i.cartKey === cartKey)
+  if (!item) return true
+  return item.qty < productStock(item.id)
 }
 
 watch([cart, allProducts], () => {
@@ -107,7 +119,11 @@ async function checkout() {
     const order = await $fetch<{ id: number }>('/api/orders', {
       method: 'POST',
       body: {
-        items: cart.value.map(item => ({ id: item.id, qty: item.qty })),
+        items: cart.value.map(item => ({
+          id: item.id,
+          qty: item.qty,
+          serviceIds: item.services.map(s => s.id),
+        })),
         comment: orderComment.value,
       },
     })
@@ -181,8 +197,8 @@ onMounted(() => {
           :cart-qty="cartQty(product.id)"
           :can-increase="canIncrease(product.id)"
           @open="openModal"
-          @add="addToCart"
-          @set-qty="setQty"
+          @add="(p: ProductDto) => addToCart(p)"
+          @set-qty="(cartKey: string, qty: number, stock: number) => setQty(cartKey, qty, stock)"
         />
       </div>
     </div>
@@ -191,11 +207,11 @@ onMounted(() => {
   <ShopProductModal
     v-if="modalProduct"
     :product="modalProduct"
-    :cart-qty="cartQty(modalProduct.id)"
-    :can-increase="canIncrease(modalProduct.id)"
+    :cart-qty-by-key="cartQtyByKey"
+    :can-increase-by-key="canIncreaseByKey"
     @close="closeModal"
-    @add="addToCart"
-    @set-qty="setQty"
+    @add="(p: ProductDto, svcs: CartItemService[]) => addToCart(p, svcs)"
+    @set-qty="(cartKey: string, qty: number, stock: number) => setQty(cartKey, qty, stock)"
   />
 
   <ShopCartDrawer

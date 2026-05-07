@@ -1,12 +1,25 @@
 const CART_KEY = 'ostriy_kray_cart'
 
-export interface CartItem {
-  id: number
+export interface CartItemService {
+  id: string
   name: string
   price: number
+}
+
+export interface CartItem {
+  cartKey: string       // "productId" or "productId:svcId1,svcId2"
+  id: number            // productId
+  name: string
+  price: number         // unitPrice incl. services
   photo: string
   qty: number
   stock?: number
+  services: CartItemService[]
+}
+
+export function makeCartKey(productId: number, serviceIds: string[]): string {
+  if (!serviceIds.length) return String(productId)
+  return `${productId}:${[...serviceIds].sort().join(',')}`
 }
 
 const cart = ref<CartItem[]>([])
@@ -14,8 +27,14 @@ const cart = ref<CartItem[]>([])
 function loadCart() {
   if (!import.meta.client) return
   try {
-    cart.value = JSON.parse(localStorage.getItem(CART_KEY) ?? '[]')
-  } catch {
+    const raw = JSON.parse(localStorage.getItem(CART_KEY) ?? '[]')
+    cart.value = (Array.isArray(raw) ? raw : []).map((item: any) => ({
+      ...item,
+      cartKey: item.cartKey ?? String(item.id),
+      services: item.services ?? [],
+    }))
+  }
+  catch {
     cart.value = []
   }
 }
@@ -31,34 +50,43 @@ export function useCart() {
   const totalQty = computed(() => cart.value.reduce((s, i) => s + i.qty, 0))
   const totalPrice = computed(() => cart.value.reduce((s, i) => s + i.price * i.qty, 0))
 
-  function addToCart(product: { id: number; name: string; price: number; photos: string[]; stock: number }) {
-    if (product.stock <= 0) return
+  function addToCart(
+    product: { id: number; name: string; price: number; photos: string[]; stock: number },
+    selectedServices: CartItemService[] = [],
+  ) {
+    const cartKey = makeCartKey(product.id, selectedServices.map(s => s.id))
+    const servicesTotal = selectedServices.reduce((s, sv) => s + sv.price, 0)
+    const unitPrice = product.price + servicesTotal
 
-    const existing = cart.value.find(i => i.id === product.id)
+    const existing = cart.value.find(i => i.cartKey === cartKey)
     if (existing) {
       existing.stock = product.stock
       existing.qty = Math.min(existing.qty + 1, product.stock)
-    } else {
+    }
+    else {
+      if (product.stock <= 0) return
       cart.value.push({
+        cartKey,
         id: product.id,
         name: product.name,
-        price: product.price,
+        price: unitPrice,
         photo: product.photos[0] ?? '',
         qty: 1,
         stock: product.stock,
+        services: selectedServices,
       })
     }
     saveCart()
   }
 
-  function removeFromCart(id: number) {
-    cart.value = cart.value.filter(i => i.id !== id)
+  function removeFromCart(cartKey: string) {
+    cart.value = cart.value.filter(i => i.cartKey !== cartKey)
     saveCart()
   }
 
-  function setQty(id: number, qty: number, maxQty?: number) {
-    if (qty <= 0) { removeFromCart(id); return }
-    const item = cart.value.find(i => i.id === id)
+  function setQty(cartKey: string, qty: number, maxQty?: number) {
+    if (qty <= 0) { removeFromCart(cartKey); return }
+    const item = cart.value.find(i => i.cartKey === cartKey)
     if (item) {
       if (maxQty !== undefined) item.stock = maxQty
       const limit = maxQty ?? item.stock

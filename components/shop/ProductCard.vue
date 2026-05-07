@@ -10,7 +10,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   open: [product: ProductDto]
   add: [product: ProductDto]
-  setQty: [productId: number, qty: number, stock: number]
+  setQty: [cartKey: string, qty: number, stock: number]
 }>()
 
 const { formatPrice } = useFormatters()
@@ -46,21 +46,40 @@ const stockBadgeText = computed(() => {
           {{ stockBadgeText }}
         </span>
       </div>
-      <div v-if="cartQty > 0" class="mt-2 flex justify-center" @click.stop>
-        <ShopQtyInput
-          :qty="cartQty"
-          :stock="product.stock"
-          size="md"
-          @update="emit('setQty', product.id, $event, product.stock)"
-        />
-      </div>
-      <button
-        v-else
-        class="mt-2 btn-primary py-2.5 text-base w-full"
-        :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
-        :disabled="product.stock === 0"
-        @click.stop="emit('add', product)"
-      >В корзину</button>
+      <!-- Product with services: always open modal to choose -->
+      <template v-if="product.services.length > 0">
+        <div v-if="cartQty > 0" class="mt-2 flex items-center justify-between gap-2" @click.stop>
+          <span class="text-xs text-[#888]">В корзине: {{ cartQty }} шт.</span>
+          <button class="text-xs text-brand font-semibold hover:underline" @click.stop="emit('open', product)">
+            Изменить
+          </button>
+        </div>
+        <button
+          class="mt-2 btn-primary py-2.5 text-base w-full"
+          :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
+          :disabled="product.stock === 0"
+          @click.stop="emit('open', product)"
+        >{{ cartQty > 0 ? 'Добавить ещё' : 'Выбрать' }}</button>
+      </template>
+
+      <!-- Regular product: direct add or qty control -->
+      <template v-else>
+        <div v-if="cartQty > 0" class="mt-2 flex justify-center" @click.stop>
+          <ShopQtyInput
+            :qty="cartQty"
+            :stock="product.stock"
+            size="md"
+            @update="emit('setQty', String(product.id), $event, product.stock)"
+          />
+        </div>
+        <button
+          v-else
+          class="mt-2 btn-primary py-2.5 text-base w-full"
+          :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
+          :disabled="product.stock === 0"
+          @click.stop="emit('add', product)"
+        >В корзину</button>
+      </template>
     </div>
   </div>
 </template>

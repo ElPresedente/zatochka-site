@@ -7,6 +7,17 @@ export interface ProductSpec {
   value: string
 }
 
+export interface ProductService {
+  id: string
+  name: string
+  price: number
+}
+
+export interface OrderItemService {
+  name: string
+  price: number
+}
+
 export interface ProductDto {
   id: number
   name: string
@@ -16,6 +27,7 @@ export interface ProductDto {
   description: string
   photos: string[]
   specs: ProductSpec[]
+  services: ProductService[]
   active: boolean
   sortOrder: number
   createdAt?: string
@@ -51,10 +63,19 @@ export interface OrderItemDto {
   unitPrice: number
   quantity: number
   totalPrice: number
+  services: OrderItemService[]
+}
+
+export interface OrderHistoryDto {
+  id: number
+  orderId: number
+  description: string
+  createdAt: string
 }
 
 export interface OrderDetailsDto extends OrderRowDto {
   items: OrderItemDto[]
+  history: OrderHistoryDto[]
 }
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {

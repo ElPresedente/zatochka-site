@@ -1,6 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import { useDb } from '~/server/db'
-import { orderItems, orders } from '~/server/db/schema'
+import { orderHistory, orderItems, orders } from '~/server/db/schema'
+import { safeJsonParse } from '~/server/utils/validators'
 
 export default defineEventHandler(async (event) => {
   const id = Number(getRouterParam(event, 'id'))
@@ -14,9 +15,21 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Заказ не найден' })
   }
 
-  const items = await db.select().from(orderItems)
-    .where(eq(orderItems.orderId, id))
-    .orderBy(asc(orderItems.id))
+  const [items, history] = await Promise.all([
+    db.select().from(orderItems)
+      .where(eq(orderItems.orderId, id))
+      .orderBy(asc(orderItems.id)),
+    db.select().from(orderHistory)
+      .where(eq(orderHistory.orderId, id))
+      .orderBy(asc(orderHistory.createdAt)),
+  ])
 
-  return { ...order, items }
+  return {
+    ...order,
+    items: items.map(item => ({
+      ...item,
+      services: safeJsonParse<unknown[]>(item.services, []),
+    })),
+    history,
+  }
 })

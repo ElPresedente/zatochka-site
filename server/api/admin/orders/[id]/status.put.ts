@@ -1,6 +1,11 @@
 import { eq, sql } from 'drizzle-orm'
 import { useDb } from '~/server/db'
-import { orderItems, orders, orderStatuses, products, type OrderStatus } from '~/server/db/schema'
+import { orderHistory, orderItems, orders, orderStatuses, products, type OrderStatus } from '~/server/db/schema'
+
+const STATUS_LABELS: Record<string, string> = {
+  created: 'Создан', accepted: 'Принят', in_progress: 'В работе',
+  ready: 'Готов к выдаче', completed: 'Завершён', cancelled: 'Отменён',
+}
 
 const FINAL_STATUSES = new Set<OrderStatus>(['cancelled', 'completed'])
 
@@ -25,6 +30,7 @@ function assertTransition(current: OrderStatus, next: OrderStatus) {
 }
 
 export default defineEventHandler(async (event) => {
+  const adminId = event.context.userId as number
   const id = Number(getRouterParam(event, 'id'))
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, message: 'Некорректный ID заказа' })
@@ -80,6 +86,19 @@ export default defineEventHandler(async (event) => {
       .set({ status: nextStatus, updatedAt: new Date() })
       .where(eq(orders.id, id))
       .returning()
+
+    const historyDesc = [`Статус изменён: «${STATUS_LABELS[currentStatus]}» → «${STATUS_LABELS[nextStatus]}»`]
+    if (currentStatus === 'created' && nextStatus === 'accepted') {
+      historyDesc.push('остатки товаров списаны')
+    }
+    if (nextStatus === 'cancelled' && ['accepted', 'in_progress', 'ready'].includes(currentStatus)) {
+      historyDesc.push('остатки товаров возвращены')
+    }
+    await tx.insert(orderHistory).values({
+      orderId: id,
+      adminId,
+      description: historyDesc.join(', ') + '.',
+    })
 
     return updated
   })

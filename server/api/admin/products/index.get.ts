@@ -13,5 +13,6 @@ export default defineEventHandler(async () => {
     ...r,
     photos: safeJsonParse<string[]>(r.photos, []),
     specs: safeJsonParse<unknown[]>(r.specs, []),
+    services: safeJsonParse<unknown[]>(r.services, []),
   }))
 })

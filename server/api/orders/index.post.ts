@@ -1,11 +1,12 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { useDb } from '~/server/db'
-import { orderItems, orders, products, users, type OrderStatus } from '~/server/db/schema'
+import { orderHistory, orderItems, orders, products, users, type OrderStatus } from '~/server/db/schema'
 import { safeJsonParse } from '~/server/utils/validators'
 
 interface OrderItemInput {
   id: number
   qty: number
+  serviceIds: string[]
 }
 
 function parseItems(input: unknown): OrderItemInput[] {
@@ -16,23 +17,22 @@ function parseItems(input: unknown): OrderItemInput[] {
   const items = input.map((item: any) => ({
     id: Number(item?.id),
     qty: Number(item?.qty),
+    serviceIds: Array.isArray(item?.serviceIds)
+      ? item.serviceIds.filter((s: unknown) => typeof s === 'string')
+      : [],
   })).filter(item => Number.isInteger(item.id) && Number.isInteger(item.qty) && item.id > 0 && item.qty > 0)
 
   if (items.length === 0) {
     throw createError({ statusCode: 400, message: 'Корзина пуста' })
   }
 
-  const merged = new Map<number, number>()
   for (const item of items) {
-    merged.set(item.id, (merged.get(item.id) ?? 0) + item.qty)
-  }
-
-  return [...merged.entries()].map(([id, qty]) => {
-    if (qty > 999) {
+    if (item.qty > 999) {
       throw createError({ statusCode: 400, message: 'Некорректное количество товара' })
     }
-    return { id, qty }
-  })
+  }
+
+  return items
 }
 
 function parseComment(input: unknown) {
@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const cartItems = parseItems(body?.items)
   const userComment = parseComment(body?.comment)
-  const productIds = cartItems.map(item => item.id)
+  const productIds = [...new Set(cartItems.map(item => item.id))]
 
   const db = useDb()
   const [user] = await db.select().from(users).where(eq(users.id, session.data.userId))
@@ -80,14 +80,24 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    // Validate and snapshot services
+    const allServices = safeJsonParse<{ id: string, name: string, price: number }[]>(product.services, [])
+    const selectedServices = item.serviceIds
+      .map(sid => allServices.find(s => s.id === sid))
+      .filter((s): s is { id: string, name: string, price: number } => !!s)
+
+    const servicesTotal = selectedServices.reduce((s, sv) => s + sv.price, 0)
+    const unitPrice = product.price + servicesTotal
+
     const photos = safeJsonParse<string[]>(product.photos, [])
     return {
       productId: product.id,
       productName: product.name,
       productPhoto: photos[0] ?? '',
-      unitPrice: product.price,
+      unitPrice,
       quantity: item.qty,
-      totalPrice: product.price * item.qty,
+      totalPrice: unitPrice * item.qty,
+      services: JSON.stringify(selectedServices.map(s => ({ name: s.name, price: s.price }))),
     }
   })
 
@@ -108,6 +118,12 @@ export default defineEventHandler(async (event) => {
       ...item,
       orderId: createdOrder.id,
     })))
+
+    await tx.insert(orderHistory).values({
+      orderId: createdOrder.id,
+      adminId: null,
+      description: 'Заказ оформлен',
+    })
 
     return createdOrder
   })

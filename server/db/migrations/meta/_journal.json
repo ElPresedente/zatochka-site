@@ -29,6 +29,20 @@
       "when": 1777756200000,
       "tag": "0003_order_item_stock_deducted",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1746614400000,
+      "tag": "0004_order_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1746700800000,
+      "tag": "0005_product_services",
+      "breakpoints": true
     }
   ]
 }

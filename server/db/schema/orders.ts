@@ -38,7 +38,20 @@ export const orderItems = pgTable('order_items', {
   quantity: integer('quantity').notNull(),
   totalPrice: integer('total_price').notNull(),
   stockDeducted: integer('stock_deducted').notNull().default(0),
+  services: text('services').notNull().default('[]'),
 }, table => ({
   orderIdIdx: index('order_items_order_id_idx').on(table.orderId),
   productIdIdx: index('order_items_product_id_idx').on(table.productId),
+}))
+
+export const orderHistory = pgTable('order_history', {
+  id: serial('id').primaryKey(),
+  orderId: integer('order_id').notNull()
+    .references(() => orders.id, { onDelete: 'cascade' }),
+  adminId: integer('admin_id')
+    .references(() => users.id, { onDelete: 'set null' }),
+  description: text('description').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, table => ({
+  orderIdIdx: index('order_history_order_id_idx').on(table.orderId),
 }))
