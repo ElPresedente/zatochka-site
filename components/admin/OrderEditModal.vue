@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import type { OrderDetailsDto, OrderHistoryDto, OrderItemDto, OrderRowDto, OrderStatus, ProductDto } from '~/types/api'
+import type { OrderDetailsDto, OrderHistoryDto, OrderItemDto, OrderItemService, OrderRowDto, OrderStatus, ProductDto, ProductService } from '~/types/api'
 import { ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES } from '~/types/api'
 
-type AdminProduct = Pick<ProductDto, 'id' | 'name' | 'category' | 'price' | 'stock' | 'photos' | 'active'>
+type AdminProduct = Pick<ProductDto, 'id' | 'name' | 'category' | 'price' | 'stock' | 'photos' | 'active' | 'services'>
+
+interface FormItem extends OrderItemDto {
+  serviceIds: string[]
+}
 
 const props = defineProps<{
   orderId: number
@@ -23,8 +27,19 @@ const editSaving = ref(false)
 const actionError = ref('')
 const sellerCommentForm = ref('')
 const totalAmountForm = ref(0)
-const orderItemsForm = ref<OrderItemDto[]>([])
+const orderItemsForm = ref<FormItem[]>([])
+const originalItems = ref<FormItem[]>([])
 const showPicker = ref(false)
+
+function deriveServiceIds(item: OrderItemDto): string[] {
+  if (!item.productId) return []
+  const product = props.adminProducts?.find(p => p.id === item.productId)
+  if (!product) return []
+  return (item.services as OrderItemService[]).flatMap((svc) => {
+    const match = (product.services as ProductService[]).find(ps => ps.name === svc.name && ps.price === svc.price)
+    return match ? [match.id] : []
+  })
+}
 
 async function loadOrder() {
   detailsLoading.value = true
@@ -34,7 +49,12 @@ async function loadOrder() {
     selectedOrder.value = await $fetch<OrderDetailsDto>(`/api/admin/orders/${props.orderId}`)
     sellerCommentForm.value = selectedOrder.value.sellerComment
     totalAmountForm.value = selectedOrder.value.totalAmount
-    orderItemsForm.value = selectedOrder.value.items.map(item => ({ ...item }))
+    const formItems = selectedOrder.value.items.map(item => ({
+      ...item,
+      serviceIds: deriveServiceIds(item),
+    }))
+    orderItemsForm.value = formItems
+    originalItems.value = formItems.map(i => ({ ...i }))
   }
   finally {
     detailsLoading.value = false
@@ -49,6 +69,7 @@ const orderItemsPayload = computed(() => orderItemsForm.value
     productId: item.productId as number,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
+    serviceIds: item.serviceIds,
   })))
 
 const orderItemsSubtotal = computed(() => orderItemsForm.value
@@ -57,9 +78,9 @@ const orderItemsSubtotal = computed(() => orderItemsForm.value
 const hasOrderItemsChanges = computed(() => {
   if (!selectedOrder.value) return false
   if (!canEditItems(selectedOrder.value.status)) return false
-  const original = selectedOrder.value.items
-    .filter(item => item.productId)
-    .map(item => ({ productId: item.productId, quantity: item.quantity, unitPrice: item.unitPrice }))
+  const original = originalItems.value
+    .filter(i => i.productId)
+    .map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, serviceIds: i.serviceIds }))
   return JSON.stringify(orderItemsPayload.value) !== JSON.stringify(original)
 })
 
@@ -138,25 +159,42 @@ function removeOrderItem(index: number) {
   syncTotalFromItems()
 }
 
-function handlePickerAdd(items: { productId: number, quantity: number }[]) {
-  for (const { productId, quantity } of items) {
+function comboKey(productId: number, serviceIds: string[]): string {
+  const sorted = [...serviceIds].sort()
+  return sorted.length ? `${productId}:${sorted.join(',')}` : String(productId)
+}
+
+function handlePickerAdd(pickerItems: { productId: number, quantity: number, serviceIds: string[] }[]) {
+  for (const { productId, quantity, serviceIds } of pickerItems) {
     const product = props.adminProducts?.find(p => p.id === productId)
     if (!product) continue
-    const existingIndex = orderItemsForm.value.findIndex(item => item.productId === productId)
+
+    // Find existing form item with the same product+services combo
+    const existingIndex = orderItemsForm.value.findIndex(item =>
+      item.productId === productId
+      && comboKey(productId, item.serviceIds) === comboKey(productId, serviceIds),
+    )
+
     if (existingIndex >= 0) {
       setOrderItemQuantity(existingIndex, orderItemsForm.value[existingIndex].quantity + quantity)
     }
     else {
+      const selectedSvcs = (product.services as ProductService[]).filter(s => serviceIds.includes(s.id))
+      const servicesTotal = selectedSvcs.reduce((s, sv) => s + sv.price, 0)
+      const unitPrice = product.price + servicesTotal
+
       orderItemsForm.value.push({
         id: -(Date.now() + Math.random()),
         orderId: selectedOrder.value?.id ?? 0,
         productId: product.id,
         productName: product.name,
         productPhoto: product.photos[0] ?? '',
-        unitPrice: product.price,
+        unitPrice,
         quantity,
-        totalPrice: product.price * quantity,
-      } as any)
+        totalPrice: unitPrice * quantity,
+        services: selectedSvcs.map(s => ({ name: s.name, price: s.price })),
+        serviceIds,
+      } as FormItem)
     }
   }
   syncTotalFromItems()
@@ -180,7 +218,12 @@ async function saveOrderEdits(): Promise<boolean> {
     selectedOrder.value = await $fetch<OrderDetailsDto>(`/api/admin/orders/${updated.id}`)
     sellerCommentForm.value = selectedOrder.value.sellerComment
     totalAmountForm.value = selectedOrder.value.totalAmount
-    orderItemsForm.value = selectedOrder.value.items.map(item => ({ ...item }))
+    const formItems = selectedOrder.value.items.map(item => ({
+      ...item,
+      serviceIds: deriveServiceIds(item),
+    }))
+    orderItemsForm.value = formItems
+    originalItems.value = formItems.map(i => ({ ...i }))
     emit('changed')
     return true
   }
@@ -341,21 +384,23 @@ function historyLabel(entry: OrderHistoryDto) {
               <div
                 v-for="(item, index) in orderItemsForm"
                 :key="item.id"
-                class="grid grid-cols-[56px_1fr_100px_80px_110px_auto] gap-3 items-center px-4 py-3 border-b border-[#f0f0f0] last:border-0"
+                class="grid grid-cols-[56px_1fr_100px_80px_110px_auto] gap-3 items-start px-4 py-3 border-b border-[#f0f0f0] last:border-0"
               >
                 <div
                   class="w-14 h-14 rounded-xl bg-center bg-cover bg-[#eee] shrink-0"
                   :style="item.productPhoto ? `background-image: url('${item.productPhoto}')` : ''"
                 />
-                <div class="font-semibold text-[#222] text-sm leading-snug">{{ item.productName }}</div>
-                <div v-if="item.services?.length" class="flex flex-wrap gap-1 mt-1">
-                  <span
-                    v-for="svc in item.services"
-                    :key="svc.name"
-                    class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300"
-                  >
-                    ★ {{ svc.name }} <span class="opacity-70">(+{{ formatPrice(svc.price) }})</span>
-                  </span>
+                <div>
+                  <div class="font-semibold text-[#222] text-sm leading-snug">{{ item.productName }}</div>
+                  <div v-if="(item.services as OrderItemService[]).length > 0" class="flex flex-wrap gap-1 mt-1">
+                    <span
+                      v-for="svc in (item.services as OrderItemService[])"
+                      :key="svc.name"
+                      class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300"
+                    >
+                      ★ {{ svc.name }} <span class="opacity-70">(+{{ formatPrice(svc.price) }})</span>
+                    </span>
+                  </div>
                 </div>
 
                 <!-- Unit price -->
@@ -368,7 +413,7 @@ function historyLabel(entry: OrderHistoryDto) {
                   class="w-full border border-[#ddd] rounded-xl px-2 py-2 text-sm text-right outline-none focus:border-brand"
                   @input="setOrderItemUnitPrice(index, Number(($event.target as HTMLInputElement).value))"
                 />
-                <div v-else class="text-sm text-right text-[#555]">{{ formatPrice(item.unitPrice) }}</div>
+                <div v-else class="text-sm text-right text-[#555] pt-1">{{ formatPrice(item.unitPrice) }}</div>
 
                 <!-- Quantity -->
                 <input
@@ -380,9 +425,9 @@ function historyLabel(entry: OrderHistoryDto) {
                   class="w-full border border-[#ddd] rounded-xl px-2 py-2 text-sm text-right outline-none focus:border-brand"
                   @input="setOrderItemQuantity(index, Number(($event.target as HTMLInputElement).value))"
                 />
-                <div v-else class="text-sm text-right text-[#555]">{{ item.quantity }} шт.</div>
+                <div v-else class="text-sm text-right text-[#555] pt-1">{{ item.quantity }} шт.</div>
 
-                <div class="font-bold text-[#222] text-right">{{ formatPrice(item.totalPrice) }}</div>
+                <div class="font-bold text-[#222] text-right pt-1">{{ formatPrice(item.totalPrice) }}</div>
 
                 <button
                   v-if="canEditItems(selectedOrder.status)"

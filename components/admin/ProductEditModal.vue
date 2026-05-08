@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import type { ProductDto, ProductService, ProductSpec } from '~/types/api'
+import type { ProductCategoryDto, ProductDto, ProductService, ProductSpec } from '~/types/api'
 
-type ProductForm = Partial<ProductDto> & { specs: ProductSpec[]; photos: string[]; services: ProductService[] }
+type ProductForm = Omit<Partial<ProductDto>, 'category'> & {
+  categoryId: number
+  specs: ProductSpec[]
+  photos: string[]
+  services: ProductService[]
+}
 
 const props = defineProps<{
   product: ProductDto | null
-  categoryNames: string[]
+  categories: ProductCategoryDto[]
 }>()
 
 const emit = defineEmits<{
@@ -21,16 +26,38 @@ function initialForm(): ProductForm {
   if (props.product) {
     return {
       ...props.product,
+      categoryId: props.product.categoryId,
       specs: props.product.specs.map(s => ({ ...s })),
       photos: [...props.product.photos],
       services: props.product.services.map(s => ({ ...s })),
     }
   }
   return {
-    name: '', category: props.categoryNames[0] ?? '', price: 0, stock: 0,
+    name: '', categoryId: props.categories[0]?.id ?? 0, price: 0, stock: 0,
     description: '', photos: [], specs: [], services: [], active: true, sortOrder: 0,
   }
 }
+
+// True when product's current category is hidden ("Без категории")
+const isUncategorized = computed(() =>
+  !!props.product && !props.categories.some(c => c.id === props.product!.categoryId),
+)
+
+// Selected category is still hidden (admin hasn't switched yet)
+const categoryIsHidden = computed(() =>
+  isUncategorized.value && form.value.categoryId === props.product?.categoryId,
+)
+
+// Dropdown options: include "Без категории" as first entry when product is in it
+const dropdownCategories = computed(() => {
+  if (isUncategorized.value && props.product) {
+    return [
+      { id: props.product.categoryId, name: 'Без категории', hidden: true, sortOrder: 0 } as ProductCategoryDto,
+      ...props.categories,
+    ]
+  }
+  return props.categories
+})
 
 const saving = ref(false)
 async function save() {
@@ -39,12 +66,14 @@ async function save() {
   try {
     if (isNew.value) {
       await $fetch('/api/admin/products', { method: 'POST', body: form.value })
-    } else {
+    }
+    else {
       await $fetch(`/api/admin/products/${form.value.id}`, { method: 'PUT', body: form.value })
     }
     emit('saved')
     emit('close')
-  } finally {
+  }
+  finally {
     saving.value = false
   }
 }
@@ -82,9 +111,11 @@ async function onFileChange(e: Event) {
     fd.append('file', file)
     const res = await $fetch<{ url: string }>('/api/admin/upload', { method: 'POST', body: fd })
     form.value.photos.push(res.url)
-  } catch (err: any) {
+  }
+  catch (err: any) {
     uploadError.value = err?.data?.message ?? 'Ошибка загрузки'
-  } finally {
+  }
+  finally {
     uploading.value = false
   }
 }
@@ -110,9 +141,14 @@ async function onFileChange(e: Event) {
             </div>
             <div>
               <label class="block text-xs font-semibold text-[#777] mb-1.5">Категория</label>
-              <select v-model="form.category" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand bg-white">
-                <option v-for="cat in categoryNames" :key="cat">{{ cat }}</option>
+              <select v-model.number="form.categoryId" class="w-full border rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand bg-white" :class="categoryIsHidden ? 'border-orange-400' : 'border-[#ddd]'">
+                <option v-for="cat in dropdownCategories" :key="cat.id" :value="cat.id">
+                  {{ cat.hidden ? '⚠ Без категории' : cat.name }}
+                </option>
               </select>
+              <p v-if="categoryIsHidden" class="text-xs text-orange-600 mt-1.5 font-medium">
+                Товар без категории — выберите категорию перед сохранением.
+              </p>
             </div>
             <div>
               <label class="block text-xs font-semibold text-[#777] mb-1.5">Активен</label>
@@ -137,7 +173,6 @@ async function onFileChange(e: Event) {
 
           <div>
             <label class="block text-xs font-semibold text-[#777] mb-2">Фотографии</label>
-
             <div class="flex gap-2 mb-2">
               <input
                 v-model="photoUrl"
@@ -150,7 +185,6 @@ async function onFileChange(e: Event) {
                 + URL
               </button>
             </div>
-
             <input ref="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" @change="onFileChange" />
             <button
               class="w-full py-2.5 border-2 border-dashed border-[#ddd] rounded-xl text-sm text-[#888] hover:border-brand hover:text-brand transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
@@ -162,7 +196,6 @@ async function onFileChange(e: Event) {
               {{ uploading ? 'Загрузка...' : 'Загрузить с компьютера' }}
             </button>
             <p v-if="uploadError" class="text-xs text-red-500 mt-1.5">{{ uploadError }}</p>
-
             <div v-if="form.photos.length > 0" class="flex gap-2 flex-wrap mt-3">
               <div v-for="(ph, i) in form.photos" :key="i" class="relative group">
                 <div class="w-20 h-20 rounded-xl bg-center bg-cover bg-[#eee]" :style="ph ? `background-image: url('${ph}')` : ''" />
@@ -196,20 +229,9 @@ async function onFileChange(e: Event) {
             </div>
             <div v-if="form.services.length === 0" class="text-xs text-[#bbb] py-2">Услуги не добавлены</div>
             <div v-for="(svc, i) in form.services" :key="svc.id" class="flex gap-2 mb-2 items-center">
-              <input
-                v-model="svc.name"
-                type="text"
-                placeholder="Название услуги (напр. Гравировка)"
-                class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand"
-              />
+              <input v-model="svc.name" type="text" placeholder="Название услуги (напр. Гравировка)" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand" />
               <div class="relative shrink-0">
-                <input
-                  v-model.number="svc.price"
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  class="w-28 border border-[#ddd] rounded-xl px-3 py-2 pr-7 text-sm outline-none focus:border-brand"
-                />
+                <input v-model.number="svc.price" type="number" min="0" placeholder="0" class="w-28 border border-[#ddd] rounded-xl px-3 py-2 pr-7 text-sm outline-none focus:border-brand" />
                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#aaa]">₽</span>
               </div>
               <button class="w-8 h-9 text-[#aaa] hover:text-red-400 flex items-center justify-center text-xl" @click="removeService(i)">×</button>
@@ -221,7 +243,7 @@ async function onFileChange(e: Event) {
           <button class="px-6 py-2.5 rounded-xl border-2 border-[#ddd] text-[#555] text-sm font-semibold hover:bg-[#f5f5f5] transition-colors" @click="emit('close')">Отмена</button>
           <button
             class="px-6 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold shadow-[0_3px_0_rgba(9,136,189,0.5)] hover:brightness-110 transition-all disabled:opacity-50"
-            :disabled="saving"
+            :disabled="saving || categoryIsHidden"
             @click="save"
           >{{ saving ? 'Сохранение...' : 'Сохранить' }}</button>
         </div>

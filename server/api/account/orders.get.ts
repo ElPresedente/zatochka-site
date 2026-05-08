@@ -16,6 +16,7 @@ export default defineEventHandler(async (event) => {
     .from(orders)
     .where(eq(orders.userId, session.data.userId))
     .orderBy(desc(orders.createdAt))
+    .limit(50)
 
   if (!userOrders.length) return []
 

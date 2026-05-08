@@ -9,14 +9,14 @@ const [{ data: products, refresh }, { data: categoriesData, refresh: refreshCate
   useFetch<ProductCategoryDto[]>('/api/product-categories'),
 ])
 
-const categoryNames = computed(() => categoriesData.value?.map(c => c.name) ?? [])
+const categories = computed(() => categoriesData.value ?? [])
 
 const search = ref('')
 const filterCat = ref('Все')
 
 const filtered = computed(() => {
   let list = products.value ?? []
-  if (filterCat.value !== 'Все') list = list.filter(p => p.category === filterCat.value)
+  if (filterCat.value !== 'Все') list = list.filter(p => p.categoryId === Number(filterCat.value))
   if (search.value.trim()) {
     const q = search.value.toLowerCase()
     list = list.filter(p => p.name.toLowerCase().includes(q))
@@ -81,12 +81,12 @@ const catPanelOpen = ref(false)
     />
     <div class="flex gap-2 flex-wrap">
       <button
-        v-for="cat in ['Все', ...categoryNames]"
-        :key="cat"
+        v-for="cat in [{ id: 'Все', name: 'Все' }, ...categories.map(c => ({ id: String(c.id), name: c.name }))]"
+        :key="cat.id"
         class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
-        :class="filterCat === cat ? 'bg-brand text-white border-brand' : 'border-[#e0e0e0] text-[#555] hover:border-brand hover:text-brand'"
-        @click="filterCat = cat"
-      >{{ cat }}</button>
+        :class="filterCat === cat.id ? 'bg-brand text-white border-brand' : 'border-[#e0e0e0] text-[#555] hover:border-brand hover:text-brand'"
+        @click="filterCat = cat.id"
+      >{{ cat.name }}</button>
     </div>
     <span class="text-sm text-[#aaa] ml-auto">{{ filtered.length }} товаров</span>
   </div>
@@ -104,7 +104,7 @@ const catPanelOpen = ref(false)
   <AdminProductEditModal
     v-if="editorOpen"
     :product="editingProduct"
-    :category-names="categoryNames"
+    :categories="categories"
     @close="editorOpen = false"
     @saved="refresh"
   />

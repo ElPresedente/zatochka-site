@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { users } from '~/server/db/schema'
+import { parseTrimmedString } from '~/server/utils/validators'
 
 export default defineEventHandler(async (event) => {
   const session = await getAuthSession(event)
@@ -9,11 +10,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const firstName = (body?.firstName ?? '').trim()
-  const lastName = (body?.lastName ?? '').trim()
-
-  if (!firstName) throw createError({ statusCode: 400, message: 'Имя обязательно' })
-  if (!lastName) throw createError({ statusCode: 400, message: 'Фамилия обязательна' })
+  const firstName = parseTrimmedString(body?.firstName, 'Имя', { required: true, max: 100 })
+  const lastName = parseTrimmedString(body?.lastName, 'Фамилия', { required: true, max: 100 })
 
   const db = useDb()
   const [updated] = await db

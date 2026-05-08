@@ -77,7 +77,7 @@ async function remove(c: ProductCategoryDto) {
             class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand"
             @keydown.enter="save"
           />
-          <p v-if="!form.isNew" class="text-xs text-[#aaa] mt-2">При переименовании все товары этой категории обновятся автоматически.</p>
+          <p v-if="!form.isNew" class="text-xs text-[#aaa] mt-2">При переименовании товары этой категории автоматически отображают новое название.</p>
         </div>
         <div class="px-6 py-4 border-t border-[#eee] flex justify-end gap-3">
           <button class="px-5 py-2 rounded-xl border-2 border-[#ddd] text-[#555] text-sm font-semibold hover:bg-[#f5f5f5]" @click="editorOpen = false">Отмена</button>

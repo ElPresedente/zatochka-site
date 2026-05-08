@@ -57,6 +57,23 @@ export function parseTrimmedString(value: unknown, fieldName: string, opts: Stri
   return trimmed
 }
 
+/**
+ * Normalizes a Russian phone number to 10 digits (without country code).
+ * Accepts: +79001234567, 79001234567, 89001234567, 9001234567,
+ *          spaces/dashes/parens are stripped before parsing.
+ * Returns null if the input doesn't match a valid Russian mobile format.
+ */
+export function normalizePhone(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 11 && (digits[0] === '7' || digits[0] === '8')) {
+    return digits.slice(1)
+  }
+  if (digits.length === 10) {
+    return digits
+  }
+  return null
+}
+
 export function parseRouteId(value: string | undefined, entity = 'записи'): number {
   const parsed = Number(value)
   if (!Number.isInteger(parsed) || parsed <= 0) {

@@ -20,6 +20,8 @@ function storage() {
 }
 
 export async function assertRateLimit(opts: RateLimitOptions) {
+  if (process.env.NODE_ENV === 'development') return
+
   const now = Date.now()
   const entry = await storage().getItem(opts.key)
 

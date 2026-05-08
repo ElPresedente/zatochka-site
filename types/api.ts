@@ -20,8 +20,9 @@ export interface OrderItemService {
 
 export interface ProductDto {
   id: number
-  name: string
+  categoryId: number
   category: string
+  name: string
   price: number
   stock: number
   description: string
@@ -38,6 +39,7 @@ export interface ProductCategoryDto {
   id: number
   name: string
   sortOrder: number
+  hidden: boolean
 }
 
 export interface OrderRowDto {
@@ -80,11 +82,11 @@ export interface OrderDetailsDto extends OrderRowDto {
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   created: 'Создан',
-  cancelled: 'Отменен',
+  cancelled: 'Отменён',
   accepted: 'Принят',
   in_progress: 'В работе',
   ready: 'Готов к выдаче',
-  completed: 'Завершен',
+  completed: 'Завершён',
 }
 
 export const ORDER_STATUS_CLASSES: Record<OrderStatus, string> = {

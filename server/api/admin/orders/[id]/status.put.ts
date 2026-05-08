@@ -1,11 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { orderHistory, orderItems, orders, orderStatuses, products, type OrderStatus } from '~/server/db/schema'
-
-const STATUS_LABELS: Record<string, string> = {
-  created: 'Создан', accepted: 'Принят', in_progress: 'В работе',
-  ready: 'Готов к выдаче', completed: 'Завершён', cancelled: 'Отменён',
-}
+import { ORDER_STATUS_LABELS } from '~/types/api'
 
 const FINAL_STATUSES = new Set<OrderStatus>(['cancelled', 'completed'])
 
@@ -57,17 +53,23 @@ export default defineEventHandler(async (event) => {
       for (const item of items) {
         if (!item.productId) continue
 
-        const [product] = await tx.select({ stock: products.stock })
+        const [product] = await tx.select({ stock: products.stock, name: products.name })
           .from(products)
           .where(eq(products.id, item.productId))
-        const stockDeducted = Math.min(product?.stock ?? 0, item.quantity)
+
+        if ((product?.stock ?? 0) < item.quantity) {
+          throw createError({
+            statusCode: 409,
+            message: `Недостаточно товара «${product?.name ?? `#${item.productId}`}» в наличии (на складе ${product?.stock ?? 0}, в заказе ${item.quantity})`,
+          })
+        }
 
         await tx.update(products)
-          .set({ stock: sql`greatest(${products.stock} - ${item.quantity}, 0)` })
+          .set({ stock: sql`${products.stock} - ${item.quantity}` })
           .where(eq(products.id, item.productId))
 
         await tx.update(orderItems)
-          .set({ stockDeducted })
+          .set({ stockDeducted: item.quantity })
           .where(eq(orderItems.id, item.id))
       }
     }
@@ -87,7 +89,7 @@ export default defineEventHandler(async (event) => {
       .where(eq(orders.id, id))
       .returning()
 
-    const historyDesc = [`Статус изменён: «${STATUS_LABELS[currentStatus]}» → «${STATUS_LABELS[nextStatus]}»`]
+    const historyDesc = [`Статус изменён: «${ORDER_STATUS_LABELS[currentStatus]}» → «${ORDER_STATUS_LABELS[nextStatus]}»`]
     if (currentStatus === 'created' && nextStatus === 'accepted') {
       historyDesc.push('остатки товаров списаны')
     }

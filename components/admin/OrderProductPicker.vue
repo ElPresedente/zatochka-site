@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import type { ProductDto } from '~/types/api'
+import type { ProductDto, ProductService } from '~/types/api'
 
-type AdminProduct = Pick<ProductDto, 'id' | 'name' | 'category' | 'price' | 'stock' | 'photos' | 'active'>
+type AdminProduct = Pick<ProductDto, 'id' | 'name' | 'category' | 'price' | 'stock' | 'photos' | 'active' | 'services'>
 
 const props = defineProps<{
   products: AdminProduct[]
 }>()
 
 const emit = defineEmits<{
-  add: [items: { productId: number, quantity: number }[]]
+  add: [items: { productId: number, quantity: number, serviceIds: string[] }[]]
   close: []
 }>()
 
@@ -16,7 +16,12 @@ const { formatPrice } = useFormatters()
 
 const search = ref('')
 const selectedCategory = ref('')
-const quantities = reactive<Record<number, number>>({})
+
+// Per-product card: which services are currently checked
+const cardServices = reactive<Record<number, string[]>>({})
+
+// Per-combo (productId:serviceIds): quantity
+const quantities = reactive<Record<string, number>>({})
 
 const categories = computed(() =>
   [...new Set(props.products.map(p => p.category).filter(Boolean))].sort(),
@@ -31,19 +36,51 @@ const filtered = computed(() => {
   })
 })
 
+function comboKey(productId: number, serviceIds: string[]): string {
+  const sorted = [...serviceIds].sort()
+  return sorted.length ? `${productId}:${sorted.join(',')}` : String(productId)
+}
+
+function currentKey(productId: number): string {
+  return comboKey(productId, cardServices[productId] ?? [])
+}
+
+function currentQty(productId: number): number {
+  return quantities[currentKey(productId)] ?? 0
+}
+
+function productTotalQty(productId: number): number {
+  return Object.entries(quantities)
+    .filter(([key]) => key === String(productId) || key.startsWith(`${productId}:`))
+    .reduce((sum, [, qty]) => sum + (qty as number), 0)
+}
+
+function toggleService(productId: number, serviceId: string) {
+  const current = cardServices[productId] ?? []
+  cardServices[productId] = current.includes(serviceId)
+    ? current.filter(id => id !== serviceId)
+    : [...current, serviceId]
+}
+
+function setQty(productId: number, qty: number) {
+  const key = currentKey(productId)
+  const clamped = Math.max(0, Math.min(999, Math.floor(qty)))
+  if (clamped === 0) delete quantities[key]
+  else quantities[key] = clamped
+}
+
 const selectedItems = computed(() =>
   Object.entries(quantities)
     .filter(([, qty]) => (qty as number) > 0)
-    .map(([id, qty]) => ({ productId: Number(id), quantity: qty as number })),
+    .map(([key, qty]) => {
+      const colonIdx = key.indexOf(':')
+      const productId = colonIdx >= 0 ? Number(key.slice(0, colonIdx)) : Number(key)
+      const serviceIds = colonIdx >= 0 ? key.slice(colonIdx + 1).split(',').filter(Boolean) : []
+      return { productId, quantity: qty as number, serviceIds }
+    }),
 )
 
 const totalQty = computed(() => selectedItems.value.reduce((s, i) => s + i.quantity, 0))
-
-function setQty(productId: number, qty: number) {
-  const clamped = Math.max(0, Math.min(999, Math.floor(qty)))
-  if (clamped === 0) delete quantities[productId]
-  else quantities[productId] = clamped
-}
 
 function confirm() {
   if (selectedItems.value.length === 0) return
@@ -59,6 +96,13 @@ function stockBadgeClass(stock: number) {
 function stockBadgeText(stock: number) {
   if (stock === 0) return 'Нет в нал.'
   return `ост. ${stock}`
+}
+
+function comboLabel(product: AdminProduct, serviceIds: string[]): string {
+  if (!serviceIds.length) return 'без услуг'
+  return serviceIds
+    .map(id => (product.services as ProductService[]).find(s => s.id === id)?.name ?? id)
+    .join(', ')
 }
 </script>
 
@@ -110,13 +154,13 @@ function stockBadgeText(stock: number) {
               v-for="product in filtered"
               :key="product.id"
               class="rounded-2xl border-2 overflow-hidden flex flex-col transition-all"
-              :class="quantities[product.id] > 0
+              :class="productTotalQty(product.id) > 0
                 ? 'border-brand shadow-[0_0_0_3px_rgba(var(--color-brand-rgb),0.12)]'
                 : 'border-[#eee]'"
             >
               <!-- Photo -->
               <div
-                class="h-[120px] bg-center bg-cover bg-[#f2f2f2] relative"
+                class="h-[100px] bg-center bg-cover bg-[#f2f2f2] relative shrink-0"
                 :style="product.photos[0] ? `background-image: url('${product.photos[0]}')` : ''"
               >
                 <span
@@ -130,21 +174,36 @@ function stockBadgeText(stock: number) {
                 <div class="text-sm font-semibold text-[#222] leading-snug line-clamp-2">{{ product.name }}</div>
                 <div class="text-xs text-[#999]">{{ product.category }}</div>
 
-                <div class="flex items-center justify-between mt-auto pt-2">
+                <div class="flex items-center justify-between mt-1">
                   <span class="text-sm font-bold text-brand">{{ formatPrice(product.price) }}</span>
                   <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded-md" :class="stockBadgeClass(product.stock)">
                     {{ stockBadgeText(product.stock) }}
                   </span>
                 </div>
 
-                <!-- Controls: counter or add button -->
-                <div v-if="quantities[product.id] > 0" class="flex items-center gap-1.5 mt-2">
+                <!-- Service chips -->
+                <div v-if="(product.services as ProductService[]).length > 0" class="flex flex-wrap gap-1 mt-1">
+                  <button
+                    v-for="svc in (product.services as ProductService[])"
+                    :key="svc.id"
+                    class="text-[11px] px-1.5 py-0.5 rounded-md border font-medium transition-colors leading-tight"
+                    :class="(cardServices[product.id] ?? []).includes(svc.id)
+                      ? 'bg-amber-100 text-amber-700 border-amber-300'
+                      : 'bg-[#f5f5f5] text-[#666] border-[#ddd] hover:border-amber-200 hover:bg-amber-50'"
+                    @click="toggleService(product.id, svc.id)"
+                  >
+                    {{ svc.name }} +{{ formatPrice(svc.price) }}
+                  </button>
+                </div>
+
+                <!-- Counter or add button for current combo -->
+                <div v-if="currentQty(product.id) > 0" class="flex items-center gap-1.5 mt-2">
                   <button
                     class="w-7 h-7 rounded-lg bg-[#f0f0f0] font-bold text-lg leading-none hover:bg-brand hover:text-white transition-colors flex items-center justify-center"
-                    @click="setQty(product.id, (quantities[product.id] ?? 1) - 1)"
+                    @click="setQty(product.id, currentQty(product.id) - 1)"
                   >−</button>
                   <input
-                    :value="quantities[product.id]"
+                    :value="currentQty(product.id)"
                     type="number"
                     min="1"
                     max="999"
@@ -153,7 +212,7 @@ function stockBadgeText(stock: number) {
                   />
                   <button
                     class="w-7 h-7 rounded-lg bg-[#f0f0f0] font-bold text-lg leading-none hover:bg-brand hover:text-white transition-colors flex items-center justify-center"
-                    @click="setQty(product.id, (quantities[product.id] ?? 0) + 1)"
+                    @click="setQty(product.id, currentQty(product.id) + 1)"
                   >+</button>
                 </div>
                 <button
@@ -161,6 +220,19 @@ function stockBadgeText(stock: number) {
                   class="mt-2 w-full py-1.5 rounded-xl text-sm font-semibold transition-colors bg-[#f4f4f4] text-[#555] hover:bg-brand hover:text-white"
                   @click="setQty(product.id, 1)"
                 >+ В заказ</button>
+
+                <!-- Summary of all selected combos for this product -->
+                <div
+                  v-if="productTotalQty(product.id) > 0"
+                  class="mt-1.5 pt-1.5 border-t border-[#f0f0f0] flex flex-col gap-0.5"
+                >
+                  <template v-for="item in selectedItems.filter(i => i.productId === product.id)" :key="item.serviceIds.join(',')">
+                    <div class="text-[11px] text-[#777] flex justify-between">
+                      <span>{{ comboLabel(product, item.serviceIds) }}</span>
+                      <span class="font-semibold text-[#444]">{{ item.quantity }} шт.</span>
+                    </div>
+                  </template>
+                </div>
               </div>
             </div>
           </div>

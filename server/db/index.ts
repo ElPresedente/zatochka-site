@@ -16,5 +16,9 @@ export function useDb() {
 
   const pool = new Pool({ connectionString: url })
   _db = drizzle(pool, { schema })
+
+  process.once('SIGTERM', () => pool.end())
+  process.once('SIGINT', () => pool.end())
+
   return _db
 }

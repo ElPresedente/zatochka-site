@@ -4,6 +4,7 @@ import type { H3Event } from 'h3'
 import { useDb } from '~/server/db'
 import { users, admins } from '~/server/db/schema'
 import { assertRateLimit, clearRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
+import { normalizePhone } from '~/server/utils/validators'
 
 const WINDOW_MS = 15 * 60 * 1000
 const MAX_ATTEMPTS = 10
@@ -26,7 +27,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const db = useDb()
-  const [user] = await db.select().from(users).where(eq(users.phone, phone.trim()))
+  const normalizedPhone = normalizePhone(String(phone ?? '').trim())
+  if (!normalizedPhone) {
+    await recordRateLimitHit(rateLimit)
+    throw createError({ statusCode: 401, message: 'Неверный телефон или пароль' })
+  }
+  const [user] = await db.select().from(users).where(eq(users.phone, normalizedPhone))
 
   if (!user || !await bcrypt.compare(password, user.passwordHash)) {
     await recordRateLimitHit(rateLimit)

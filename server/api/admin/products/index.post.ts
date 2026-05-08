@@ -1,17 +1,23 @@
+import { and, eq } from 'drizzle-orm'
 import { useDb } from '~/server/db'
-import { products } from '~/server/db/schema'
-import { parseNonNegativeInteger, parseTrimmedString, safeJsonParse } from '~/server/utils/validators'
+import { productCategories, products } from '~/server/db/schema'
+import { parseNonNegativeInteger, parsePositiveInteger, parseTrimmedString, safeJsonParse } from '~/server/utils/validators'
 
 export default defineEventHandler(async (event) => {
   const db = useDb()
   const body = await readBody(event)
 
   const name = parseTrimmedString(body?.name, 'Название', { required: true, max: 200 })
-  const category = parseTrimmedString(body?.category, 'Категория', { required: true, max: 100 })
+  const categoryId = parsePositiveInteger(body?.categoryId, 'Категория')
   const description = parseTrimmedString(body?.description, 'Описание', { max: 5000 })
   const price = parseNonNegativeInteger(body?.price ?? 0, 'Цена', 100_000_000)
   const stock = parseNonNegativeInteger(body?.stock ?? 0, 'Остаток', 1_000_000)
   const sortOrder = parseNonNegativeInteger(body?.sortOrder ?? 0, 'Порядок сортировки', 1_000_000)
+
+  const [category] = await db.select({ id: productCategories.id, name: productCategories.name })
+    .from(productCategories)
+    .where(and(eq(productCategories.id, categoryId), eq(productCategories.hidden, false)))
+  if (!category) throw createError({ statusCode: 400, message: 'Категория не найдена' })
 
   const photos = Array.isArray(body?.photos) ? body.photos : []
   const specs = Array.isArray(body?.specs) ? body.specs : []
@@ -19,8 +25,8 @@ export default defineEventHandler(async (event) => {
   const active = body?.active !== false
 
   const [row] = await db.insert(products).values({
+    categoryId,
     name,
-    category,
     price,
     stock,
     description,
@@ -33,6 +39,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     ...row,
+    category: category.name,
     photos: safeJsonParse<string[]>(row.photos, []),
     specs: safeJsonParse<unknown[]>(row.specs, []),
     services: safeJsonParse<unknown[]>(row.services, []),

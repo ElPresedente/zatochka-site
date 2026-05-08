@@ -5,7 +5,7 @@ import { count } from 'drizzle-orm'
 export default defineEventHandler(async (event) => {
   const db = useDb()
   const body = await readBody(event)
-  if (!body.name?.trim()) throw createError({ statusCode: 400, message: 'Name is required' })
+  if (!body.name?.trim()) throw createError({ statusCode: 400, message: 'Название обязательно' })
 
   const [{ total }] = await db.select({ total: count() }).from(productCategories)
   const [row] = await db.insert(productCategories).values({
