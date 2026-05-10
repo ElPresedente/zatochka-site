@@ -22,29 +22,31 @@ export function makeCartKey(productId: number, serviceIds: string[]): string {
   return `${productId}:${[...serviceIds].sort().join(',')}`
 }
 
-const cart = ref<CartItem[]>([])
-
-function loadCart() {
-  if (!import.meta.client) return
-  try {
-    const raw = JSON.parse(localStorage.getItem(CART_KEY) ?? '[]')
-    cart.value = (Array.isArray(raw) ? raw : []).map((item: any) => ({
-      ...item,
-      cartKey: item.cartKey ?? String(item.id),
-      services: item.services ?? [],
-    }))
-  }
-  catch {
-    cart.value = []
-  }
-}
-
-function saveCart() {
-  if (!import.meta.client) return
-  localStorage.setItem(CART_KEY, JSON.stringify(cart.value))
-}
-
 export function useCart() {
+  const cart = useState<CartItem[]>('cart.items', () => [])
+  const loaded = useState<boolean>('cart.loaded', () => false)
+
+  function loadCart() {
+    if (!import.meta.client || loaded.value) return
+    try {
+      const raw = JSON.parse(localStorage.getItem(CART_KEY) ?? '[]')
+      cart.value = (Array.isArray(raw) ? raw : []).map((item: any) => ({
+        ...item,
+        cartKey: item.cartKey ?? String(item.id),
+        services: item.services ?? [],
+      }))
+    }
+    catch {
+      cart.value = []
+    }
+    loaded.value = true
+  }
+
+  function saveCart() {
+    if (!import.meta.client) return
+    localStorage.setItem(CART_KEY, JSON.stringify(cart.value))
+  }
+
   onMounted(loadCart)
 
   const totalQty = computed(() => cart.value.reduce((s, i) => s + i.qty, 0))

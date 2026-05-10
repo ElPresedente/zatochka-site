@@ -20,6 +20,22 @@ export default defineNuxtConfig({
           'Referrer-Policy': 'strict-origin-when-cross-origin',
           'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
           'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+          // CSP: 'unsafe-inline' для style требуется Nuxt SSR (style hydration);
+          // 'unsafe-inline' для script нужен из-за inline payload Nuxt.
+          // При желании можно перевести на nonce через nuxt-security.
+          'Content-Security-Policy': [
+            "default-src 'self'",
+            "base-uri 'self'",
+            "frame-ancestors 'none'",
+            "object-src 'none'",
+            "form-action 'self'",
+            "img-src 'self' data: blob:",
+            "font-src 'self' https://fonts.gstatic.com",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "script-src 'self' 'unsafe-inline'",
+            "connect-src 'self'",
+            "frame-src 'self' https://yandex.ru https://*.yandex.ru https://*.yandex.net",
+          ].join('; '),
         },
       },
     },

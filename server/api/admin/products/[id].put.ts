@@ -6,8 +6,8 @@ import {
   parsePositiveInteger,
   parseRouteId,
   parseTrimmedString,
-  safeJsonParse,
 } from '~/server/utils/validators'
+import { parseProductPhotos, parseProductServices, parseProductSpecs } from '~/server/utils/json-shapes'
 
 export default defineEventHandler(async (event) => {
   const db = useDb()
@@ -53,8 +53,8 @@ export default defineEventHandler(async (event) => {
 
   if (existing) {
     const { deleteUploadFiles } = await import('~/server/utils/uploads')
-    const oldPhotos = safeJsonParse<string[]>(existing.photos, [])
-    const newPhotos = safeJsonParse<string[]>(row.photos, [])
+    const oldPhotos = parseProductPhotos(existing.photos)
+    const newPhotos = parseProductPhotos(row.photos)
     const newSet = new Set(newPhotos)
     await deleteUploadFiles(oldPhotos.filter(url => !newSet.has(url)))
   }
@@ -67,8 +67,8 @@ export default defineEventHandler(async (event) => {
   return {
     ...row,
     category: cat?.name ?? '',
-    photos: safeJsonParse<string[]>(row.photos, []),
-    specs: safeJsonParse<unknown[]>(row.specs, []),
-    services: safeJsonParse<unknown[]>(row.services, []),
+    photos: parseProductPhotos(row.photos),
+    specs: parseProductSpecs(row.specs),
+    services: parseProductServices(row.services),
   }
 })

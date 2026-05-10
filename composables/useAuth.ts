@@ -15,10 +15,20 @@ export function useAuth() {
     try {
       const requestFetch = import.meta.server ? useRequestFetch() : $fetch
       user.value = await requestFetch<AuthUser>('/api/auth/me')
-    } catch {
-      user.value = null
-    } finally {
       initialized.value = true
+    }
+    catch (err: any) {
+      const status = err?.statusCode ?? err?.response?.status
+      if (status === 401) {
+        user.value = null
+        initialized.value = true
+        return
+      }
+      if (import.meta.client) {
+        console.error('[useAuth] fetchUser failed', err)
+      }
+      // Не сбрасываем user и initialized: при 5xx/сетевой ошибке
+      // следующий вызов fetchUser попробует снова.
     }
   }
 

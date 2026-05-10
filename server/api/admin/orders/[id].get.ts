@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { orderHistory, orderItems, orders } from '~/server/db/schema'
-import { safeJsonParse } from '~/server/utils/validators'
+import { parseOrderItemServices } from '~/server/utils/json-shapes'
 
 export default defineEventHandler(async (event) => {
   const id = Number(getRouterParam(event, 'id'))
@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     ...order,
     items: items.map(item => ({
       ...item,
-      services: safeJsonParse<unknown[]>(item.services, []),
+      services: parseOrderItemServices(item.services),
     })),
     history,
   }

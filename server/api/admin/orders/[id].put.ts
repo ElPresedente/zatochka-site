@@ -1,33 +1,15 @@
-import { eq, inArray, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { useDb } from '~/server/db'
-import { orderHistory, orderItems, orders, products, type OrderStatus } from '~/server/db/schema'
-import { safeJsonParse } from '~/server/utils/validators'
+import { orderHistory, orders, type OrderStatus } from '~/server/db/schema'
+import { parseOptionalString, parseRouteId } from '~/server/utils/validators'
+import { recalcOrderItems, type OrderItemInput } from '~/server/services/orders'
 import { ORDER_STATUS_LABELS } from '~/types/api'
 
 const PRICE_EDITABLE_STATUSES = new Set<OrderStatus>(['created', 'accepted', 'in_progress'])
 const ITEMS_EDITABLE_STATUSES = new Set<OrderStatus>(['created', 'accepted', 'in_progress'])
 
-
 function formatRub(amount: number) {
   return `${amount.toLocaleString('ru-RU')} ₽`
-}
-
-function makeItemKey(productId: number, serviceIds: string[]): string {
-  const sorted = [...serviceIds].sort()
-  return sorted.length ? `${productId}:${sorted.join(',')}` : String(productId)
-}
-
-function parseOptionalComment(input: unknown) {
-  if (input === undefined) return undefined
-  if (input === null) return ''
-  if (typeof input !== 'string') {
-    throw createError({ statusCode: 400, message: 'Некорректный комментарий продавца' })
-  }
-  const comment = input.trim()
-  if (comment.length > 2000) {
-    throw createError({ statusCode: 400, message: 'Комментарий продавца слишком длинный' })
-  }
-  return comment
 }
 
 function parseOptionalTotalAmount(input: unknown) {
@@ -39,7 +21,7 @@ function parseOptionalTotalAmount(input: unknown) {
   return totalAmount
 }
 
-function parseOptionalItems(input: unknown) {
+function parseOptionalItems(input: unknown): OrderItemInput[] | undefined {
   if (input === undefined) return undefined
   if (!Array.isArray(input)) {
     throw createError({ statusCode: 400, message: 'Некорректный состав заказа' })
@@ -69,13 +51,10 @@ function parseOptionalItems(input: unknown) {
 
 export default defineEventHandler(async (event) => {
   const adminId = event.context.userId as number
-  const id = Number(getRouterParam(event, 'id'))
-  if (!Number.isInteger(id) || id <= 0) {
-    throw createError({ statusCode: 400, message: 'Некорректный ID заказа' })
-  }
+  const id = parseRouteId(getRouterParam(event, 'id'), 'заказа')
 
   const body = await readBody(event)
-  const sellerComment = parseOptionalComment(body?.sellerComment)
+  const sellerComment = parseOptionalString(body?.sellerComment, 'Комментарий продавца', { max: 2000 })
   const totalAmount = parseOptionalTotalAmount(body?.totalAmount)
   const items = parseOptionalItems(body?.items)
 
@@ -85,7 +64,7 @@ export default defineEventHandler(async (event) => {
 
   const db = useDb()
 
-  const updatedOrder = await db.transaction(async (tx) => {
+  return await db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(eq(orders.id, id))
     if (!order) {
       throw createError({ statusCode: 404, message: 'Заказ не найден' })
@@ -104,121 +83,12 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      // Merge duplicates by productId:serviceIds key
-      type MergedEntry = { productId: number, quantity: number, unitPrice?: number, serviceIds: string[] }
-      const mergedMap = new Map<string, MergedEntry>()
-      for (const item of items) {
-        const key = makeItemKey(item.productId, item.serviceIds)
-        const ex = mergedMap.get(key)
-        if (ex) { ex.quantity += item.quantity }
-        else { mergedMap.set(key, { productId: item.productId, quantity: item.quantity, unitPrice: item.unitPrice, serviceIds: item.serviceIds }) }
-      }
+      const { itemsTotal, addedNames, removedNames } = await recalcOrderItems(tx, {
+        orderId: id,
+        status,
+        newItems: items,
+      })
 
-      const productIds = [...new Set([...mergedMap.values()].map(e => e.productId))]
-      const productRows = await tx.select().from(products).where(inArray(products.id, productIds))
-      if (productRows.length !== productIds.length) {
-        throw createError({ statusCode: 400, message: 'В составе заказа есть несуществующий товар' })
-      }
-      const productById = new Map(productRows.map(p => [p.id, p]))
-
-      const oldItems = await tx.select().from(orderItems).where(eq(orderItems.orderId, id))
-
-      // Aggregate old stock deducted per productId (multiple items per product possible)
-      const oldStockByProductId = new Map<number, number>()
-      for (const oldItem of oldItems) {
-        if (oldItem.productId !== null) {
-          oldStockByProductId.set(oldItem.productId, (oldStockByProductId.get(oldItem.productId) ?? 0) + oldItem.stockDeducted)
-        }
-      }
-
-      // Aggregate new quantities per productId (for stock diff calculation)
-      const newQtyByProductId = new Map<number, number>()
-      for (const entry of mergedMap.values()) {
-        newQtyByProductId.set(entry.productId, (newQtyByProductId.get(entry.productId) ?? 0) + entry.quantity)
-      }
-
-      // For accepted/in_progress: restore stock for fully removed products
-      if (status !== 'created') {
-        for (const [productId, oldDeducted] of oldStockByProductId) {
-          if (!newQtyByProductId.has(productId) && oldDeducted > 0) {
-            await tx.update(products)
-              .set({ stock: sql`${products.stock} + ${oldDeducted}` })
-              .where(eq(products.id, productId))
-          }
-        }
-      }
-
-      await tx.delete(orderItems).where(eq(orderItems.orderId, id))
-
-      // Build history: track added/removed by productId
-      const oldProductIds = new Set(oldItems.filter(i => i.productId !== null).map(i => i.productId as number))
-      const addedNames: string[] = []
-      const removedNames: string[] = []
-      const reportedRemoved = new Set<number>()
-      for (const oldItem of oldItems) {
-        if (oldItem.productId && !newQtyByProductId.has(oldItem.productId) && !reportedRemoved.has(oldItem.productId)) {
-          reportedRemoved.add(oldItem.productId)
-          removedNames.push(oldItem.productName)
-        }
-      }
-
-      // For accepted/in_progress: apply stock diff per productId (once per productId)
-      const stockAdjusted = new Set<number>()
-      if (status !== 'created') {
-        for (const [productId, newTotalQty] of newQtyByProductId) {
-          if (stockAdjusted.has(productId)) continue
-          stockAdjusted.add(productId)
-          const oldDeducted = oldStockByProductId.get(productId) ?? 0
-          const diff = newTotalQty - oldDeducted
-          if (diff > 0) {
-            const [current] = await tx.select({ stock: products.stock }).from(products).where(eq(products.id, productId))
-            if ((current?.stock ?? 0) < diff) {
-              throw createError({ statusCode: 409, message: `Недостаточно товара «${productById.get(productId)!.name}» в наличии` })
-            }
-            await tx.update(products)
-              .set({ stock: sql`${products.stock} - ${diff}` })
-              .where(eq(products.id, productId))
-          }
-          else if (diff < 0) {
-            await tx.update(products)
-              .set({ stock: sql`${products.stock} + ${Math.abs(diff)}` })
-              .where(eq(products.id, productId))
-          }
-        }
-      }
-
-      // Build next items, resolving serviceIds → services snapshot
-      const nextItems = []
-      for (const entry of mergedMap.values()) {
-        const product = productById.get(entry.productId)!
-
-        const allServices = safeJsonParse<{ id: string, name: string, price: number }[]>(product.services, [])
-        const selectedServices = entry.serviceIds
-          .map(sid => allServices.find(s => s.id === sid))
-          .filter((s): s is { id: string, name: string, price: number } => !!s)
-        const servicesTotal = selectedServices.reduce((sum, s) => sum + s.price, 0)
-
-        const unitPrice = entry.unitPrice !== undefined ? entry.unitPrice : product.price + servicesTotal
-        const stockDeducted = status !== 'created' ? entry.quantity : 0
-
-        if (!oldProductIds.has(entry.productId)) addedNames.push(product.name)
-
-        nextItems.push({
-          orderId: id,
-          productId: product.id,
-          productName: product.name,
-          productPhoto: safeJsonParse<string[]>(product.photos, [])[0] ?? '',
-          unitPrice,
-          quantity: entry.quantity,
-          totalPrice: unitPrice * entry.quantity,
-          services: JSON.stringify(selectedServices.map(s => ({ name: s.name, price: s.price }))),
-          stockDeducted,
-        })
-      }
-
-      await tx.insert(orderItems).values(nextItems)
-
-      const itemsTotal = nextItems.reduce((sum, item) => sum + item.totalPrice, 0)
       nextTotalAmount = totalAmount ?? itemsTotal
 
       const itemParts: string[] = []
@@ -264,6 +134,4 @@ export default defineEventHandler(async (event) => {
 
     return updated
   })
-
-  return updatedOrder
 })

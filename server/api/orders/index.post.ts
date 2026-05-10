@@ -1,7 +1,9 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { orderHistory, orderItems, orders, products, users, type OrderStatus } from '~/server/db/schema'
-import { safeJsonParse } from '~/server/utils/validators'
+import { userPublicColumns } from '~/server/db/projections'
+import { parseOptionalString } from '~/server/utils/validators'
+import { parseProductPhotos, parseProductServices } from '~/server/utils/json-shapes'
 
 interface OrderItemInput {
   id: number
@@ -35,18 +37,6 @@ function parseItems(input: unknown): OrderItemInput[] {
   return items
 }
 
-function parseComment(input: unknown) {
-  if (input === undefined || input === null) return ''
-  if (typeof input !== 'string') {
-    throw createError({ statusCode: 400, message: 'Некорректный комментарий к заказу' })
-  }
-  const comment = input.trim()
-  if (comment.length > 1000) {
-    throw createError({ statusCode: 400, message: 'Комментарий к заказу слишком длинный' })
-  }
-  return comment
-}
-
 export default defineEventHandler(async (event) => {
   const session = await getAuthSession(event)
   if (!session.data.userId) {
@@ -55,55 +45,55 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event)
   const cartItems = parseItems(body?.items)
-  const userComment = parseComment(body?.comment)
+  const userComment = parseOptionalString(body?.comment, 'Комментарий к заказу', { max: 1000 }) ?? ''
   const productIds = [...new Set(cartItems.map(item => item.id))]
 
   const db = useDb()
-  const [user] = await db.select().from(users).where(eq(users.id, session.data.userId))
-  if (!user) {
-    throw createError({ statusCode: 401, message: 'Пользователь не найден' })
-  }
-
-  const productRows = await db.select().from(products)
-    .where(and(inArray(products.id, productIds), eq(products.active, true)))
-  const productById = new Map(productRows.map(product => [product.id, product]))
-
-  const itemsToInsert = cartItems.map((item) => {
-    const product = productById.get(item.id)
-    if (!product) {
-      throw createError({ statusCode: 400, message: 'В корзине есть недоступный товар' })
-    }
-    if (product.stock < item.qty) {
-      throw createError({
-        statusCode: 409,
-        message: `Недостаточно товара «${product.name}» в наличии`,
-      })
-    }
-
-    // Validate and snapshot services
-    const allServices = safeJsonParse<{ id: string, name: string, price: number }[]>(product.services, [])
-    const selectedServices = item.serviceIds
-      .map(sid => allServices.find(s => s.id === sid))
-      .filter((s): s is { id: string, name: string, price: number } => !!s)
-
-    const servicesTotal = selectedServices.reduce((s, sv) => s + sv.price, 0)
-    const unitPrice = product.price + servicesTotal
-
-    const photos = safeJsonParse<string[]>(product.photos, [])
-    return {
-      productId: product.id,
-      productName: product.name,
-      productPhoto: photos[0] ?? '',
-      unitPrice,
-      quantity: item.qty,
-      totalPrice: unitPrice * item.qty,
-      services: JSON.stringify(selectedServices.map(s => ({ name: s.name, price: s.price }))),
-    }
-  })
-
-  const totalAmount = itemsToInsert.reduce((sum, item) => sum + item.totalPrice, 0)
 
   const order = await db.transaction(async (tx) => {
+    const [user] = await tx.select(userPublicColumns).from(users).where(eq(users.id, session.data.userId!))
+    if (!user) {
+      throw createError({ statusCode: 401, message: 'Пользователь не найден' })
+    }
+
+    const productRows = await tx.select().from(products)
+      .where(and(inArray(products.id, productIds), eq(products.active, true)))
+    const productById = new Map(productRows.map(product => [product.id, product]))
+
+    const itemsToInsert = cartItems.map((item) => {
+      const product = productById.get(item.id)
+      if (!product) {
+        throw createError({ statusCode: 400, message: 'В корзине есть недоступный товар' })
+      }
+      if (product.stock < item.qty) {
+        throw createError({
+          statusCode: 409,
+          message: `Недостаточно товара «${product.name}» в наличии`,
+        })
+      }
+
+      const allServices = parseProductServices(product.services)
+      const selectedServices = item.serviceIds
+        .map(sid => allServices.find(s => s.id === sid))
+        .filter((s): s is { id: string, name: string, price: number } => !!s)
+
+      const servicesTotal = selectedServices.reduce((s, sv) => s + sv.price, 0)
+      const unitPrice = product.price + servicesTotal
+
+      const photos = parseProductPhotos(product.photos)
+      return {
+        productId: product.id,
+        productName: product.name,
+        productPhoto: photos[0] ?? '',
+        unitPrice,
+        quantity: item.qty,
+        totalPrice: unitPrice * item.qty,
+        services: JSON.stringify(selectedServices.map(s => ({ name: s.name, price: s.price }))),
+      }
+    })
+
+    const totalAmount = itemsToInsert.reduce((sum, item) => sum + item.totalPrice, 0)
+
     const [createdOrder] = await tx.insert(orders).values({
       userId: user.id,
       customerFirstName: user.firstName,

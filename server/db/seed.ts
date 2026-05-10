@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import bcrypt from 'bcryptjs'
 import * as schema from './schema'
+import { normalizePhone } from '../utils/validators'
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL! })
 const db = drizzle(pool, { schema })
@@ -127,7 +128,7 @@ async function seed() {
     { key: 'phone_href', value: 'tel:+79103043040' },
     { key: 'email', value: 'zatochka_test@yandex.ru' },
     { key: 'address', value: 'г. Орёл, ул. Полесская д. 2' },
-    { key: 'map_embed_url', value: 'https://yandex.ru/map-widget/v1/?ll=36.067883%2C52.970466&z=16&pt=36.067883%2C52.970466%2Cpm2rdm~Острый+край&text=г.+Орёл%2C+ул.+Полесская+д.+2' },
+    { key: 'map_embed_url', value: 'https://yandex.ru/map-widget/v1/org/ostry_kray/96290816208/?indoorLevel=1&ll=36.059345%2C52.971119&z=17' },
     { key: 'yandex_map_url', value: 'https://yandex.ru/maps/org/ostry_kray/96290816208/' },
     { key: 'yandex_reviews_widget_url', value: 'https://yandex.ru/maps-reviews-widget/96290816208?comments' },
     { key: 'legal_name', value: 'ИП Бельцев В. А.' },
@@ -145,8 +146,12 @@ async function seed() {
 
   // --- Product categories ---
   const productCategoryNames = ['Кусачки', 'Ножницы', 'Пинцеты и пушеры', 'Расходники', 'Аппараты', 'Наборы']
+  const categoryIdByName = new Map<string, number>()
   for (let i = 0; i < productCategoryNames.length; i++) {
-    await db.insert(schema.productCategories).values({ name: productCategoryNames[i], sortOrder: i })
+    const [row] = await db.insert(schema.productCategories)
+      .values({ name: productCategoryNames[i], sortOrder: i })
+      .returning({ id: schema.productCategories.id, name: schema.productCategories.name })
+    categoryIdByName.set(row.name, row.id)
   }
 
   // --- Products ---
@@ -251,9 +256,13 @@ async function seed() {
 
   for (let i = 0; i < defaultProducts.length; i++) {
     const p = defaultProducts[i]
+    const categoryId = categoryIdByName.get(p.category)
+    if (!categoryId) {
+      throw new Error(`Категория продукта не найдена: ${p.category}`)
+    }
     await db.insert(schema.products).values({
       name: p.name,
-      category: p.category,
+      categoryId,
       price: p.price,
       stock: p.stock,
       description: p.description,
@@ -265,9 +274,13 @@ async function seed() {
   }
 
   // --- First admin (from .env) ---
-  const adminPhone = process.env.ADMIN_PHONE
+  const adminPhoneRaw = process.env.ADMIN_PHONE
   const adminPassword = process.env.ADMIN_PASSWORD
-  if (adminPhone && adminPassword) {
+  if (adminPhoneRaw && adminPassword) {
+    const adminPhone = normalizePhone(adminPhoneRaw)
+    if (!adminPhone) {
+      throw new Error(`Некорректный ADMIN_PHONE: ${adminPhoneRaw}`)
+    }
     const passwordHash = await bcrypt.hash(adminPassword, 12)
     const [adminUser] = await db.insert(schema.users).values({
       lastName: 'Администратор',

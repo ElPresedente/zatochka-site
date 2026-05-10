@@ -34,6 +34,26 @@ interface StringOptions {
   required?: boolean
 }
 
+/**
+ * Парсит опциональное строковое поле:
+ *   undefined → undefined (поле не передано, не трогать)
+ *   null      → '' (явный сброс)
+ *   string    → trimmed string с проверкой длины
+ *   иное      → 400
+ */
+export function parseOptionalString(value: unknown, fieldName: string, opts: { max?: number } = {}): string | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return ''
+  if (typeof value !== 'string') {
+    throw createError({ statusCode: 400, message: `${fieldName} должно быть строкой` })
+  }
+  const trimmed = value.trim()
+  if (opts.max !== undefined && trimmed.length > opts.max) {
+    throw createError({ statusCode: 400, message: `${fieldName} слишком длинное` })
+  }
+  return trimmed
+}
+
 export function parseTrimmedString(value: unknown, fieldName: string, opts: StringOptions = {}): string {
   if (value === undefined || value === null) {
     if (opts.required) {

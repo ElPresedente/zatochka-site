@@ -32,7 +32,16 @@ export default defineEventHandler(async (event) => {
     await recordRateLimitHit(rateLimit)
     throw createError({ statusCode: 401, message: 'Неверный телефон или пароль' })
   }
-  const [user] = await db.select().from(users).where(eq(users.phone, normalizedPhone))
+  const [user] = await db
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      phone: users.phone,
+      passwordHash: users.passwordHash,
+    })
+    .from(users)
+    .where(eq(users.phone, normalizedPhone))
 
   if (!user || !await bcrypt.compare(password, user.passwordHash)) {
     await recordRateLimitHit(rateLimit)
@@ -44,7 +53,7 @@ export default defineEventHandler(async (event) => {
   const session = await getAuthSession(event)
   await session.update({ userId: user.id })
 
-  const [admin] = await db.select().from(admins).where(eq(admins.userId, user.id))
+  const [admin] = await db.select({ userId: admins.userId }).from(admins).where(eq(admins.userId, user.id))
 
   return {
     id: user.id,

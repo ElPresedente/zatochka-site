@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { productCategories, products } from '~/server/db/schema'
-import { parseNonNegativeInteger, parsePositiveInteger, parseTrimmedString, safeJsonParse } from '~/server/utils/validators'
+import { parseNonNegativeInteger, parsePositiveInteger, parseTrimmedString } from '~/server/utils/validators'
+import { parseProductPhotos, parseProductServices, parseProductSpecs } from '~/server/utils/json-shapes'
 
 export default defineEventHandler(async (event) => {
   const db = useDb()
@@ -40,8 +41,8 @@ export default defineEventHandler(async (event) => {
   return {
     ...row,
     category: category.name,
-    photos: safeJsonParse<string[]>(row.photos, []),
-    specs: safeJsonParse<unknown[]>(row.specs, []),
-    services: safeJsonParse<unknown[]>(row.services, []),
+    photos: parseProductPhotos(row.photos),
+    specs: parseProductSpecs(row.specs),
+    services: parseProductServices(row.services),
   }
 })

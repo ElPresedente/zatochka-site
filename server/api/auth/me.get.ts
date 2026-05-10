@@ -9,16 +9,25 @@ export default defineEventHandler(async (event) => {
   }
 
   const db = useDb()
-  const [user] = await db.select().from(users).where(eq(users.id, session.data.userId))
-  if (!user) throw createError({ statusCode: 401, message: 'Пользователь не найден' })
+  const [row] = await db
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      phone: users.phone,
+      adminUserId: admins.userId,
+    })
+    .from(users)
+    .leftJoin(admins, eq(admins.userId, users.id))
+    .where(eq(users.id, session.data.userId))
 
-  const [admin] = await db.select().from(admins).where(eq(admins.userId, user.id))
+  if (!row) throw createError({ statusCode: 401, message: 'Пользователь не найден' })
 
   return {
-    id: user.id,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    phone: user.phone,
-    isAdmin: !!admin,
+    id: row.id,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    phone: row.phone,
+    isAdmin: row.adminUserId !== null,
   }
 })
