@@ -5,11 +5,11 @@ const { data: settings } = await useFetch<Record<string, string>>('/api/settings
 </script>
 
 <template>
-  <div class="max-w-[800px] mx-auto px-6 py-14">
-    <h1 class="text-3xl font-bold text-[#222] mb-2">
+  <div class="max-w-[800px] mx-auto px-4 lg:px-6 py-10 lg:py-14">
+    <h1 class="text-2xl lg:text-3xl font-bold text-[#222] mb-2">
       Политика обработки персональных данных
     </h1>
-    <p class="text-[#888] text-sm mb-10">Редакция 1.0 &nbsp;·&nbsp; Вступает в силу с момента публикации</p>
+    <p class="text-[#888] text-sm mb-8 lg:mb-10">Редакция 1.0 &nbsp;·&nbsp; Вступает в силу с момента публикации</p>
 
     <div class="prose prose-sm max-w-none text-[#333] leading-relaxed flex flex-col gap-8">
 

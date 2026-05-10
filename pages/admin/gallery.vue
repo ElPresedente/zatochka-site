@@ -95,23 +95,23 @@ async function onFileChange(e: Event) {
 
 <template>
   <!-- Header -->
-  <div class="bg-white border-b border-[#eee] px-8 py-5 flex items-center justify-between shrink-0">
-    <h1 class="text-xl font-bold text-[#222]">Галерея</h1>
-    <button class="bg-brand text-white rounded-xl px-5 py-2.5 font-bold text-sm hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)]" @click="openNewSection">
-      + Добавить раздел
+  <div class="bg-white border-b border-[#eee] px-4 lg:px-8 py-4 lg:py-5 flex items-center justify-between gap-3 shrink-0">
+    <h1 class="text-lg lg:text-xl font-bold text-[#222]">Галерея</h1>
+    <button class="bg-brand text-white rounded-xl px-3 lg:px-5 py-2 lg:py-2.5 font-bold text-xs lg:text-sm hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)] whitespace-nowrap" @click="openNewSection">
+      + Раздел
     </button>
   </div>
 
-  <div class="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+  <div class="flex-1 overflow-y-auto px-3 lg:px-8 py-4 lg:py-6 space-y-4 lg:space-y-6">
     <div
       v-for="section in sections"
       :key="section.id"
       class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden"
     >
       <!-- Section header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-[#f0f0f0]">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 px-4 lg:px-6 py-3 lg:py-4 border-b border-[#f0f0f0]">
         <div class="font-bold text-[#222]">{{ section.title }}</div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
           <button class="px-3 py-1.5 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20 transition-colors" @click="openNewImage(section.id)">+ Фото</button>
           <button class="px-3 py-1.5 rounded-lg bg-[#f0f0f0] text-[#555] text-xs font-semibold hover:bg-[#e5e5e5] transition-colors" @click="openEditSection(section)">Изменить</button>
           <button class="px-3 py-1.5 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100 transition-colors" @click="deleteSection(section)">Удалить</button>
@@ -119,18 +119,18 @@ async function onFileChange(e: Event) {
       </div>
 
       <!-- Images grid -->
-      <div class="p-6">
+      <div class="p-3 lg:p-6">
         <div v-if="section.images.length === 0" class="text-sm text-[#aaa] py-6 text-center">Нет фотографий. Нажмите «+ Фото»</div>
-        <div v-else class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(120px, 1fr))">
+        <div v-else class="grid gap-3 lg:gap-4 grid-cols-3 sm:grid-cols-[repeat(auto-fill,minmax(100px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]">
           <div v-for="img in section.images" :key="img.id" class="group relative">
             <div
               class="aspect-square rounded-xl bg-center bg-cover bg-[#eee] cursor-pointer"
               :style="img.src ? `background-image: url('${img.src}')` : ''"
             />
             <div class="text-xs text-[#888] mt-1 truncate">{{ img.label || '—' }}</div>
-            <div class="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button class="w-6 h-6 bg-white rounded-lg text-[#555] hover:text-brand text-xs flex items-center justify-center shadow" @click="openEditImage(img)">✏️</button>
-              <button class="w-6 h-6 bg-white rounded-lg text-red-400 hover:text-red-600 text-xs flex items-center justify-center shadow" @click="deleteImage(img)">×</button>
+            <div class="absolute top-1 right-1 flex gap-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+              <button class="w-7 h-7 lg:w-6 lg:h-6 bg-white rounded-lg text-[#555] hover:text-brand text-xs flex items-center justify-center shadow" @click="openEditImage(img)">✏️</button>
+              <button class="w-7 h-7 lg:w-6 lg:h-6 bg-white rounded-lg text-red-400 hover:text-red-600 text-xs flex items-center justify-center shadow" @click="deleteImage(img)">×</button>
             </div>
           </div>
         </div>
@@ -144,7 +144,7 @@ async function onFileChange(e: Event) {
 
   <!-- Section editor -->
   <Teleport to="body">
-    <div v-if="sectionEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]" @click.self="sectionEditor = false">
+    <div v-if="sectionEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4" @click.self="sectionEditor = false">
       <div class="bg-white rounded-2xl w-full max-w-[400px] shadow-2xl overflow-hidden">
         <div class="flex items-center justify-between px-6 py-5 border-b border-[#eee]">
           <div class="font-bold">{{ sectionForm.isNew ? 'Новый раздел' : 'Изменить раздел' }}</div>
@@ -164,7 +164,7 @@ async function onFileChange(e: Event) {
 
   <!-- Image editor -->
   <Teleport to="body">
-    <div v-if="imageEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]" @click.self="imageEditor = false">
+    <div v-if="imageEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4 overflow-y-auto" @click.self="imageEditor = false">
       <div class="bg-white rounded-2xl w-full max-w-[480px] shadow-2xl overflow-hidden">
         <div class="flex items-center justify-between px-6 py-5 border-b border-[#eee]">
           <div class="font-bold">{{ imageForm.isNew ? 'Добавить фото' : 'Изменить фото' }}</div>

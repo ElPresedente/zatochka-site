@@ -59,8 +59,8 @@ const canSubmit = computed(() =>
 </script>
 
 <template>
-  <div class="max-w-[480px] mx-auto px-4 py-16">
-    <h1 class="text-2xl font-bold text-[#222] mb-8">Регистрация</h1>
+  <div class="max-w-[480px] mx-auto px-4 py-10 lg:py-16">
+    <h1 class="text-2xl font-bold text-[#222] mb-6 lg:mb-8">Регистрация</h1>
 
     <div v-if="success" class="bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
       <div class="text-green-600 font-bold text-lg mb-2">Вы успешно зарегистрированы!</div>
@@ -68,8 +68,8 @@ const canSubmit = computed(() =>
     </div>
 
     <form v-else class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden" @submit.prevent="submit">
-      <div class="px-7 py-6 flex flex-col gap-5">
-        <div class="grid grid-cols-2 gap-4">
+      <div class="px-5 py-5 lg:px-7 lg:py-6 flex flex-col gap-4 lg:gap-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-semibold text-[#777] mb-1.5">Фамилия <span class="text-red-400">*</span></label>
             <input
@@ -143,7 +143,7 @@ const canSubmit = computed(() =>
         </Transition>
       </div>
 
-      <div class="px-7 py-5 border-t border-[#eee] flex items-center justify-between">
+      <div class="px-5 py-4 lg:px-7 lg:py-5 border-t border-[#eee] flex items-center justify-between gap-3">
         <NuxtLink to="/login" class="text-sm text-[#999] no-underline hover:text-[#555] transition-colors">
           Уже есть аккаунт?
         </NuxtLink>

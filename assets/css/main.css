@@ -22,15 +22,15 @@
   }
 
   .section-title {
-    @apply text-5xl font-bold relative inline-block pb-3;
+    @apply text-3xl lg:text-5xl font-bold relative inline-block pb-3;
   }
 
   .section-title::after {
     content: '';
-    @apply absolute bottom-0 left-0 right-0 h-[5px] bg-brand rounded-sm;
+    @apply absolute bottom-0 left-0 right-0 h-[4px] lg:h-[5px] bg-brand rounded-sm;
   }
 
   .section-header {
-    @apply text-center mb-12;
+    @apply text-center mb-8 lg:mb-12;
   }
 }

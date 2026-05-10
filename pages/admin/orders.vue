@@ -52,22 +52,25 @@ async function onChanged() {
 </script>
 
 <template>
-  <div class="bg-white border-b border-[#eee] px-8 py-5 flex items-center justify-between shrink-0">
-    <h1 class="text-xl font-bold text-[#222]">Заказы</h1>
-    <div class="flex items-center gap-4">
+  <div class="bg-white border-b border-[#eee] px-4 lg:px-8 py-3 lg:py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 shrink-0">
+    <div class="flex items-center justify-between">
+      <h1 class="text-lg lg:text-xl font-bold text-[#222]">Заказы</h1>
+      <span class="text-xs sm:hidden text-[#aaa]">{{ total }}</span>
+    </div>
+    <div class="flex items-center gap-3 lg:gap-4">
       <select
         v-model="statusFilter"
-        class="border border-[#ddd] rounded-lg px-3 py-1.5 text-sm text-[#444] outline-none focus:border-brand transition-colors"
+        class="border border-[#ddd] rounded-lg px-3 py-1.5 text-sm text-[#444] outline-none focus:border-brand transition-colors flex-1 sm:flex-initial"
       >
         <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
           {{ opt.label }}
         </option>
       </select>
-      <span class="text-sm text-[#aaa]">{{ total }} заказов</span>
+      <span class="hidden sm:inline text-sm text-[#aaa]">{{ total }} заказов</span>
     </div>
   </div>
 
-  <div class="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-4">
+  <div class="flex-1 overflow-y-auto px-3 lg:px-8 py-4 lg:py-6 flex flex-col gap-4">
     <AdminOrdersTable :orders="orders" @select="openOrder" />
 
     <div v-if="pageCount > 1" class="flex items-center justify-center gap-4 py-2">

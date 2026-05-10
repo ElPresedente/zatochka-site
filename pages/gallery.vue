@@ -59,25 +59,25 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="flex-1 max-w-[1300px] mx-auto px-10 py-16 w-full">
+  <main class="flex-1 max-w-[1300px] mx-auto px-4 lg:px-10 py-10 lg:py-16 w-full">
     <section
       v-for="section in sections"
       :key="section.id"
-      class="mb-16"
+      class="mb-12 lg:mb-16"
     >
       <!-- Section label -->
-      <div class="mb-8">
+      <div class="mb-6 lg:mb-8">
         <div
-          class="inline-block bg-brand text-white text-[48px] font-medium px-5 leading-snug"
-          style="border-radius: 0 120px 0 0"
+          class="inline-block bg-brand text-white text-2xl lg:text-[48px] font-medium px-4 lg:px-5 py-1 lg:py-0 leading-snug"
+          style="border-radius: 0 60px 0 0"
         >
           {{ section.title }}
         </div>
-        <div class="h-[5px] bg-brand rounded-sm" />
+        <div class="h-[4px] lg:h-[5px] bg-brand rounded-sm" />
       </div>
 
       <!-- Grid -->
-      <div class="grid gap-5" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr))">
+      <div class="grid gap-3 sm:gap-4 lg:gap-5 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(220px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
         <div
           v-for="image in visibleImages(section)"
           :key="image.id"
@@ -89,9 +89,9 @@ onMounted(() => {
       </div>
 
       <!-- Show more -->
-      <div v-if="section.images.length > 6" class="text-center mt-7">
+      <div v-if="section.images.length > 6" class="text-center mt-6 lg:mt-7">
         <button
-          class="btn-primary text-xl"
+          class="btn-primary text-base lg:text-xl"
           @click="toggleSection(section.id)"
         >
           {{ expandedSections[section.id] ? 'Свернуть' : 'Показать больше' }}

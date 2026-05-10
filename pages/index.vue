@@ -54,25 +54,25 @@ const workingHours = [
 
 <template>
   <!-- Banner -->
-  <section class="relative h-[520px] overflow-hidden">
+  <section class="relative min-h-[520px] lg:h-[520px] overflow-hidden">
     <div class="absolute inset-0 bg-[url('/images/banner.png')] bg-center bg-cover" />
     <div
-      class="absolute inset-0 flex items-stretch"
+      class="absolute inset-0 flex flex-col lg:flex-row items-stretch"
       style="background: linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.15) 52%, rgba(0,0,0,0.60) 100%)"
     >
       <!-- Left: text content -->
-      <div class="flex flex-col justify-center pl-20 pr-5">
-        <h1 class="text-white text-[60px] font-bold leading-[1.15] max-w-[640px] mb-5">
+      <div class="flex flex-col justify-center px-5 pt-8 pb-4 lg:pl-20 lg:pr-5 lg:pt-0 lg:pb-0">
+        <h1 class="text-white text-[32px] lg:text-[60px] font-bold leading-[1.15] max-w-[640px] mb-3 lg:mb-5">
           Профессиональная заточка инструмента
         </h1>
-        <p class="text-white/90 text-[22px] max-w-[520px] mb-8 leading-relaxed">
+        <p class="text-white/90 text-base lg:text-[22px] max-w-[520px] mb-5 lg:mb-8 leading-relaxed">
           Маникюрный, парикмахерский, грумерский и домашний инструмент
         </p>
-        <div class="flex gap-4">
-          <NuxtLink to="/services" class="btn-primary text-[22px]">Услуги и цены</NuxtLink>
+        <div class="flex flex-col sm:flex-row gap-3 lg:gap-4">
+          <NuxtLink to="/services" class="btn-primary text-base lg:text-[22px] px-5 py-3 lg:px-9 lg:py-3.5">Услуги и цены</NuxtLink>
           <NuxtLink
             to="/about"
-            class="inline-block bg-white/15 text-white border-2 border-white/60 rounded-2xl px-9 py-3.5 font-bold text-[22px] no-underline backdrop-blur-sm transition-colors hover:bg-white/25"
+            class="inline-block bg-white/15 text-white border-2 border-white/60 rounded-2xl px-5 py-3 lg:px-9 lg:py-3.5 font-bold text-base lg:text-[22px] no-underline text-center backdrop-blur-sm transition-colors hover:bg-white/25"
           >
             О нас
           </NuxtLink>
@@ -80,24 +80,24 @@ const workingHours = [
       </div>
 
       <!-- Right: logo + stats -->
-      <div class="flex-1 flex flex-col items-center justify-center gap-2 px-6">
+      <div class="flex-1 flex flex-col items-center justify-center gap-2 px-6 pb-8 lg:pb-0">
         <img
           src="/images/logo_footer.png"
           alt="Острый край"
-          class="w-[300px] h-[300px] object-contain"
+          class="w-[160px] h-[160px] lg:w-[300px] lg:h-[300px] object-contain"
         />
-        <div class="flex items-end gap-8">
+        <div class="flex items-end gap-3 sm:gap-6 lg:gap-8">
           <div
             v-for="stat in bannerStats"
             :key="stat.label"
             class="flex flex-col items-center text-center gap-1"
-            :class="stat.raised ? 'mb-9' : 'mb-0'"
+            :class="stat.raised ? 'mb-5 lg:mb-9' : 'mb-0'"
           >
-            <div class="relative flex items-center justify-center w-[120px] h-[88px]">
+            <div class="relative flex items-center justify-center w-[80px] h-[58px] lg:w-[120px] lg:h-[88px]">
               <img src="/images/gold.png" alt="" class="absolute inset-0 w-full h-full object-contain" />
-              <span class="relative z-10 text-[34px] font-bold leading-none -mt-2" style="color: #D4AF37; text-shadow: 0 1px 6px rgba(0,0,0,0.5)">{{ stat.value }}</span>
+              <span class="relative z-10 text-[22px] lg:text-[34px] font-bold leading-none -mt-1 lg:-mt-2" style="color: #D4AF37; text-shadow: 0 1px 6px rgba(0,0,0,0.5)">{{ stat.value }}</span>
             </div>
-            <span class="text-[12px] leading-snug whitespace-pre-line font-medium" style="color: #D4AF37">{{ stat.label }}</span>
+            <span class="text-[10px] lg:text-[12px] leading-snug whitespace-pre-line font-medium" style="color: #D4AF37">{{ stat.label }}</span>
           </div>
         </div>
       </div>
@@ -105,54 +105,53 @@ const workingHours = [
   </section>
 
   <!-- What we offer -->
-  <section class="py-[72px] px-20 max-w-[1440px] mx-auto w-full">
+  <section class="py-12 lg:py-[72px] px-4 lg:px-20 max-w-[1440px] mx-auto w-full">
     <div class="section-header">
       <span class="section-title">Что мы предлагаем?</span>
     </div>
-    <div class="flex gap-10 items-stretch justify-between">
+    <div class="flex flex-col lg:flex-row gap-6 lg:gap-10 items-stretch lg:justify-between">
       <!-- List -->
       <div class="flex-1 flex flex-col">
         <div
           v-for="item in serviceList"
           :key="item.label"
-          class="flex items-center gap-5 border-b border-black/[0.08]"
-          style="padding-top: 10px; padding-bottom: 10px;"
+          class="flex items-center gap-4 lg:gap-5 border-b border-black/[0.08] py-2.5"
         >
-          <img :src="item.img" :alt="item.label" class="w-20 h-20 shrink-0" />
-          <span class="text-2xl leading-snug text-[#222]">{{ item.label }}</span>
+          <img :src="item.img" :alt="item.label" class="w-14 h-14 lg:w-20 lg:h-20 shrink-0" />
+          <span class="text-base lg:text-2xl leading-snug text-[#222]">{{ item.label }}</span>
         </div>
       </div>
       <!-- Photos -->
-      <div class="flex flex-col gap-5 w-[450px] shrink-0 self-stretch">
-        <div class="flex-1 min-h-[220px] bg-[url('/images/services1.jpg')] bg-center bg-cover rounded-xl" />
-        <div class="flex-1 min-h-[220px] bg-[url('/images/services2.jpg')] bg-center bg-cover rounded-xl" />
+      <div class="flex flex-col gap-4 lg:gap-5 w-full lg:w-[450px] shrink-0 self-stretch">
+        <div class="aspect-[4/3] lg:aspect-auto flex-1 lg:min-h-[220px] bg-[url('/images/services1.jpg')] bg-center bg-cover rounded-xl" />
+        <div class="aspect-[4/3] lg:aspect-auto flex-1 lg:min-h-[220px] bg-[url('/images/services2.jpg')] bg-center bg-cover rounded-xl" />
       </div>
     </div>
-    <div class="flex justify-center mt-10">
-      <NuxtLink to="/services" class="btn-primary text-center w-[800px]">Узнать больше</NuxtLink>
+    <div class="flex justify-center mt-8 lg:mt-10">
+      <NuxtLink to="/services" class="btn-primary text-center w-full max-w-[800px]">Узнать больше</NuxtLink>
     </div>
   </section>
 
   <!-- Try now -->
-  <section class="py-[72px] bg-white w-full">
-    <div class="max-w-[1440px] mx-auto px-20">
+  <section class="py-12 lg:py-[72px] bg-white w-full">
+    <div class="max-w-[1440px] mx-auto px-4 lg:px-20">
       <div class="section-header">
         <span class="section-title">Попробуйте уже сейчас!</span>
       </div>
-      <div class="flex gap-7">
+      <div class="flex flex-col lg:flex-row gap-5 lg:gap-7">
         <div
           v-for="card in serviceCards"
           :key="card.title"
           class="rounded-2xl overflow-hidden bg-dark flex flex-col flex-1 shadow-[0_4px_24px_rgba(0,0,0,0.12)]"
         >
           <div
-            class="h-[200px] bg-center bg-cover"
+            class="h-[180px] lg:h-[200px] bg-center bg-cover"
             :style="`background-image: url('${card.img}')`"
           />
-          <div class="p-6 flex flex-col gap-3 flex-1">
-            <div class="text-[26px] font-semibold text-white leading-snug">{{ card.title }}</div>
-            <div class="text-base text-white/80 leading-relaxed flex-1">{{ card.text }}</div>
-            <NuxtLink to="/services" class="btn-primary text-lg py-3 px-6">Подробнее</NuxtLink>
+          <div class="p-5 lg:p-6 flex flex-col gap-3 flex-1">
+            <div class="text-xl lg:text-[26px] font-semibold text-white leading-snug">{{ card.title }}</div>
+            <div class="text-sm lg:text-base text-white/80 leading-relaxed flex-1">{{ card.text }}</div>
+            <NuxtLink to="/services" class="btn-primary text-base lg:text-lg py-3 px-6">Подробнее</NuxtLink>
           </div>
         </div>
       </div>
@@ -160,36 +159,36 @@ const workingHours = [
   </section>
 
   <!-- Workers -->
-  <section class="py-[72px] px-20 max-w-[1440px] mx-auto w-full">
+  <section class="py-12 lg:py-[72px] px-4 lg:px-20 max-w-[1440px] mx-auto w-full">
     <div class="section-header">
       <span class="section-title">Наши работники</span>
     </div>
-    <div class="flex gap-20 justify-center">
+    <div class="flex flex-col sm:flex-row gap-8 sm:gap-10 lg:gap-20 justify-center items-center sm:items-stretch">
       <div
         v-for="worker in workers"
         :key="worker.id"
-        class="flex flex-col items-center gap-3 flex-1 max-w-[360px]"
+        class="flex flex-col items-center gap-3 flex-1 w-full max-w-[280px] lg:max-w-[360px]"
       >
         <div
           class="w-full aspect-[5/6] bg-center bg-cover rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.15)]"
           :style="`background-image: url('${worker.photo}')`"
         />
         <div class="text-center">
-          <div class="text-[40px] font-bold">{{ worker.name }}</div>
-          <div class="text-xl text-[#555] mt-1">{{ worker.role }}</div>
+          <div class="text-2xl lg:text-[40px] font-bold">{{ worker.name }}</div>
+          <div class="text-base lg:text-xl text-[#555] mt-1">{{ worker.role }}</div>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Reviews -->
-  <section class="py-[72px] bg-white w-full">
-    <div class="max-w-[1440px] mx-auto px-20">
+  <section class="py-12 lg:py-[72px] bg-white w-full">
+    <div class="max-w-[1440px] mx-auto px-4 lg:px-20">
       <div class="section-header">
         <span class="section-title">Отзывы о нас</span>
       </div>
       <div class="flex justify-center">
-        <div class="relative w-full max-w-[760px] h-[720px] max-h-[80vh] min-h-[560px] overflow-hidden rounded-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06]">
+        <div class="relative w-full max-w-[760px] h-[560px] lg:h-[720px] max-h-[80vh] min-h-[480px] lg:min-h-[560px] overflow-hidden rounded-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06]">
           <iframe
             :src="settings?.yandex_reviews_widget_url || defaultYandexReviewsWidgetUrl"
             title="Отзывы Яндекс Карт"
@@ -210,52 +209,52 @@ const workingHours = [
   </section>
 
   <!-- How to find us -->
-  <section class="py-[72px] px-20 max-w-[1440px] mx-auto w-full">
+  <section class="py-12 lg:py-[72px] px-4 lg:px-20 max-w-[1440px] mx-auto w-full">
     <div class="section-header">
       <span class="section-title">Как нас найти</span>
     </div>
-    <div class="flex gap-[60px] items-start">
-      <div class="flex-1 flex flex-col gap-7">
-        <div class="text-[32px] font-bold text-center leading-snug">
+    <div class="flex flex-col lg:flex-row gap-8 lg:gap-[60px] items-stretch lg:items-start">
+      <div class="flex-1 flex flex-col gap-5 lg:gap-7">
+        <div class="text-2xl lg:text-[32px] font-bold text-center leading-snug">
           Мы не прячемся!<br />Найдите нас по адресу:
         </div>
-        <div class="flex items-center gap-4">
-          <img src="/images/map_pin.png" class="w-[52px] h-[52px] object-contain" alt="" />
-          <span class="text-[28px] leading-snug">г. Орёл, ул. Полесская д. 2</span>
+        <div class="flex items-center gap-3 lg:gap-4">
+          <img src="/images/map_pin.png" class="w-10 h-10 lg:w-[52px] lg:h-[52px] object-contain shrink-0" alt="" />
+          <span class="text-lg lg:text-[28px] leading-snug">г. Орёл, ул. Полесская д. 2</span>
         </div>
-        <div class="flex items-start gap-4">
-          <img src="/images/clock_icon.png" class="w-[52px] h-16 object-contain mt-1" alt="" />
-          <div>
-            <div class="text-2xl font-bold mb-2">Режим работы:</div>
+        <div class="flex items-start gap-3 lg:gap-4">
+          <img src="/images/clock_icon.png" class="w-10 h-12 lg:w-[52px] lg:h-16 object-contain mt-1 shrink-0" alt="" />
+          <div class="min-w-0 flex-1">
+            <div class="text-lg lg:text-2xl font-bold mb-2">Режим работы:</div>
             <div
               v-for="[day, time] in workingHours"
               :key="day"
-              class="flex gap-4 text-xl leading-[1.8]"
+              class="flex gap-3 lg:gap-4 text-sm lg:text-xl leading-[1.8]"
             >
-              <span class="min-w-[150px] text-[#555]">{{ day }}</span>
+              <span class="min-w-[110px] lg:min-w-[150px] text-[#555]">{{ day }}</span>
               <span
                 :class="time === 'Выходной' ? 'text-[#999]' : 'font-semibold text-[#111]'"
               >{{ time }}</span>
             </div>
           </div>
         </div>
-        <div class="text-xl leading-relaxed text-[#444]">
+        <div class="text-base lg:text-xl leading-relaxed text-[#444]">
           Свяжитесь с нами по телефону
-          <a href="tel:+79103043040" class="text-brand no-underline font-semibold">8 (910) 304-30-40</a>
+          <a href="tel:+79103043040" class="text-brand no-underline font-semibold whitespace-nowrap">8 (910) 304-30-40</a>
           или напишите на
-          <a href="mailto:zatochka_test@yandex.ru" class="text-brand no-underline font-semibold">zatochka_test@yandex.ru</a>
+          <a href="mailto:zatochka_test@yandex.ru" class="text-brand no-underline font-semibold break-all">zatochka_test@yandex.ru</a>
         </div>
       </div>
 
       <!-- Map -->
-      <div class="flex-[1.2] min-h-[400px] rounded-2xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.12)] bg-[rgb(232,232,232)]">
+      <div class="flex-[1.2] min-h-[280px] lg:min-h-[400px] rounded-2xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.12)] bg-[rgb(232,232,232)]">
         <iframe
           :src="settings?.map_embed_url || defaultMapEmbedUrl"
           width="100%"
           height="420"
           frameborder="0"
           allowfullscreen
-          class="block border-0"
+          class="block border-0 w-full h-full min-h-[280px] lg:min-h-[420px]"
         />
       </div>
     </div>

@@ -124,18 +124,18 @@ async function onFileChange(e: Event) {
 <template>
   <Teleport to="body">
     <div
-      class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-0 sm:p-4"
       @click.self="emit('close')"
     >
-      <div class="bg-white rounded-2xl w-full max-w-[720px] max-h-[90vh] flex flex-col shadow-2xl">
-        <div class="flex items-center justify-between px-7 py-5 border-b border-[#eee]">
-          <div class="text-lg font-bold">{{ isNew ? 'Новый товар' : 'Редактировать товар' }}</div>
+      <div class="bg-white rounded-none sm:rounded-2xl w-full h-full sm:h-auto max-w-[720px] sm:max-h-[90vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between px-4 lg:px-7 py-4 lg:py-5 border-b border-[#eee] shrink-0">
+          <div class="text-base lg:text-lg font-bold">{{ isNew ? 'Новый товар' : 'Редактировать товар' }}</div>
           <button class="text-[#aaa] hover:text-[#333] text-2xl" @click="emit('close')">×</button>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-7 py-5 flex flex-col gap-5">
-          <div class="grid grid-cols-2 gap-4">
-            <div class="col-span-2">
+        <div class="flex-1 overflow-y-auto px-4 lg:px-7 py-4 lg:py-5 flex flex-col gap-4 lg:gap-5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
+            <div class="sm:col-span-2">
               <label class="block text-xs font-semibold text-[#777] mb-1.5">Название *</label>
               <input v-model="form.name" type="text" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
             </div>
@@ -165,7 +165,7 @@ async function onFileChange(e: Event) {
               <label class="block text-xs font-semibold text-[#777] mb-1.5">Остаток (шт.)</label>
               <input v-model.number="form.stock" type="number" min="0" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
             </div>
-            <div class="col-span-2">
+            <div class="sm:col-span-2">
               <label class="block text-xs font-semibold text-[#777] mb-1.5">Описание</label>
               <textarea v-model="form.description" rows="3" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand resize-none" />
             </div>
@@ -200,7 +200,7 @@ async function onFileChange(e: Event) {
               <div v-for="(ph, i) in form.photos" :key="i" class="relative group">
                 <div class="w-20 h-20 rounded-xl bg-center bg-cover bg-[#eee]" :style="ph ? `background-image: url('${ph}')` : ''" />
                 <button
-                  class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  class="absolute -top-1.5 -right-1.5 w-6 h-6 lg:w-5 lg:h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
                   @click="removePhoto(i)"
                 >×</button>
               </div>
@@ -212,10 +212,13 @@ async function onFileChange(e: Event) {
               <label class="text-xs font-semibold text-[#777]">Характеристики</label>
               <button class="text-xs text-brand font-semibold hover:underline" @click="addSpec">+ Добавить</button>
             </div>
-            <div v-for="(spec, i) in form.specs" :key="i" class="flex gap-2 mb-2">
-              <input v-model="spec.key" type="text" placeholder="Параметр" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand" />
-              <input v-model="spec.value" type="text" placeholder="Значение" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand" />
-              <button class="w-8 h-9 text-[#aaa] hover:text-red-400 flex items-center justify-center text-xl" @click="removeSpec(i)">×</button>
+            <div v-for="(spec, i) in form.specs" :key="i" class="flex flex-col sm:flex-row gap-2 mb-2">
+              <div class="flex gap-2 flex-1">
+                <input v-model="spec.key" type="text" placeholder="Параметр" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand min-w-0" />
+                <input v-model="spec.value" type="text" placeholder="Значение" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand min-w-0" />
+                <button class="w-8 h-9 text-[#aaa] hover:text-red-400 flex items-center justify-center text-xl shrink-0 sm:hidden" @click="removeSpec(i)">×</button>
+              </div>
+              <button class="hidden sm:flex w-8 h-9 text-[#aaa] hover:text-red-400 items-center justify-center text-xl shrink-0" @click="removeSpec(i)">×</button>
             </div>
           </div>
 
@@ -229,23 +232,23 @@ async function onFileChange(e: Event) {
             </div>
             <div v-if="form.services.length === 0" class="text-xs text-[#bbb] py-2">Услуги не добавлены</div>
             <div v-for="(svc, i) in form.services" :key="svc.id" class="flex gap-2 mb-2 items-center">
-              <input v-model="svc.name" type="text" placeholder="Название услуги (напр. Гравировка)" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand" />
+              <input v-model="svc.name" type="text" placeholder="Название услуги" class="flex-1 border border-[#ddd] rounded-xl px-3 py-2 text-sm outline-none focus:border-brand min-w-0" />
               <div class="relative shrink-0">
-                <input v-model.number="svc.price" type="number" min="0" placeholder="0" class="w-28 border border-[#ddd] rounded-xl px-3 py-2 pr-7 text-sm outline-none focus:border-brand" />
+                <input v-model.number="svc.price" type="number" min="0" placeholder="0" class="w-20 sm:w-28 border border-[#ddd] rounded-xl px-3 py-2 pr-7 text-sm outline-none focus:border-brand" />
                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#aaa]">₽</span>
               </div>
-              <button class="w-8 h-9 text-[#aaa] hover:text-red-400 flex items-center justify-center text-xl" @click="removeService(i)">×</button>
+              <button class="w-8 h-9 text-[#aaa] hover:text-red-400 flex items-center justify-center text-xl shrink-0" @click="removeService(i)">×</button>
             </div>
           </div>
         </div>
 
-        <div class="px-7 py-5 border-t border-[#eee] flex justify-end gap-3">
-          <button class="px-6 py-2.5 rounded-xl border-2 border-[#ddd] text-[#555] text-sm font-semibold hover:bg-[#f5f5f5] transition-colors" @click="emit('close')">Отмена</button>
+        <div class="px-4 lg:px-7 py-4 lg:py-5 border-t border-[#eee] flex justify-end gap-2 lg:gap-3 shrink-0">
+          <button class="flex-1 sm:flex-initial px-4 lg:px-6 py-2.5 rounded-xl border-2 border-[#ddd] text-[#555] text-sm font-semibold hover:bg-[#f5f5f5] transition-colors" @click="emit('close')">Отмена</button>
           <button
-            class="px-6 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold shadow-[0_3px_0_rgba(9,136,189,0.5)] hover:brightness-110 transition-all disabled:opacity-50"
+            class="flex-1 sm:flex-initial px-4 lg:px-6 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold shadow-[0_3px_0_rgba(9,136,189,0.5)] hover:brightness-110 transition-all disabled:opacity-50"
             :disabled="saving || categoryIsHidden"
             @click="save"
-          >{{ saving ? 'Сохранение...' : 'Сохранить' }}</button>
+          >{{ saving ? 'Сохр...' : 'Сохранить' }}</button>
         </div>
       </div>
     </div>

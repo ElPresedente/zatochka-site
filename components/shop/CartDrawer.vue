@@ -28,10 +28,10 @@ const { formatPrice } = useFormatters()
   <Teleport to="body">
     <div class="fixed inset-0 z-[200]" @click.self="emit('close')">
       <div class="absolute inset-0 bg-black/50" @click="emit('close')" />
-      <div class="absolute right-0 top-0 bottom-0 w-[420px] bg-white shadow-2xl flex flex-col">
-        <div class="flex items-center justify-between px-6 py-5 border-b border-[#eee]">
-          <div class="text-xl font-bold">Корзина</div>
-          <button class="text-[#aaa] hover:text-[#333] text-2xl" @click="emit('close')">×</button>
+      <div class="absolute right-0 top-0 bottom-0 w-full max-w-[420px] bg-white shadow-2xl flex flex-col">
+        <div class="flex items-center justify-between px-4 lg:px-6 py-4 lg:py-5 border-b border-[#eee]">
+          <div class="text-lg lg:text-xl font-bold">Корзина</div>
+          <button class="text-[#aaa] hover:text-[#333] text-2xl w-8 h-8 flex items-center justify-center" @click="emit('close')">×</button>
         </div>
 
         <div v-if="cart.length === 0" class="flex-1 flex flex-col items-center justify-center text-[#aaa] gap-3">
@@ -39,10 +39,10 @@ const { formatPrice } = useFormatters()
           <span class="text-lg">Корзина пуста</span>
         </div>
 
-        <div v-else class="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-4">
+        <div v-else class="flex-1 overflow-y-auto px-4 lg:px-6 py-3 lg:py-4 flex flex-col gap-4">
           <div v-for="item in cart" :key="item.cartKey" class="flex gap-3 items-start">
             <div
-              class="w-16 h-16 rounded-xl bg-center bg-cover bg-[#f0f0f0] shrink-0"
+              class="w-14 h-14 lg:w-16 lg:h-16 rounded-xl bg-center bg-cover bg-[#f0f0f0] shrink-0"
               :style="item.photo ? `background-image: url('${item.photo}')` : ''"
             />
             <div class="flex-1 min-w-0">
@@ -69,8 +69,8 @@ const { formatPrice } = useFormatters()
           </div>
         </div>
 
-        <div v-if="cart.length > 0" class="border-t border-[#eee] px-6 py-5 flex flex-col gap-4">
-          <div class="flex justify-between text-xl font-bold">
+        <div v-if="cart.length > 0" class="border-t border-[#eee] px-4 lg:px-6 py-4 lg:py-5 flex flex-col gap-3 lg:gap-4">
+          <div class="flex justify-between text-lg lg:text-xl font-bold">
             <span>Итого:</span>
             <span class="text-brand">{{ formatPrice(totalPrice) }}</span>
           </div>
@@ -91,7 +91,7 @@ const { formatPrice } = useFormatters()
           <div v-if="error" class="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-3 leading-relaxed">
             {{ error }}
           </div>
-          <button class="btn-primary py-3.5 text-lg disabled:opacity-50" :disabled="loading" @click="emit('checkout')">
+          <button class="btn-primary py-3 lg:py-3.5 text-base lg:text-lg disabled:opacity-50" :disabled="loading" @click="emit('checkout')">
             {{ loading ? 'Оформляем...' : 'Оформить заказ' }}
           </button>
           <NuxtLink

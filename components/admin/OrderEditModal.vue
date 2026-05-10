@@ -251,21 +251,21 @@ async function setStatus(status: OrderStatus) {
 <template>
   <Teleport to="body">
     <div
-      class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4"
+      class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-0 sm:p-4"
       @click.self="emit('close')"
     >
-      <div class="bg-white rounded-2xl w-full max-w-[860px] max-h-[90vh] flex flex-col shadow-2xl">
-        <div class="flex items-start justify-between px-7 py-5 border-b border-[#eee]">
-          <div>
-            <div class="text-lg font-bold">Заказ №{{ selectedOrder?.id ?? '...' }}</div>
-            <div v-if="selectedOrder" class="text-sm text-[#888] mt-1">
+      <div class="bg-white rounded-none sm:rounded-2xl w-full h-full sm:h-auto max-w-[860px] sm:max-h-[90vh] flex flex-col shadow-2xl">
+        <div class="flex items-start justify-between gap-3 px-4 lg:px-7 py-4 lg:py-5 border-b border-[#eee] shrink-0">
+          <div class="min-w-0">
+            <div class="text-base lg:text-lg font-bold">Заказ №{{ selectedOrder?.id ?? '...' }}</div>
+            <div v-if="selectedOrder" class="text-xs lg:text-sm text-[#888] mt-1 truncate">
               {{ customerName(selectedOrder) }}, {{ selectedOrder.customerPhone }}
             </div>
           </div>
-          <button class="text-[#aaa] hover:text-[#333] text-2xl leading-none" @click="emit('close')">×</button>
+          <button class="text-[#aaa] hover:text-[#333] text-2xl leading-none shrink-0" @click="emit('close')">×</button>
         </div>
 
-        <div v-if="detailsLoading" class="px-7 py-16 text-center text-[#aaa]">Загрузка...</div>
+        <div v-if="detailsLoading" class="px-4 lg:px-7 py-16 text-center text-[#aaa]">Загрузка...</div>
 
         <div v-else-if="selectedOrder" class="flex-1 overflow-y-auto">
           <AdminOrderHeader :order="selectedOrder" />
@@ -293,21 +293,23 @@ async function setStatus(status: OrderStatus) {
           <AdminOrderHistory :history="selectedOrder.history" />
         </div>
 
-        <div v-if="selectedOrder" class="px-7 py-5 border-t border-[#eee] flex items-center gap-3">
-          <div v-if="actionError" class="text-sm text-red-500 mr-auto">{{ actionError }}</div>
-          <div v-else class="mr-auto text-xs text-[#aaa]">
+        <div v-if="selectedOrder" class="px-4 lg:px-7 py-4 lg:py-5 border-t border-[#eee] flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
+          <div v-if="actionError" class="text-sm text-red-500 sm:mr-auto">{{ actionError }}</div>
+          <div v-else class="sm:mr-auto text-xs text-[#aaa]">
             При принятии заказа остатки товаров будут списаны.
           </div>
-          <button
-            v-for="action in availableActions"
-            :key="action.status"
-            class="px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
-            :class="action.class"
-            :disabled="!!actionLoading || editSaving"
-            @click="setStatus(action.status)"
-          >
-            {{ actionLoading === action.status ? 'Сохранение...' : action.label }}
-          </button>
+          <div v-if="availableActions.length" class="flex gap-2 flex-wrap">
+            <button
+              v-for="action in availableActions"
+              :key="action.status"
+              class="flex-1 sm:flex-initial px-4 lg:px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+              :class="action.class"
+              :disabled="!!actionLoading || editSaving"
+              @click="setStatus(action.status)"
+            >
+              {{ actionLoading === action.status ? 'Сохр...' : action.label }}
+            </button>
+          </div>
         </div>
       </div>
     </div>

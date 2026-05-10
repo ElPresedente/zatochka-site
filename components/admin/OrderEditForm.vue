@@ -19,7 +19,7 @@ function hasComment(value: string) {
 </script>
 
 <template>
-  <div class="px-7 py-5 flex flex-col gap-5 border-b border-[#eee]">
+  <div class="px-4 lg:px-7 py-4 lg:py-5 flex flex-col gap-4 lg:gap-5 border-b border-[#eee]">
     <div>
       <label class="block text-xs font-semibold text-[#777] mb-1.5">Комментарий клиента</label>
       <div class="min-h-[64px] rounded-xl bg-[#f8f8f8] border border-[#eee] px-4 py-3 text-sm text-[#555] leading-relaxed whitespace-pre-wrap">
@@ -27,7 +27,7 @@ function hasComment(value: string) {
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-5 items-start">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5 items-start">
       <div>
         <label class="block text-xs font-semibold text-[#777] mb-1.5">Сумма заказа</label>
         <input

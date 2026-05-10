@@ -34,12 +34,13 @@ async function toggleAdmin(u: UserRow) {
 </script>
 
 <template>
-  <div class="bg-white border-b border-[#eee] px-8 py-5 shrink-0">
-    <h1 class="text-xl font-bold text-[#222]">Пользователи</h1>
+  <div class="bg-white border-b border-[#eee] px-4 lg:px-8 py-4 lg:py-5 shrink-0">
+    <h1 class="text-lg lg:text-xl font-bold text-[#222]">Пользователи</h1>
   </div>
 
-  <div class="flex-1 overflow-y-auto px-8 py-6">
-    <div class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden">
+  <div class="flex-1 overflow-y-auto px-3 lg:px-8 py-4 lg:py-6">
+    <!-- Desktop: table -->
+    <div class="hidden lg:block bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden">
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-[#eee] text-left">
@@ -92,6 +93,51 @@ async function toggleAdmin(u: UserRow) {
           </tr>
         </tbody>
       </table>
+      <div v-if="!users?.length" class="text-center text-[#aaa] py-16">
+        Нет зарегистрированных пользователей
+      </div>
+    </div>
+
+    <!-- Mobile: cards -->
+    <div class="lg:hidden flex flex-col gap-3">
+      <div
+        v-for="u in users"
+        :key="u.id"
+        class="bg-white rounded-2xl shadow-sm border border-[#eee] p-4 flex flex-col gap-2"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="font-semibold text-[#222] truncate">{{ u.lastName }} {{ u.firstName }}</div>
+            <div class="text-sm text-[#666]">{{ u.phone }}</div>
+          </div>
+          <span
+            class="text-[10px] font-bold px-2 py-1 rounded-lg shrink-0 whitespace-nowrap"
+            :class="u.isAdmin ? 'bg-brand/10 text-brand' : 'bg-[#f5f5f5] text-[#888]'"
+          >
+            {{ u.isAdmin ? 'Админ' : 'Юзер' }}
+          </span>
+        </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#888]">
+          <span>ID: <span class="text-[#555]">{{ u.id }}</span></span>
+          <span>Регистрация: <span class="text-[#555]">{{ formatDate(u.createdAt) }}</span></span>
+          <span v-if="u.consentGivenAt" class="text-green-600">
+            ✓ ПДн {{ formatDate(u.consentGivenAt) }}
+          </span>
+        </div>
+        <div class="flex justify-end mt-1">
+          <button
+            v-if="u.id !== currentUser?.id"
+            class="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            :class="u.isAdmin
+              ? 'bg-red-50 text-red-500 hover:bg-red-100'
+              : 'bg-brand/10 text-brand hover:bg-brand/20'"
+            @click="toggleAdmin(u)"
+          >
+            {{ u.isAdmin ? 'Снять админа' : 'Назначить админом' }}
+          </button>
+          <span v-else class="text-xs text-[#ccc]">вы</span>
+        </div>
+      </div>
       <div v-if="!users?.length" class="text-center text-[#aaa] py-16">
         Нет зарегистрированных пользователей
       </div>

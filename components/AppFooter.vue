@@ -1,6 +1,6 @@
 <template>
   <footer class="bg-dark text-white font-sans py-8 mt-auto">
-    <div class="max-w-[1440px] mx-auto px-12 grid grid-cols-[230px_1fr_1fr] gap-10 items-start">
+    <div class="max-w-[1440px] mx-auto px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-[230px_1fr_1fr] gap-8 lg:gap-10 items-start">
       <!-- Logo -->
       <div class="flex flex-col items-center gap-2.5">
         <img src="/images/logo_footer.png" alt="Острый край" class="w-[120px] h-[120px] object-contain" />

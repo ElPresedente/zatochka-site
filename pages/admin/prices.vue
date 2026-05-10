@@ -143,23 +143,23 @@ async function deleteNote(n: ServiceNote) {
 
 <template>
   <!-- Header -->
-  <div class="bg-white border-b border-[#eee] px-8 py-5 flex items-center justify-between shrink-0">
-    <h1 class="text-xl font-bold text-[#222]">Прайс-лист</h1>
-    <button class="bg-brand text-white rounded-xl px-5 py-2.5 font-bold text-sm hover:brightness-110 shadow-[0_3px_0_rgba(9,136,189,0.5)]" @click="openNewCat">
-      + Новая категория
+  <div class="bg-white border-b border-[#eee] px-4 lg:px-8 py-4 lg:py-5 flex items-center justify-between gap-3 shrink-0">
+    <h1 class="text-lg lg:text-xl font-bold text-[#222]">Прайс-лист</h1>
+    <button class="bg-brand text-white rounded-xl px-3 lg:px-5 py-2 lg:py-2.5 font-bold text-xs lg:text-sm hover:brightness-110 shadow-[0_3px_0_rgba(9,136,189,0.5)] whitespace-nowrap" @click="openNewCat">
+      + Категория
     </button>
   </div>
 
-  <div class="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+  <div class="flex-1 overflow-y-auto px-3 lg:px-8 py-4 lg:py-6 space-y-4 lg:space-y-5">
     <!-- Categories -->
     <div
       v-for="cat in categories"
       :key="cat.id"
       class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden"
     >
-      <div class="flex items-center justify-between px-6 py-4 bg-[#f8f8f8] border-b border-[#eee]">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 px-4 lg:px-6 py-3 lg:py-4 bg-[#f8f8f8] border-b border-[#eee]">
         <div class="font-bold text-[#222]">{{ cat.title }}</div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
           <button
             v-if="dirtyCategories.has(cat.id)"
             class="px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold hover:bg-green-600 transition-colors"
@@ -177,7 +177,7 @@ async function deleteNote(n: ServiceNote) {
           v-for="(item, i) in localItems[cat.id] ?? []"
           :key="item.id"
           draggable="true"
-          class="flex items-center px-6 py-3 border-b border-[#f5f5f5] last:border-0 transition-colors group"
+          class="flex items-center gap-2 px-4 lg:px-6 py-3 border-b border-[#f5f5f5] last:border-0 transition-colors group"
           :class="[
             dragOverPos?.catId === cat.id && dragOverPos?.index === i ? 'bg-brand/10' : 'hover:bg-[#fafafa]',
             dragging?.catId === cat.id && dragging?.index === i ? 'opacity-40' : '',
@@ -187,21 +187,21 @@ async function deleteNote(n: ServiceNote) {
           @drop.prevent="onDrop(cat.id, i)"
           @dragend="onDragEnd"
         >
-          <span class="text-[#bbb] mr-3 cursor-grab active:cursor-grabbing select-none text-base shrink-0" title="Перетащить">⠿</span>
-          <span class="text-sm text-[#222] flex-1">{{ item.name }}</span>
-          <span class="text-sm font-bold text-brand mr-6">{{ item.price }}</span>
-          <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button class="px-2.5 py-1 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20" @click="openEditItem(item)">✏️</button>
-            <button class="px-2.5 py-1 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100" @click="deleteItem(item)">×</button>
+          <span class="text-[#bbb] cursor-grab active:cursor-grabbing select-none text-base shrink-0" title="Перетащить">⠿</span>
+          <span class="text-sm text-[#222] flex-1 min-w-0">{{ item.name }}</span>
+          <span class="text-sm font-bold text-brand whitespace-nowrap shrink-0">{{ item.price }}</span>
+          <div class="flex gap-1.5 lg:gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
+            <button class="px-2 lg:px-2.5 py-1 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20" @click="openEditItem(item)">✏️</button>
+            <button class="px-2 lg:px-2.5 py-1 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100" @click="deleteItem(item)">×</button>
           </div>
         </div>
-        <div v-if="(localItems[cat.id] ?? []).length === 0" class="px-6 py-4 text-sm text-[#aaa]">Нет позиций</div>
+        <div v-if="(localItems[cat.id] ?? []).length === 0" class="px-4 lg:px-6 py-4 text-sm text-[#aaa]">Нет позиций</div>
       </div>
     </div>
 
     <!-- Notes -->
     <div class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden">
-      <div class="flex items-center justify-between px-6 py-4 bg-[#f8f8f8] border-b border-[#eee]">
+      <div class="flex items-center justify-between px-4 lg:px-6 py-3 lg:py-4 bg-[#f8f8f8] border-b border-[#eee]">
         <div class="font-bold text-[#222]">Примечания</div>
         <button class="px-3 py-1.5 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20" @click="openNewNote">+ Добавить</button>
       </div>
@@ -209,13 +209,13 @@ async function deleteNote(n: ServiceNote) {
         <div
           v-for="note in notes"
           :key="note.id"
-          class="flex items-start gap-3 px-6 py-3 border-b border-[#f5f5f5] last:border-0 hover:bg-[#fafafa] transition-colors group"
+          class="flex items-start gap-3 px-4 lg:px-6 py-3 border-b border-[#f5f5f5] last:border-0 hover:bg-[#fafafa] transition-colors group"
         >
           <span class="text-brand font-bold mt-0.5 shrink-0">!</span>
           <span class="text-sm text-[#444] flex-1 leading-relaxed">{{ note.content }}</span>
-          <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-            <button class="px-2.5 py-1 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20" @click="openEditNote(note)">✏️</button>
-            <button class="px-2.5 py-1 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100" @click="deleteNote(note)">×</button>
+          <div class="flex gap-1.5 lg:gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
+            <button class="px-2 lg:px-2.5 py-1 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20" @click="openEditNote(note)">✏️</button>
+            <button class="px-2 lg:px-2.5 py-1 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100" @click="deleteNote(note)">×</button>
           </div>
         </div>
       </div>
@@ -224,7 +224,7 @@ async function deleteNote(n: ServiceNote) {
 
   <!-- Category editor -->
   <Teleport to="body">
-    <div v-if="catEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]" @click.self="catEditor = false">
+    <div v-if="catEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4" @click.self="catEditor = false">
       <div class="bg-white rounded-2xl w-full max-w-[400px] shadow-2xl overflow-hidden">
         <div class="flex items-center justify-between px-6 py-5 border-b border-[#eee]">
           <div class="font-bold">{{ catForm.isNew ? 'Новая категория' : 'Изменить категорию' }}</div>
@@ -244,7 +244,7 @@ async function deleteNote(n: ServiceNote) {
 
   <!-- Item editor -->
   <Teleport to="body">
-    <div v-if="itemEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]" @click.self="itemEditor = false">
+    <div v-if="itemEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4" @click.self="itemEditor = false">
       <div class="bg-white rounded-2xl w-full max-w-[440px] shadow-2xl overflow-hidden">
         <div class="flex items-center justify-between px-6 py-5 border-b border-[#eee]">
           <div class="font-bold">{{ itemForm.isNew ? 'Новая позиция' : 'Изменить позицию' }}</div>
@@ -270,7 +270,7 @@ async function deleteNote(n: ServiceNote) {
 
   <!-- Note editor -->
   <Teleport to="body">
-    <div v-if="noteEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100]" @click.self="noteEditor = false">
+    <div v-if="noteEditor" class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4" @click.self="noteEditor = false">
       <div class="bg-white rounded-2xl w-full max-w-[480px] shadow-2xl overflow-hidden">
         <div class="flex items-center justify-between px-6 py-5 border-b border-[#eee]">
           <div class="font-bold">{{ noteForm.isNew ? 'Новое примечание' : 'Изменить примечание' }}</div>

@@ -108,7 +108,9 @@ async function saveInlineEdit(p: ProductDto, field: InlineField) {
 </script>
 
 <template>
-  <div class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden">
+  <div>
+    <!-- Desktop table -->
+    <div class="hidden lg:block bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden">
     <table class="w-full text-sm">
       <thead class="bg-[#f8f8f8] border-b border-[#eee]">
         <tr>
@@ -265,5 +267,83 @@ async function saveInlineEdit(p: ProductDto, field: InlineField) {
       </tbody>
     </table>
     <div v-if="products.length === 0" class="py-16 text-center text-[#aaa]">Нет товаров</div>
+    </div>
+
+    <!-- Mobile cards -->
+    <div class="lg:hidden flex flex-col gap-3">
+      <div
+        v-for="p in sorted"
+        :key="p.id"
+        class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden flex flex-col"
+      >
+        <div class="flex gap-3 p-3">
+          <div
+            class="w-16 h-16 rounded-xl bg-center bg-cover bg-[#eee] shrink-0"
+            :style="p.photos[0] ? `background-image: url('${p.photos[0]}')` : ''"
+          />
+          <div class="flex-1 min-w-0 flex flex-col gap-1">
+            <div class="font-semibold text-[#222] text-sm leading-snug line-clamp-2">{{ p.name }}</div>
+            <div class="text-xs text-[#888]">{{ p.category }}</div>
+            <button
+              class="self-start px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors"
+              :class="p.active ? 'bg-green-100 text-green-700' : 'bg-[#eee] text-[#999]'"
+              @click="emit('toggle', p)"
+            >{{ p.active ? 'Активен' : 'Скрыт' }}</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 px-3 pb-2">
+          <div class="flex flex-col gap-1">
+            <div class="text-[10px] uppercase tracking-wide font-semibold text-[#888]">Цена</div>
+            <input
+              v-if="isInlineEditing(p, 'price')"
+              :id="inlineInputId(p, 'price')"
+              v-model="inlineEdit!.value"
+              type="number"
+              min="0"
+              step="1"
+              class="w-full rounded-lg border border-brand px-2.5 py-1.5 text-sm font-bold text-brand outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
+              :disabled="inlineSaving"
+              @blur="saveInlineEdit(p, 'price')"
+              @keydown.enter.prevent="saveInlineEdit(p, 'price')"
+              @keydown.esc.prevent="cancelInlineEdit"
+            />
+            <button
+              v-else
+              class="self-start rounded-lg px-2.5 py-1 font-bold text-brand transition-colors hover:bg-brand/10"
+              @click="startInlineEdit(p, 'price')"
+            >
+              {{ formatPrice(p.price) }}
+            </button>
+          </div>
+          <div class="flex flex-col gap-1">
+            <div class="text-[10px] uppercase tracking-wide font-semibold text-[#888]">Остаток</div>
+            <input
+              v-if="isInlineEditing(p, 'stock')"
+              :id="inlineInputId(p, 'stock')"
+              v-model="inlineEdit!.value"
+              type="number"
+              min="0"
+              step="1"
+              class="w-full rounded-lg border border-brand px-2.5 py-1.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
+              :disabled="inlineSaving"
+              @blur="saveInlineEdit(p, 'stock')"
+              @keydown.enter.prevent="saveInlineEdit(p, 'stock')"
+              @keydown.esc.prevent="cancelInlineEdit"
+            />
+            <span
+              v-else
+              class="self-start px-2.5 py-1 rounded-lg font-semibold text-xs cursor-pointer transition-colors"
+              :class="p.stock === 0 ? 'bg-red-100 text-red-500' : p.stock < 5 ? 'bg-orange-100 text-orange-500' : 'bg-green-100 text-green-600'"
+              @click="startInlineEdit(p, 'stock')"
+            >{{ p.stock }} шт.</span>
+          </div>
+        </div>
+        <div class="flex gap-2 px-3 pb-3 border-t border-[#f4f4f4] pt-2">
+          <button class="flex-1 px-3 py-2 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20 transition-colors" @click="emit('edit', p)">Изменить</button>
+          <button class="flex-1 px-3 py-2 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100 transition-colors" @click="emit('remove', p)">Удалить</button>
+        </div>
+      </div>
+      <div v-if="products.length === 0" class="bg-white rounded-2xl border border-[#eee] py-12 text-center text-[#aaa]">Нет товаров</div>
+    </div>
   </div>
 </template>

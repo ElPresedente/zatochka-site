@@ -34,28 +34,28 @@ async function remove(c: ProductCategoryDto) {
 <template>
   <Teleport to="body">
     <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4" @click.self="emit('close')">
-      <div class="bg-white rounded-2xl w-full max-w-[480px] max-h-[80vh] flex flex-col shadow-2xl">
-        <div class="flex items-center justify-between px-7 py-5 border-b border-[#eee]">
+      <div class="bg-white rounded-2xl w-full max-w-[480px] max-h-[85vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between px-5 lg:px-7 py-4 lg:py-5 border-b border-[#eee]">
           <div class="text-lg font-bold">Категории товаров</div>
           <button class="text-[#aaa] hover:text-[#333] text-2xl" @click="emit('close')">×</button>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-7 py-4">
+        <div class="flex-1 overflow-y-auto px-5 lg:px-7 py-4">
           <div v-if="!categories?.length" class="py-8 text-center text-[#aaa] text-sm">Нет категорий</div>
           <div
             v-for="c in categories"
             :key="c.id"
-            class="flex items-center justify-between py-3 border-b border-[#f0f0f0] last:border-0 group"
+            class="flex items-center justify-between gap-2 py-3 border-b border-[#f0f0f0] last:border-0 group"
           >
-            <span class="text-sm font-semibold text-[#222]">{{ c.name }}</span>
-            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span class="text-sm font-semibold text-[#222] min-w-0 truncate">{{ c.name }}</span>
+            <div class="flex gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
               <button class="px-3 py-1 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20" @click="openEdit(c)">Изменить</button>
               <button class="px-3 py-1 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100" @click="remove(c)">Удалить</button>
             </div>
           </div>
         </div>
 
-        <div class="px-7 py-4 border-t border-[#eee]">
+        <div class="px-5 lg:px-7 py-4 border-t border-[#eee]">
           <button class="w-full py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)]" @click="openNew">
             + Новая категория
           </button>

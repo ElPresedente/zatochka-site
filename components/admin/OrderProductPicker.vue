@@ -109,27 +109,30 @@ function comboLabel(product: AdminProduct, serviceIds: string[]): string {
 <template>
   <Teleport to="body">
     <div
-      class="fixed inset-0 bg-black/70 flex items-center justify-center z-[110] p-4"
+      class="fixed inset-0 bg-black/70 flex items-center justify-center z-[110] p-0 sm:p-4"
       @click.self="emit('close')"
     >
-      <div class="bg-white rounded-2xl w-full max-w-[1000px] max-h-[88vh] flex flex-col shadow-2xl">
+      <div class="bg-white rounded-none sm:rounded-2xl w-full h-full sm:h-auto max-w-[1000px] sm:max-h-[88vh] flex flex-col shadow-2xl">
 
         <!-- Header -->
-        <div class="flex items-center gap-4 px-6 py-4 border-b border-[#eee] shrink-0">
-          <span class="text-base font-bold text-[#222]">Выберите товары для добавления</span>
-          <div class="ml-auto flex items-center gap-3">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 lg:px-6 py-3 lg:py-4 border-b border-[#eee] shrink-0">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-sm lg:text-base font-bold text-[#222]">Выберите товары</span>
+            <button class="sm:hidden text-[#aaa] hover:text-[#333] text-2xl leading-none" @click="emit('close')">×</button>
+          </div>
+          <div class="sm:ml-auto flex items-center gap-3">
             <input
               v-model="search"
               type="text"
               placeholder="Поиск..."
-              class="border border-[#ddd] rounded-xl px-4 py-2 text-sm outline-none focus:border-brand w-52"
+              class="border border-[#ddd] rounded-xl px-4 py-2 text-sm outline-none focus:border-brand flex-1 sm:w-52"
             />
-            <button class="text-[#aaa] hover:text-[#333] text-2xl leading-none" @click="emit('close')">×</button>
+            <button class="hidden sm:block text-[#aaa] hover:text-[#333] text-2xl leading-none" @click="emit('close')">×</button>
           </div>
         </div>
 
         <!-- Category chips -->
-        <div class="px-6 py-3 border-b border-[#eee] flex items-center gap-2 overflow-x-auto shrink-0">
+        <div class="px-4 lg:px-6 py-2 lg:py-3 border-b border-[#eee] flex items-center gap-2 overflow-x-auto shrink-0">
           <button
             class="shrink-0 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap"
             :class="!selectedCategory ? 'bg-brand text-white' : 'bg-[#f0f0f0] text-[#555] hover:bg-[#e5e5e5]'"
@@ -145,11 +148,11 @@ function comboLabel(product: AdminProduct, serviceIds: string[]): string {
         </div>
 
         <!-- Products grid -->
-        <div class="flex-1 overflow-y-auto px-6 py-4">
+        <div class="flex-1 overflow-y-auto px-3 lg:px-6 py-3 lg:py-4">
           <div v-if="filtered.length === 0" class="py-20 text-center text-[#aaa] text-sm">
             Ничего не найдено
           </div>
-          <div v-else class="grid grid-cols-4 gap-3">
+          <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 lg:gap-3">
             <div
               v-for="product in filtered"
               :key="product.id"
@@ -239,25 +242,25 @@ function comboLabel(product: AdminProduct, serviceIds: string[]): string {
         </div>
 
         <!-- Footer -->
-        <div class="px-6 py-4 border-t border-[#eee] flex items-center justify-between shrink-0">
-          <div class="text-sm text-[#777]">
+        <div class="px-4 lg:px-6 py-3 lg:py-4 border-t border-[#eee] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
+          <div class="text-xs lg:text-sm text-[#777]">
             <template v-if="totalQty > 0">
-              Выбрано позиций: <span class="font-bold text-[#222]">{{ selectedItems.length }}</span>,
-              всего штук: <span class="font-bold text-[#222]">{{ totalQty }}</span>
+              Позиций: <span class="font-bold text-[#222]">{{ selectedItems.length }}</span>,
+              штук: <span class="font-bold text-[#222]">{{ totalQty }}</span>
             </template>
             <template v-else>Выберите товары</template>
           </div>
-          <div class="flex gap-3">
+          <div class="flex gap-2 lg:gap-3">
             <button
-              class="px-5 py-2.5 rounded-xl border border-[#ddd] text-sm text-[#555] hover:bg-[#f5f5f5] transition-colors"
+              class="flex-1 sm:flex-initial px-4 lg:px-5 py-2.5 rounded-xl border border-[#ddd] text-sm text-[#555] hover:bg-[#f5f5f5] transition-colors"
               @click="emit('close')"
             >Отмена</button>
             <button
-              class="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              class="flex-1 sm:flex-initial px-4 lg:px-6 py-2.5 rounded-xl text-sm font-semibold transition-all"
               :class="totalQty > 0 ? 'bg-brand text-white hover:brightness-110' : 'bg-[#eee] text-[#aaa] cursor-not-allowed'"
               :disabled="totalQty === 0"
               @click="confirm"
-            >Добавить в заказ</button>
+            >Добавить</button>
           </div>
         </div>
 

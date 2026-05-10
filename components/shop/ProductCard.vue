@@ -34,28 +34,28 @@ const stockBadgeText = computed(() => {
     @click="emit('open', product)"
   >
     <div
-      class="h-[200px] bg-center bg-cover bg-[rgb(235,235,235)]"
+      class="h-[140px] sm:h-[180px] lg:h-[200px] bg-center bg-cover bg-[rgb(235,235,235)]"
       :style="product.photos[0] ? `background-image: url('${product.photos[0]}')` : ''"
     />
-    <div class="p-5 flex flex-col flex-1 gap-2">
-      <div class="text-[17px] font-semibold text-[#222] leading-snug flex-1">{{ product.name }}</div>
-      <div class="text-sm text-[#888]">{{ product.category }}</div>
-      <div class="flex items-center justify-between mt-2">
-        <span class="text-[22px] font-bold text-brand">{{ formatPrice(product.price) }}</span>
-        <span class="text-xs font-semibold px-2.5 py-1 rounded-lg" :class="stockBadgeClass">
+    <div class="p-3 lg:p-5 flex flex-col flex-1 gap-1.5 lg:gap-2">
+      <div class="text-sm lg:text-[17px] font-semibold text-[#222] leading-snug flex-1 line-clamp-3">{{ product.name }}</div>
+      <div class="text-xs lg:text-sm text-[#888] line-clamp-1">{{ product.category }}</div>
+      <div class="flex items-center justify-between gap-2 mt-1 lg:mt-2 flex-wrap">
+        <span class="text-lg lg:text-[22px] font-bold text-brand">{{ formatPrice(product.price) }}</span>
+        <span class="text-[10px] lg:text-xs font-semibold px-2 lg:px-2.5 py-0.5 lg:py-1 rounded-lg" :class="stockBadgeClass">
           {{ stockBadgeText }}
         </span>
       </div>
       <!-- Product with services: always open modal to choose -->
       <template v-if="product.services.length > 0">
-        <div v-if="cartQty > 0" class="mt-2 flex items-center justify-between gap-2" @click.stop>
+        <div v-if="cartQty > 0" class="mt-1 lg:mt-2 flex items-center justify-between gap-2" @click.stop>
           <span class="text-xs text-[#888]">В корзине: {{ cartQty }} шт.</span>
           <button class="text-xs text-brand font-semibold hover:underline" @click.stop="emit('open', product)">
             Изменить
           </button>
         </div>
         <button
-          class="mt-2 btn-primary py-2.5 text-base w-full"
+          class="mt-1 lg:mt-2 btn-primary py-2 lg:py-2.5 text-sm lg:text-base w-full"
           :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
           :disabled="product.stock === 0"
           @click.stop="emit('open', product)"
@@ -64,17 +64,17 @@ const stockBadgeText = computed(() => {
 
       <!-- Regular product: direct add or qty control -->
       <template v-else>
-        <div v-if="cartQty > 0" class="mt-2 flex justify-center" @click.stop>
+        <div v-if="cartQty > 0" class="mt-1 lg:mt-2 flex justify-center" @click.stop>
           <ShopQtyInput
             :qty="cartQty"
             :stock="product.stock"
-            size="md"
+            size="sm"
             @update="emit('setQty', String(product.id), $event, product.stock)"
           />
         </div>
         <button
           v-else
-          class="mt-2 btn-primary py-2.5 text-base w-full"
+          class="mt-1 lg:mt-2 btn-primary py-2 lg:py-2.5 text-sm lg:text-base w-full"
           :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
           :disabled="product.stock === 0"
           @click.stop="emit('add', product)"

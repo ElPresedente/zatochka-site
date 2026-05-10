@@ -23,7 +23,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[rgb(36,35,35)] flex items-center justify-center font-[Inter,sans-serif]">
+  <div class="min-h-screen bg-[rgb(36,35,35)] flex items-center justify-center font-[Inter,sans-serif] p-4">
     <div class="w-full max-w-[380px]">
       <div class="text-center mb-8">
         <div class="text-white font-bold text-2xl leading-snug">
@@ -33,10 +33,10 @@ async function submit() {
       </div>
 
       <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div class="px-8 py-6 border-b border-[#eee]">
+        <div class="px-6 lg:px-8 py-5 lg:py-6 border-b border-[#eee]">
           <div class="font-bold text-[#222] text-lg">Вход</div>
         </div>
-        <form class="px-8 py-6 flex flex-col gap-4" @submit.prevent="submit">
+        <form class="px-6 lg:px-8 py-5 lg:py-6 flex flex-col gap-4" @submit.prevent="submit">
           <div>
             <label class="block text-xs font-semibold text-[#777] mb-1.5">Телефон</label>
             <input

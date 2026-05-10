@@ -31,11 +31,11 @@ async function submit() {
 </script>
 
 <template>
-  <div class="max-w-[440px] mx-auto px-4 py-16">
-    <h1 class="text-2xl font-bold text-[#222] mb-8">Вход</h1>
+  <div class="max-w-[440px] mx-auto px-4 py-10 lg:py-16">
+    <h1 class="text-2xl font-bold text-[#222] mb-6 lg:mb-8">Вход</h1>
 
     <form class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden" @submit.prevent="submit">
-      <div class="px-7 py-6 flex flex-col gap-5">
+      <div class="px-5 py-5 lg:px-7 lg:py-6 flex flex-col gap-4 lg:gap-5">
         <div>
           <label class="block text-xs font-semibold text-[#777] mb-1.5">Телефон</label>
           <input
@@ -64,7 +64,7 @@ async function submit() {
         </Transition>
       </div>
 
-      <div class="px-7 py-5 border-t border-[#eee] flex items-center justify-between">
+      <div class="px-5 py-4 lg:px-7 lg:py-5 border-t border-[#eee] flex items-center justify-between gap-3">
         <NuxtLink to="/register" class="text-sm text-[#999] no-underline hover:text-[#555] transition-colors">
           Создать аккаунт
         </NuxtLink>

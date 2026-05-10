@@ -74,25 +74,25 @@ async function saveProfile() {
 
 <template>
   <main class="flex-1 w-full bg-[rgb(245,245,245)]">
-    <div class="max-w-[960px] mx-auto px-6 py-10">
+    <div class="max-w-[960px] mx-auto px-4 lg:px-6 py-8 lg:py-10">
 
       <!-- Page header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-[#111]">Личный кабинет</h1>
-        <p v-if="profile" class="text-[#777] mt-1">
+      <div class="mb-6 lg:mb-8">
+        <h1 class="text-2xl lg:text-3xl font-bold text-[#111]">Личный кабинет</h1>
+        <p v-if="profile" class="text-[#777] mt-1 text-sm lg:text-base">
           {{ profile.lastName }} {{ profile.firstName }}
         </p>
       </div>
 
       <!-- Tabs -->
-      <div class="flex gap-1 mb-6 bg-white rounded-2xl p-1.5 shadow-sm w-fit">
+      <div class="flex gap-1 mb-6 bg-white rounded-2xl p-1.5 shadow-sm w-fit max-w-full">
         <button
-          class="px-5 py-2 rounded-xl font-semibold text-base transition-all"
+          class="px-4 lg:px-5 py-2 rounded-xl font-semibold text-sm lg:text-base transition-all"
           :class="tab === 'profile' ? 'bg-brand text-white shadow' : 'text-[#555] hover:text-brand'"
           @click="tab = 'profile'"
         >Профиль</button>
         <button
-          class="px-5 py-2 rounded-xl font-semibold text-base transition-all flex items-center gap-2"
+          class="px-4 lg:px-5 py-2 rounded-xl font-semibold text-sm lg:text-base transition-all flex items-center gap-2"
           :class="tab === 'orders' ? 'bg-brand text-white shadow' : 'text-[#555] hover:text-brand'"
           @click="tab = 'orders'"
         >
@@ -107,11 +107,11 @@ async function saveProfile() {
 
       <!-- Profile tab -->
       <div v-if="tab === 'profile'">
-        <div class="bg-white rounded-2xl shadow-sm p-8 max-w-[540px]">
-          <h2 class="text-xl font-bold text-[#111] mb-6">Личные данные</h2>
+        <div class="bg-white rounded-2xl shadow-sm p-5 lg:p-8 max-w-[540px]">
+          <h2 class="text-lg lg:text-xl font-bold text-[#111] mb-5 lg:mb-6">Личные данные</h2>
 
-          <form class="flex flex-col gap-5" @submit.prevent="saveProfile">
-            <div class="grid grid-cols-2 gap-4">
+          <form class="flex flex-col gap-4 lg:gap-5" @submit.prevent="saveProfile">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div class="flex flex-col gap-1.5">
                 <label class="text-sm font-semibold text-[#555]">Фамилия</label>
                 <input
@@ -179,19 +179,19 @@ async function saveProfile() {
             class="bg-white rounded-2xl shadow-sm overflow-hidden"
           >
             <!-- Order header -->
-            <div class="flex items-center justify-between px-6 py-4 border-b border-[#f0f0f0]">
-              <div class="flex items-center gap-3">
-                <span class="font-bold text-[#111] text-lg">Заказ #{{ order.id }}</span>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 lg:px-6 py-3 lg:py-4 border-b border-[#f0f0f0]">
+              <div class="flex items-center gap-2 lg:gap-3 flex-wrap">
+                <span class="font-bold text-[#111] text-base lg:text-lg">Заказ #{{ order.id }}</span>
                 <span
                   class="text-xs font-semibold px-2.5 py-1 rounded-lg"
                   :class="ORDER_STATUS_CLASSES[order.status]"
                 >{{ ORDER_STATUS_LABELS[order.status] }}</span>
               </div>
-              <span class="text-sm text-[#888]">{{ formatDate(order.createdAt) }}</span>
+              <span class="text-xs lg:text-sm text-[#888]">{{ formatDate(order.createdAt) }}</span>
             </div>
 
             <!-- Items -->
-            <div class="px-6 py-4 flex flex-col gap-3">
+            <div class="px-4 lg:px-6 py-3 lg:py-4 flex flex-col gap-3">
               <div
                 v-for="item in order.items"
                 :key="item.id"
@@ -217,10 +217,10 @@ async function saveProfile() {
             </div>
 
             <!-- Footer -->
-            <div class="border-t border-[#f0f0f0] px-6 py-4 flex flex-col gap-2">
+            <div class="border-t border-[#f0f0f0] px-4 lg:px-6 py-3 lg:py-4 flex flex-col gap-2">
               <div class="flex justify-between items-center">
                 <span class="text-[#888] text-sm">Итого</span>
-                <span class="text-xl font-bold text-brand">{{ formatPrice(order.totalAmount) }}</span>
+                <span class="text-lg lg:text-xl font-bold text-brand">{{ formatPrice(order.totalAmount) }}</span>
               </div>
 
               <div v-if="order.userComment" class="text-sm text-[#666] bg-[#fafafa] rounded-xl px-4 py-2.5 mt-1">
@@ -233,15 +233,15 @@ async function saveProfile() {
             </div>
 
             <!-- History -->
-            <div v-if="order.history.length > 0" class="border-t border-[#f0f0f0] px-6 py-4">
+            <div v-if="order.history.length > 0" class="border-t border-[#f0f0f0] px-4 lg:px-6 py-3 lg:py-4">
               <div class="text-xs font-semibold text-[#aaa] uppercase tracking-wide mb-3">История</div>
               <div class="flex flex-col">
                 <div
                   v-for="entry in order.history"
                   :key="entry.id"
-                  class="flex gap-3 items-start py-2 border-b border-[#f4f4f4] last:border-0"
+                  class="flex flex-col sm:flex-row sm:gap-3 sm:items-start py-2 border-b border-[#f4f4f4] last:border-0"
                 >
-                  <div class="text-xs text-[#bbb] whitespace-nowrap pt-0.5 min-w-[110px]">{{ formatDate(entry.createdAt) }}</div>
+                  <div class="text-xs text-[#bbb] whitespace-nowrap pt-0.5 sm:min-w-[110px]">{{ formatDate(entry.createdAt) }}</div>
                   <div class="text-sm text-[#555] leading-snug">{{ entry.description }}</div>
                 </div>
               </div>

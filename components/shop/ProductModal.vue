@@ -130,18 +130,22 @@ const stockBadgeText = computed(() => {
 
     <!-- Main modal -->
     <div
-      class="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4"
+      class="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-2 sm:p-4"
       @click.self="emit('close')"
     >
-      <div class="bg-white rounded-2xl max-w-[860px] w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div class="flex gap-8 p-8">
+      <div class="bg-white rounded-2xl max-w-[860px] w-full max-h-[95vh] lg:max-h-[90vh] overflow-y-auto shadow-2xl relative">
+        <button
+          class="lg:hidden absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/90 shadow text-[#666] hover:text-[#111] text-2xl leading-none flex items-center justify-center"
+          @click="emit('close')"
+        >×</button>
+        <div class="flex flex-col lg:flex-row gap-4 lg:gap-8 p-4 lg:p-8">
 
           <!-- Photo column -->
-          <div class="flex flex-col gap-3 w-[340px] shrink-0">
+          <div class="flex flex-col gap-3 w-full lg:w-[340px] shrink-0">
             <!-- Main photo with slider -->
             <div class="relative group">
               <div
-                class="h-[280px] rounded-xl bg-center bg-cover bg-[#f0f0f0] transition-opacity"
+                class="h-[240px] lg:h-[280px] rounded-xl bg-center bg-cover bg-[#f0f0f0] transition-opacity"
                 :class="currentPhoto ? 'cursor-zoom-in' : ''"
                 :style="currentPhoto ? `background-image: url('${currentPhoto}')` : ''"
                 @click="currentPhoto && (zoomed = true)"
@@ -197,23 +201,23 @@ const stockBadgeText = computed(() => {
           </div>
 
           <!-- Info column -->
-          <div class="flex-1 flex flex-col gap-4">
-            <button class="self-end text-[#aaa] hover:text-[#333] text-2xl leading-none" @click="emit('close')">×</button>
-            <div class="text-sm text-[#888]">{{ product.category }}</div>
-            <div class="text-[26px] font-bold text-[#111] leading-snug">{{ product.name }}</div>
+          <div class="flex-1 flex flex-col gap-3 lg:gap-4">
+            <button class="hidden lg:block self-end text-[#aaa] hover:text-[#333] text-2xl leading-none" @click="emit('close')">×</button>
+            <div class="text-xs lg:text-sm text-[#888]">{{ product.category }}</div>
+            <div class="text-xl lg:text-[26px] font-bold text-[#111] leading-snug pr-10 lg:pr-0">{{ product.name }}</div>
 
             <!-- Price: updates dynamically with services -->
-            <div class="flex items-baseline gap-3">
-              <div class="text-[30px] font-bold text-brand">{{ formatPrice(displayPrice) }}</div>
-              <div v-if="servicesTotal > 0" class="text-sm text-[#888]">
+            <div class="flex items-baseline gap-2 lg:gap-3 flex-wrap">
+              <div class="text-2xl lg:text-[30px] font-bold text-brand">{{ formatPrice(displayPrice) }}</div>
+              <div v-if="servicesTotal > 0" class="text-xs lg:text-sm text-[#888]">
                 {{ formatPrice(product.price) }} + услуги {{ formatPrice(servicesTotal) }}
               </div>
             </div>
 
-            <span class="text-sm font-semibold px-3 py-1 rounded-lg w-fit" :class="stockBadgeClass">
+            <span class="text-xs lg:text-sm font-semibold px-2.5 lg:px-3 py-1 rounded-lg w-fit" :class="stockBadgeClass">
               {{ stockBadgeText }}
             </span>
-            <p v-if="product.description" class="text-base text-[#555] leading-relaxed">{{ product.description }}</p>
+            <p v-if="product.description" class="text-sm lg:text-base text-[#555] leading-relaxed">{{ product.description }}</p>
 
             <!-- Optional services -->
             <div v-if="product.services.length > 0" class="border border-[#eee] rounded-xl overflow-hidden">
@@ -223,18 +227,18 @@ const stockBadgeText = computed(() => {
               <label
                 v-for="svc in product.services"
                 :key="svc.id"
-                class="flex items-center justify-between px-4 py-3 border-b border-[#f5f5f5] last:border-0 cursor-pointer hover:bg-[#fafafa] transition-colors"
+                class="flex items-center justify-between gap-3 px-3 lg:px-4 py-2.5 lg:py-3 border-b border-[#f5f5f5] last:border-0 cursor-pointer hover:bg-[#fafafa] transition-colors"
               >
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2.5 lg:gap-3 min-w-0">
                   <input
                     type="checkbox"
                     :checked="selectedServiceIds.has(svc.id)"
-                    class="w-4 h-4 accent-brand cursor-pointer"
+                    class="w-4 h-4 accent-brand cursor-pointer shrink-0"
                     @change="toggleService(svc.id)"
                   />
-                  <span class="text-sm font-medium text-[#222]">{{ svc.name }}</span>
+                  <span class="text-xs lg:text-sm font-medium text-[#222]">{{ svc.name }}</span>
                 </div>
-                <span class="text-sm font-bold text-brand">+{{ formatPrice(svc.price) }}</span>
+                <span class="text-xs lg:text-sm font-bold text-brand whitespace-nowrap shrink-0">+{{ formatPrice(svc.price) }}</span>
               </label>
             </div>
 
@@ -242,9 +246,9 @@ const stockBadgeText = computed(() => {
               <div
                 v-for="spec in product.specs"
                 :key="spec.key"
-                class="flex gap-4 px-4 py-2.5 text-sm border-b border-[#f0f0f0] last:border-0"
+                class="flex flex-col sm:flex-row sm:gap-4 gap-0.5 px-3 lg:px-4 py-2 lg:py-2.5 text-xs lg:text-sm border-b border-[#f0f0f0] last:border-0"
               >
-                <span class="text-[#888] min-w-[140px]">{{ spec.key }}</span>
+                <span class="text-[#888] sm:min-w-[140px]">{{ spec.key }}</span>
                 <span class="font-semibold text-[#222]">{{ spec.value }}</span>
               </div>
             </div>
@@ -260,7 +264,7 @@ const stockBadgeText = computed(() => {
             </div>
             <button
               v-else
-              class="btn-primary py-3 text-lg mt-auto"
+              class="btn-primary py-2.5 lg:py-3 text-base lg:text-lg mt-auto"
               :disabled="product.stock === 0"
               :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
               @click="emit('add', product, selectedServices)"

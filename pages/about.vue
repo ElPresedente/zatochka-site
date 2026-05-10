@@ -52,74 +52,74 @@ const workingHours = [
 </script>
 
 <template>
-  <main class="flex-1 max-w-[1100px] mx-auto px-10 py-16 w-full">
+  <main class="flex-1 max-w-[1100px] mx-auto px-4 lg:px-10 py-10 lg:py-16 w-full">
 
     <!-- Who we are -->
-    <section class="mb-[72px]">
+    <section class="mb-12 lg:mb-[72px]">
       <div class="section-header">
         <span class="section-title">Кто мы</span>
       </div>
-      <p class="text-xl leading-[1.8] text-[#333] mb-6">
+      <p class="text-base lg:text-xl leading-relaxed lg:leading-[1.8] text-[#333] mb-5 lg:mb-6">
         Мы — профессиональная заточная мастерская, специализирующаяся на восстановлении остроты и качества различных режущих инструментов.
         Наша команда — это опытные мастера с многолетним стажем, которые знают все тонкости заточки и ухода за инструментами.
       </p>
-      <p class="text-xl leading-[1.8] text-[#333] mb-5">Мы предлагаем широкий спектр услуг по заточке:</p>
-      <div class="flex flex-col gap-1 pl-2">
-        <div v-for="item in whoWeAreServices" :key="item" class="flex items-start gap-3.5 py-1.5">
-          <div class="w-2.5 h-2.5 rounded-full bg-brand mt-2 shrink-0" />
-          <span class="text-xl leading-relaxed">{{ item }}</span>
+      <p class="text-base lg:text-xl leading-relaxed lg:leading-[1.8] text-[#333] mb-4 lg:mb-5">Мы предлагаем широкий спектр услуг по заточке:</p>
+      <div class="flex flex-col gap-1 pl-1 lg:pl-2">
+        <div v-for="item in whoWeAreServices" :key="item" class="flex items-start gap-3 lg:gap-3.5 py-1 lg:py-1.5">
+          <div class="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full bg-brand mt-2 shrink-0" />
+          <span class="text-base lg:text-xl leading-relaxed">{{ item }}</span>
         </div>
       </div>
-      <p class="text-xl leading-[1.8] text-[#333] my-6">
+      <p class="text-base lg:text-xl leading-relaxed lg:leading-[1.8] text-[#333] my-5 lg:my-6">
         Также мы выполняем ремонтные работы разной сложности техники для салонов красоты, а именно:
       </p>
-      <div class="flex flex-col gap-1 pl-2">
-        <div v-for="item in repairItems" :key="item" class="flex items-start gap-3.5 py-1.5">
-          <div class="w-2.5 h-2.5 rounded-full bg-brand mt-2 shrink-0" />
-          <span class="text-xl leading-relaxed">{{ item }}</span>
+      <div class="flex flex-col gap-1 pl-1 lg:pl-2">
+        <div v-for="item in repairItems" :key="item" class="flex items-start gap-3 lg:gap-3.5 py-1 lg:py-1.5">
+          <div class="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full bg-brand mt-2 shrink-0" />
+          <span class="text-base lg:text-xl leading-relaxed">{{ item }}</span>
         </div>
       </div>
-      <p class="text-xl leading-[1.8] text-[#333] my-6">
+      <p class="text-base lg:text-xl leading-relaxed lg:leading-[1.8] text-[#333] my-5 lg:my-6">
         В нашей мастерской вы можете приобрести новый инструмент, расходники, технику для работы:
       </p>
-      <div class="flex flex-col gap-1 pl-2">
-        <div v-for="item in shopItems" :key="item" class="flex items-start gap-3.5 py-1.5">
-          <div class="w-2.5 h-2.5 rounded-full bg-brand mt-2 shrink-0" />
-          <span class="text-xl leading-relaxed">{{ item }}</span>
+      <div class="flex flex-col gap-1 pl-1 lg:pl-2">
+        <div v-for="item in shopItems" :key="item" class="flex items-start gap-3 lg:gap-3.5 py-1 lg:py-1.5">
+          <div class="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full bg-brand mt-2 shrink-0" />
+          <span class="text-base lg:text-xl leading-relaxed">{{ item }}</span>
         </div>
       </div>
     </section>
 
     <!-- Why choose us -->
-    <section class="bg-white rounded-[20px] px-12 py-12 mb-[72px] shadow-[0_4px_24px_rgba(0,0,0,0.07)]">
+    <section class="bg-white rounded-2xl lg:rounded-[20px] px-5 py-8 lg:px-12 lg:py-12 mb-12 lg:mb-[72px] shadow-[0_4px_24px_rgba(0,0,0,0.07)]">
       <div class="section-header">
         <span class="section-title">Почему выбирают нас</span>
       </div>
-      <div class="flex flex-col gap-5">
+      <div class="flex flex-col gap-4 lg:gap-5">
         <div
           v-for="adv in advantages"
           :key="adv.title"
-          class="flex gap-5 items-start px-6 py-5 rounded-xl border-2 border-brand/20 bg-brand/[0.03]"
+          class="flex gap-4 lg:gap-5 items-start px-4 py-4 lg:px-6 lg:py-5 rounded-xl border-2 border-brand/20 bg-brand/[0.03]"
         >
-          <div class="text-[32px] shrink-0">{{ adv.icon }}</div>
+          <div class="text-2xl lg:text-[32px] shrink-0">{{ adv.icon }}</div>
           <div>
-            <div class="text-[22px] font-bold mb-1.5">{{ adv.title }}</div>
-            <div class="text-lg leading-[1.7] text-[#444]">{{ adv.text }}</div>
+            <div class="text-lg lg:text-[22px] font-bold mb-1.5">{{ adv.title }}</div>
+            <div class="text-sm lg:text-lg leading-relaxed lg:leading-[1.7] text-[#444]">{{ adv.text }}</div>
           </div>
         </div>
       </div>
     </section>
 
     <!-- Mission -->
-    <section class="mb-[72px]">
+    <section class="mb-12 lg:mb-[72px]">
       <div class="section-header">
         <span class="section-title">Наша миссия</span>
       </div>
-      <p class="text-xl leading-[1.8] text-[#333] text-center max-w-[820px] mx-auto mb-10">
+      <p class="text-base lg:text-xl leading-relaxed lg:leading-[1.8] text-[#333] text-center max-w-[820px] mx-auto mb-8 lg:mb-10">
         Мы стремимся обеспечить наших клиентов острыми и надёжными инструментами, которые прослужат долгие годы.
         Мы гордимся своей работой и тем, что можем помочь вам сохранить ваши инструменты в идеальном состоянии.
       </p>
-      <div class="grid grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         <div
           v-for="src in ['/images/services1.jpg', '/images/services2.jpg', '/images/block1.jpg', '/images/services1.jpg']"
           :key="src + Math.random()"
@@ -130,12 +130,12 @@ const workingHours = [
     </section>
 
     <!-- Contacts -->
-    <section class="bg-dark text-white rounded-[20px] px-12 py-12">
+    <section class="bg-dark text-white rounded-2xl lg:rounded-[20px] px-5 py-8 lg:px-12 lg:py-12">
       <div class="section-header">
         <span class="section-title text-white">Контакты</span>
       </div>
-      <div class="grid grid-cols-2 gap-10">
-        <div class="flex flex-col gap-5 text-xl">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-10">
+        <div class="flex flex-col gap-4 lg:gap-5 text-base lg:text-xl">
           <p>
             Наша мастерская расположена по адресу
             <strong>г. Орёл, ул. Полесская д. 2</strong>,
@@ -143,18 +143,18 @@ const workingHours = [
           </p>
           <div>
             Свяжитесь с нами:<br />
-            <a href="tel:+79103043040" class="text-brand no-underline">8 (910) 304-30-40</a><br />
-            <a href="mailto:zatochka_test@yandex.ru" class="text-brand no-underline">zatochka_test@yandex.ru</a>
+            <a href="tel:+79103043040" class="text-brand no-underline whitespace-nowrap">8 (910) 304-30-40</a><br />
+            <a href="mailto:zatochka_test@yandex.ru" class="text-brand no-underline break-all">zatochka_test@yandex.ru</a>
           </div>
         </div>
         <div>
-          <div class="text-[22px] font-bold mb-3.5 text-brand">Режим работы мастерской:</div>
+          <div class="text-lg lg:text-[22px] font-bold mb-3 lg:mb-3.5 text-brand">Режим работы мастерской:</div>
           <div
             v-for="[day, time] in workingHours"
             :key="day"
-            class="flex gap-6 text-lg py-[5px] border-b border-white/[0.08]"
+            class="flex gap-4 lg:gap-6 text-sm lg:text-lg py-[5px] border-b border-white/[0.08]"
           >
-            <span class="min-w-[140px] text-white/70">{{ day }}</span>
+            <span class="min-w-[110px] lg:min-w-[140px] text-white/70">{{ day }}</span>
             <span :class="time === 'Выходной' ? 'text-[#777]' : 'text-brand font-semibold'">{{ time }}</span>
           </div>
         </div>

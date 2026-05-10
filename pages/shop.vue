@@ -139,57 +139,101 @@ async function checkout() {
   }
 }
 
-onMounted(() => {
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { closeModal(); cartOpen.value = false }
+// Toolbar hide-on-scroll-down / show-on-scroll-up
+const toolbarHidden = ref(false)
+const HIDE_THRESHOLD = 200
+const DELTA_THRESHOLD = 6
+let lastScrollY = 0
+let scrollTicking = false
+
+function onWindowScroll() {
+  if (scrollTicking) return
+  scrollTicking = true
+  requestAnimationFrame(() => {
+    const y = window.scrollY
+    const delta = y - lastScrollY
+
+    if (y < HIDE_THRESHOLD) {
+      toolbarHidden.value = false
+    } else if (delta > DELTA_THRESHOLD) {
+      toolbarHidden.value = true
+    } else if (delta < -DELTA_THRESHOLD) {
+      toolbarHidden.value = false
+    }
+
+    lastScrollY = y
+    scrollTicking = false
   })
+}
+
+function onWindowKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') { closeModal(); cartOpen.value = false }
+}
+
+onMounted(() => {
+  lastScrollY = window.scrollY
+  window.addEventListener('scroll', onWindowScroll, { passive: true })
+  window.addEventListener('keydown', onWindowKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', onWindowScroll)
+  window.removeEventListener('keydown', onWindowKeydown)
 })
 </script>
 
 <template>
   <main class="flex-1 w-full bg-[rgb(245,245,245)]">
-    <div class="bg-white border-b border-[#e8e8e8] sticky top-[130px] z-30">
-      <div class="max-w-[1440px] mx-auto px-10 py-4 flex gap-4 items-center flex-wrap">
-        <input
-          v-model="search"
-          type="text"
-          placeholder="Поиск товаров..."
-          class="border border-[#ddd] rounded-xl px-4 py-2.5 text-base outline-none focus:border-brand transition-colors min-w-[220px] flex-1 max-w-[320px]"
-        />
-        <div class="flex gap-2 flex-wrap flex-1">
+    <div
+      class="bg-white border-b border-[#e8e8e8] sticky top-[68px] lg:top-[130px] z-30 transition-transform duration-300 ease-out will-change-transform"
+      :class="toolbarHidden ? '-translate-y-full' : 'translate-y-0'"
+    >
+      <div class="max-w-[1440px] mx-auto px-4 lg:px-10 py-3 lg:py-4 flex flex-col lg:flex-row gap-3 lg:gap-4 lg:items-center lg:flex-wrap">
+        <!-- Row 1 mobile: search + cart -->
+        <div class="flex gap-3 items-center">
+          <input
+            v-model="search"
+            type="text"
+            placeholder="Поиск товаров..."
+            class="border border-[#ddd] rounded-xl px-4 py-2.5 text-base outline-none focus:border-brand transition-colors flex-1 lg:min-w-[220px] lg:max-w-[320px]"
+          />
+          <button
+            class="relative flex items-center gap-2 bg-brand text-white rounded-xl px-4 lg:px-5 py-2.5 font-bold text-sm lg:text-base shadow-[0_3px_0_rgba(9,136,189,0.7)] hover:brightness-110 transition-all shrink-0 lg:order-3"
+            @click="cartOpen = true"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            <span class="hidden sm:inline">Корзина</span>
+            <span v-if="totalQty > 0" class="absolute -top-2 -right-2 bg-white text-brand text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center shadow">{{ totalQty }}</span>
+          </button>
+        </div>
+        <!-- Row 2 mobile: categories scrollable -->
+        <div class="flex gap-2 overflow-x-auto lg:flex-wrap lg:flex-1 -mx-4 px-4 lg:mx-0 lg:px-0 scrollbar-thin">
           <button
             v-for="cat in categories"
             :key="cat"
-            class="px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-colors"
+            class="px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-sm font-semibold border-2 transition-colors whitespace-nowrap shrink-0"
             :class="activeCategory === cat
               ? 'bg-brand text-white border-brand'
               : 'bg-white text-[#444] border-[#e0e0e0] hover:border-brand hover:text-brand'"
             @click="activeCategory = cat"
           >{{ cat }}</button>
         </div>
+        <!-- Row 3 mobile: sort -->
         <select
           v-model="sortBy"
-          class="border border-[#ddd] rounded-xl px-4 py-2.5 text-base outline-none focus:border-brand bg-white"
+          class="border border-[#ddd] rounded-xl px-4 py-2.5 text-sm lg:text-base outline-none focus:border-brand bg-white"
         >
           <option value="default">По умолчанию</option>
           <option value="price_asc">Цена: по возрастанию</option>
           <option value="price_desc">Цена: по убыванию</option>
           <option value="name">По названию</option>
         </select>
-        <button
-          class="relative flex items-center gap-2 bg-brand text-white rounded-xl px-5 py-2.5 font-bold text-base shadow-[0_3px_0_rgba(9,136,189,0.7)] hover:brightness-110 transition-all"
-          @click="cartOpen = true"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-          Корзина
-          <span v-if="totalQty > 0" class="absolute -top-2 -right-2 bg-white text-brand text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center shadow">{{ totalQty }}</span>
-        </button>
       </div>
     </div>
 
-    <div class="max-w-[1440px] mx-auto px-10 py-10">
-      <p v-if="filtered.length === 0" class="text-center text-xl text-[#888] py-20">Ничего не найдено</p>
-      <div class="grid gap-6" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr))">
+    <div class="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-10 py-6 lg:py-10">
+      <p v-if="filtered.length === 0" class="text-center text-base lg:text-xl text-[#888] py-16 lg:py-20">Ничего не найдено</p>
+      <div class="grid gap-3 sm:gap-4 lg:gap-6 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(220px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
         <ShopProductCard
           v-for="product in filtered"
           :key="product.id"

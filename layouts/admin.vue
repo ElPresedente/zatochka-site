@@ -19,53 +19,105 @@ function isActive(item: { to: string; exact?: boolean }) {
   if (item.exact) return route.path === item.to
   return route.path.startsWith(item.to)
 }
+
+const drawerOpen = ref(false)
+
+const currentLabel = computed(() => {
+  const m = navItems.find(i => isActive(i))
+  return m?.label ?? 'Админ-панель'
+})
+
+watch(() => route.path, () => { drawerOpen.value = false })
+
+watch(drawerOpen, (open) => {
+  if (typeof document === 'undefined') return
+  document.body.style.overflow = open ? 'hidden' : ''
+})
+
+onBeforeUnmount(() => {
+  if (typeof document !== 'undefined') document.body.style.overflow = ''
+})
 </script>
 
 <template>
-  <div class="flex h-screen bg-[rgb(245,245,245)] font-[Inter,sans-serif] overflow-hidden">
-    <!-- Sidebar -->
-    <aside class="w-[220px] bg-[rgb(36,35,35)] flex flex-col shrink-0">
-      <div class="px-6 py-6 border-b border-white/10">
-        <NuxtLink to="/" class="text-white font-bold text-lg no-underline leading-snug">
-          Острый край<br />
-          <span class="text-brand text-sm font-normal">Админ-панель</span>
-        </NuxtLink>
-      </div>
-      <nav class="flex-1 px-3 py-4 flex flex-col gap-1">
-        <NuxtLink
-          v-for="item in navItems"
-          :key="item.to"
-          :to="item.to"
-          class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors no-underline"
-          :class="isActive(item)
-            ? 'bg-brand text-white'
-            : 'text-white/70 hover:bg-white/10 hover:text-white'"
-        >
-          <span>{{ item.icon }}</span>
-          {{ item.label }}
-        </NuxtLink>
-      </nav>
-      <div class="px-5 py-4 border-t border-white/10 flex flex-col gap-2">
-        <div v-if="user" class="text-white/50 text-xs truncate px-1">
-          {{ user.firstName }} {{ user.lastName }}
-        </div>
-        <div class="flex items-center justify-between">
-          <NuxtLink to="/" class="text-white/50 text-xs hover:text-white/80 no-underline transition-colors">
-            ← На сайт
+  <div class="flex flex-col lg:flex-row lg:h-screen bg-[rgb(245,245,245)] font-[Inter,sans-serif] lg:overflow-hidden">
+    <!-- Mobile topbar -->
+    <header class="lg:hidden bg-[rgb(36,35,35)] text-white sticky top-0 z-40 flex items-center justify-between px-4 h-[56px] shadow-[0_1px_0_rgba(255,255,255,0.06)]">
+      <button
+        class="w-10 h-10 flex flex-col items-center justify-center gap-[5px] -ml-2"
+        :aria-label="drawerOpen ? 'Закрыть меню' : 'Открыть меню'"
+        @click="drawerOpen = !drawerOpen"
+      >
+        <span class="block w-6 h-[2px] bg-white transition-transform duration-200" :class="drawerOpen ? 'translate-y-[7px] rotate-45' : ''" />
+        <span class="block w-6 h-[2px] bg-white transition-opacity duration-200" :class="drawerOpen ? 'opacity-0' : ''" />
+        <span class="block w-6 h-[2px] bg-white transition-transform duration-200" :class="drawerOpen ? '-translate-y-[7px] -rotate-45' : ''" />
+      </button>
+      <div class="text-sm font-semibold truncate">{{ currentLabel }}</div>
+      <NuxtLink to="/" class="text-white/60 text-xs hover:text-white no-underline">На сайт</NuxtLink>
+    </header>
+
+    <!-- Mobile drawer overlay -->
+    <Transition name="drawer-fade">
+      <div
+        v-if="drawerOpen"
+        class="lg:hidden fixed inset-0 top-[56px] bg-black/50 z-30"
+        @click="drawerOpen = false"
+      />
+    </Transition>
+
+    <!-- Sidebar: drawer on mobile, static on desktop -->
+    <aside
+      class="bg-[rgb(36,35,35)] flex flex-col shrink-0 transition-transform duration-200 ease-out
+             fixed top-[56px] bottom-0 left-0 w-[260px] max-w-[85vw] z-40
+             lg:static lg:top-0 lg:w-[220px] lg:max-w-none lg:transition-none"
+      :class="drawerOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+    >
+        <div class="hidden lg:block px-6 py-6 border-b border-white/10">
+          <NuxtLink to="/" class="text-white font-bold text-lg no-underline leading-snug">
+            Острый край<br />
+            <span class="text-brand text-sm font-normal">Админ-панель</span>
           </NuxtLink>
-          <button
-            class="text-white/40 text-xs hover:text-red-400 transition-colors"
-            @click="logout('/admin/login')"
-          >
-            Выйти
-          </button>
         </div>
-      </div>
+        <nav class="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
+          <NuxtLink
+            v-for="item in navItems"
+            :key="item.to"
+            :to="item.to"
+            class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors no-underline"
+            :class="isActive(item)
+              ? 'bg-brand text-white'
+              : 'text-white/70 hover:bg-white/10 hover:text-white'"
+          >
+            <span>{{ item.icon }}</span>
+            {{ item.label }}
+          </NuxtLink>
+        </nav>
+        <div class="px-5 py-4 border-t border-white/10 flex flex-col gap-2">
+          <div v-if="user" class="text-white/50 text-xs truncate px-1">
+            {{ user.firstName }} {{ user.lastName }}
+          </div>
+          <div class="flex items-center justify-between">
+            <NuxtLink to="/" class="text-white/50 text-xs hover:text-white/80 no-underline transition-colors">
+              ← На сайт
+            </NuxtLink>
+            <button
+              class="text-white/40 text-xs hover:text-red-400 transition-colors"
+              @click="logout('/admin/login')"
+            >
+              Выйти
+            </button>
+          </div>
+        </div>
     </aside>
 
     <!-- Content -->
-    <div class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex-1 flex flex-col lg:overflow-hidden min-w-0">
       <slot />
     </div>
   </div>
 </template>
+
+<style scoped>
+.drawer-fade-enter-active, .drawer-fade-leave-active { transition: opacity 0.2s; }
+.drawer-fade-enter-from, .drawer-fade-leave-to { opacity: 0; }
+</style>
