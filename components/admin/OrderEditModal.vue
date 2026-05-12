@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OrderDetailsDto, OrderItemDto, OrderItemService, OrderRowDto, OrderStatus, ProductDto, ProductService } from '~/types/api'
+import { formatPhone } from '~/composables/useFormatters'
 
 type AdminProduct = Pick<ProductDto, 'id' | 'name' | 'category' | 'price' | 'stock' | 'photos' | 'active' | 'services'>
 
@@ -259,7 +260,7 @@ async function setStatus(status: OrderStatus) {
           <div class="min-w-0">
             <div class="text-base lg:text-lg font-bold">Заказ №{{ selectedOrder?.id ?? '...' }}</div>
             <div v-if="selectedOrder" class="text-xs lg:text-sm text-[#888] mt-1 truncate">
-              {{ customerName(selectedOrder) }}, {{ selectedOrder.customerPhone }}
+              {{ customerName(selectedOrder) }}, {{ formatPhone(selectedOrder.customerPhone) }}
             </div>
           </div>
           <button class="text-[#aaa] hover:text-[#333] text-2xl leading-none shrink-0" @click="emit('close')">×</button>

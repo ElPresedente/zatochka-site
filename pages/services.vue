@@ -19,7 +19,7 @@ const notes = computed(() => data.value?.notes ?? [])
       class="mb-10 lg:mb-14"
     >
       <div class="text-center mb-5 lg:mb-7">
-        <span class="text-2xl lg:text-[44px] font-bold relative inline-block pb-2 lg:pb-2.5">
+        <span class="text-2xl lg:text-[44px] font-bold relative inline-block pb-2 lg:pb-4">
           {{ category.title }}
           <span class="absolute bottom-0 left-0 right-0 h-[4px] lg:h-[5px] bg-brand rounded-sm block" />
         </span>

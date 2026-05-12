@@ -10,25 +10,28 @@ const { data: stats } = await useFetch('/api/admin/stats')
     <h1 class="text-xl lg:text-2xl font-bold mb-5 lg:mb-8 text-[#222]">Дашборд</h1>
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-5 mb-6 lg:mb-10">
-      <div class="bg-white rounded-2xl p-4 lg:p-6 shadow-sm border border-[#eee]">
+      <NuxtLink to="/admin/products" class="bg-white rounded-2xl p-4 lg:p-6 shadow-sm border border-[#eee] hover:border-brand hover:shadow-md transition-all no-underline block">
         <div class="text-3xl lg:text-[40px] font-bold text-brand">{{ stats?.products.total ?? '—' }}</div>
         <div class="text-xs lg:text-sm text-[#888] mt-1">Товаров всего</div>
         <div class="text-[11px] lg:text-xs text-[#aaa] mt-0.5">{{ stats?.products.active ?? '—' }} активных</div>
-      </div>
-      <div class="bg-white rounded-2xl p-4 lg:p-6 shadow-sm border border-[#eee]">
+      </NuxtLink>
+      <NuxtLink
+        to="/admin/orders"
+        class="rounded-2xl p-4 lg:p-6 shadow-sm border transition-all no-underline block hover:shadow-md"
+        :class="stats?.orders.created ? 'bg-orange-50 border-orange-300 hover:border-orange-400' : 'bg-white border-[#eee] hover:border-brand'"
+      >
         <div class="text-3xl lg:text-[40px] font-bold text-brand">{{ stats?.orders.total ?? '—' }}</div>
         <div class="text-xs lg:text-sm text-[#888] mt-1">Заказов всего</div>
-        <div class="text-[11px] lg:text-xs text-[#aaa] mt-0.5">{{ stats?.orders.created ?? '—' }} созданных</div>
-      </div>
-      <div class="bg-white rounded-2xl p-4 lg:p-6 shadow-sm border border-[#eee]">
-        <div class="text-3xl lg:text-[40px] font-bold text-brand">{{ stats?.services.items ?? '—' }}</div>
-        <div class="text-xs lg:text-sm text-[#888] mt-1">Позиций прайса</div>
-        <div class="text-[11px] lg:text-xs text-[#aaa] mt-0.5">в {{ stats?.services.categories ?? '—' }} категориях</div>
-      </div>
-      <div class="bg-white rounded-2xl p-4 lg:p-6 shadow-sm border border-[#eee]">
-        <div class="text-3xl lg:text-[40px] font-bold text-brand">{{ stats?.workers ?? '—' }}</div>
-        <div class="text-xs lg:text-sm text-[#888] mt-1">Работников</div>
-      </div>
+        <div
+          class="text-[11px] lg:text-xs font-semibold mt-0.5"
+          :class="stats?.orders.created ? 'text-orange-500' : 'text-[#aaa]'"
+        >
+          <template v-if="stats?.orders.created">
+            {{ stats.orders.created }} {{ stats.orders.created === 1 ? 'новый заказ' : stats.orders.created < 5 ? 'новых заказа' : 'новых заказов' }} ⚡
+          </template>
+          <template v-else>нет новых</template>
+        </div>
+      </NuxtLink>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-5">

@@ -9,6 +9,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     databaseUrl: process.env.DATABASE_URL,
     sessionSecret: process.env.SESSION_SECRET,
+    telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+    telegramChatId: process.env.TELEGRAM_CHAT_ID,
   },
 
   nitro: {
@@ -33,7 +35,7 @@ export default defineNuxtConfig({
             "font-src 'self' https://fonts.gstatic.com",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "script-src 'self' 'unsafe-inline'",
-            "connect-src 'self'",
+            "connect-src 'self' https://api.telegram.org",
             "frame-src 'self' https://yandex.ru https://*.yandex.ru https://*.yandex.net",
           ].join('; '),
         },

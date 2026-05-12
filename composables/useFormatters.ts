@@ -17,6 +17,12 @@ export function formatDate(value: string | Date): string {
   return dateFormatter.format(date)
 }
 
+export function formatPhone(phone: string): string {
+  const d = phone.replace(/\D/g, '')
+  if (d.length === 10) return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 8)}-${d.slice(8, 10)}`
+  return phone
+}
+
 export function useFormatters() {
-  return { formatPrice, formatDate }
+  return { formatPrice, formatDate, formatPhone }
 }

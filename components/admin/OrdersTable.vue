@@ -5,7 +5,7 @@ import { ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES } from '~/types/api'
 defineProps<{ orders: OrderRowDto[] | null }>()
 const emit = defineEmits<{ select: [order: OrderRowDto] }>()
 
-const { formatPrice, formatDate } = useFormatters()
+const { formatPrice, formatDate, formatPhone } = useFormatters()
 
 function customerName(order: Pick<OrderRowDto, 'customerFirstName' | 'customerLastName'>) {
   return `${order.customerFirstName} ${order.customerLastName}`.trim()
@@ -36,7 +36,7 @@ function customerName(order: Pick<OrderRowDto, 'customerFirstName' | 'customerLa
           >
             <td class="px-5 py-4 font-bold text-[#222]">№{{ order.id }}</td>
             <td class="px-5 py-4 font-semibold text-[#222]">{{ customerName(order) }}</td>
-            <td class="px-5 py-4 text-[#555]">{{ order.customerPhone }}</td>
+            <td class="px-5 py-4 text-[#555]">{{ formatPhone(order.customerPhone) }}</td>
             <td class="px-5 py-4 font-bold text-brand">{{ formatPrice(order.totalAmount) }}</td>
             <td class="px-5 py-4 text-[#777]">{{ formatDate(order.createdAt) }}</td>
             <td class="px-5 py-4">
@@ -65,7 +65,7 @@ function customerName(order: Pick<OrderRowDto, 'customerFirstName' | 'customerLa
           </span>
         </div>
         <div class="font-semibold text-[#222] text-sm">{{ customerName(order) }}</div>
-        <div class="text-sm text-[#555]">{{ order.customerPhone }}</div>
+        <div class="text-sm text-[#555]">{{ formatPhone(order.customerPhone) }}</div>
         <div class="flex items-center justify-between gap-2 mt-1">
           <span class="text-xs text-[#888]">{{ formatDate(order.createdAt) }}</span>
           <span class="font-bold text-brand">{{ formatPrice(order.totalAmount) }}</span>

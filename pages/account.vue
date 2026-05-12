@@ -28,7 +28,7 @@ interface OrderWithItems {
   history: OrderHistoryDto[]
 }
 
-const { formatPrice, formatDate } = useFormatters()
+const { formatPrice, formatDate, formatPhone } = useFormatters()
 const { fetchUser } = useAuth()
 
 const route = useRoute()
@@ -137,7 +137,7 @@ async function saveProfile() {
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-semibold text-[#555]">Телефон</label>
               <input
-                :value="profile?.phone"
+                :value="profile?.phone ? formatPhone(profile.phone) : ''"
                 type="tel"
                 readonly
                 class="border border-[#eee] rounded-xl px-4 py-2.5 text-base bg-[#fafafa] text-[#888] cursor-not-allowed"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatPhone } from '~/composables/useFormatters'
 definePageMeta({ layout: 'admin' })
 useHead({ title: 'Админ — Пользователи' })
 
@@ -61,7 +62,7 @@ async function toggleAdmin(u: UserRow) {
           >
             <td class="px-5 py-3.5 text-[#bbb]">{{ u.id }}</td>
             <td class="px-5 py-3.5 font-medium text-[#222]">{{ u.lastName }} {{ u.firstName }}</td>
-            <td class="px-5 py-3.5 text-[#555]">{{ u.phone }}</td>
+            <td class="px-5 py-3.5 text-[#555]">{{ formatPhone(u.phone) }}</td>
             <td class="px-5 py-3.5">
               <span v-if="u.consentGivenAt" class="text-green-600 text-xs font-semibold">
                 ✓ {{ formatDate(u.consentGivenAt) }}
@@ -108,7 +109,7 @@ async function toggleAdmin(u: UserRow) {
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
             <div class="font-semibold text-[#222] truncate">{{ u.lastName }} {{ u.firstName }}</div>
-            <div class="text-sm text-[#666]">{{ u.phone }}</div>
+            <div class="text-sm text-[#666]">{{ formatPhone(u.phone) }}</div>
           </div>
           <span
             class="text-[10px] font-bold px-2 py-1 rounded-lg shrink-0 whitespace-nowrap"

@@ -72,7 +72,7 @@
           <div class="text-lg leading-relaxed">СБ-ВС: Выходной</div>
         </div>
         <div class="flex flex-col gap-1">
-          <a href="#" class="text-brand text-base no-underline">Публичная оферта</a>
+          <NuxtLink to="/offer" class="text-brand text-base no-underline">Публичная оферта</NuxtLink>
           <NuxtLink to="/privacy" class="text-brand text-base no-underline">Политика обработки ПДн</NuxtLink>
           <span class="text-[#aaa] text-sm">
             {{ settings?.legal_name || 'ИП Бельцев В. А.' }}&nbsp;&nbsp;ИНН: {{ settings?.inn || '575207208997' }}

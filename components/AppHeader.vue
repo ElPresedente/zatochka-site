@@ -4,6 +4,8 @@ const { user, fetchUser } = useAuth()
 
 await fetchUser()
 
+const { data: settings } = await useFetch<Record<string, string>>('/api/settings')
+
 const navLinks = [
   { label: 'Главная', to: '/' },
   { label: 'Услуги', to: '/services' },
@@ -41,7 +43,7 @@ onBeforeUnmount(() => {
 <template>
   <header class="bg-white shadow-[0_1px_0_#e0e0e0] sticky top-0 z-50 w-full">
     <!-- Top bar -->
-    <div class="h-[68px] lg:h-[110px] flex items-center justify-between px-4 lg:px-12 max-w-[1440px] mx-auto w-full">
+    <div class="h-[68px] lg:h-[110px] relative flex items-center justify-between px-4 lg:px-12 max-w-[1440px] mx-auto w-full">
       <!-- Logo -->
       <NuxtLink to="/" class="flex items-center gap-3 no-underline">
         <img
@@ -49,6 +51,11 @@ onBeforeUnmount(() => {
           alt="Острый край"
           class="w-[48px] h-[48px] lg:w-[90px] lg:h-[90px] object-contain"
         />
+      </NuxtLink>
+
+      <!-- Mobile centered title -->
+      <NuxtLink to="/" class="lg:hidden absolute left-0 right-0 flex justify-center pointer-events-none no-underline">
+        <span class="font-bold text-xl text-black">Острый Край</span>
       </NuxtLink>
 
       <!-- Desktop nav -->
@@ -69,18 +76,18 @@ onBeforeUnmount(() => {
       <!-- Desktop contacts and auth -->
       <div class="hidden lg:flex flex-col gap-2 items-end">
         <a
-          href="tel:+79103043040"
+          :href="settings?.phone_href || 'tel:+79103043040'"
           class="flex items-center gap-2 no-underline text-black text-base"
         >
           <img src="/images/phone_icon.png" class="w-5 h-4 object-contain" alt="" />
-          +7 (910) 304-30-40
+          {{ settings?.phone || '+7 (910) 304-30-40' }}
         </a>
         <a
-          href="mailto:zatochka_test@yandex.ru"
+          :href="`mailto:${settings?.email || 'zatochka_test@yandex.ru'}`"
           class="flex items-center gap-2 no-underline text-black text-base"
         >
           <img src="/images/email_icon.png" class="w-5 h-4 object-contain" alt="" />
-          zatochka_test@yandex.ru
+          {{ settings?.email || 'zatochka_test@yandex.ru' }}
         </a>
         <AuthStatus />
       </div>
@@ -140,18 +147,18 @@ onBeforeUnmount(() => {
 
         <div class="border-t border-black/5 px-4 py-4 flex flex-col gap-2">
           <a
-            href="tel:+79103043040"
+            :href="settings?.phone_href || 'tel:+79103043040'"
             class="flex items-center gap-2 no-underline text-black text-base"
           >
             <img src="/images/phone_icon.png" class="w-5 h-4 object-contain" alt="" />
-            +7 (910) 304-30-40
+            {{ settings?.phone || '+7 (910) 304-30-40' }}
           </a>
           <a
-            href="mailto:zatochka_test@yandex.ru"
+            :href="`mailto:${settings?.email || 'zatochka_test@yandex.ru'}`"
             class="flex items-center gap-2 no-underline text-black text-base break-all"
           >
             <img src="/images/email_icon.png" class="w-5 h-4 object-contain shrink-0" alt="" />
-            zatochka_test@yandex.ru
+            {{ settings?.email || 'zatochka_test@yandex.ru' }}
           </a>
         </div>
 

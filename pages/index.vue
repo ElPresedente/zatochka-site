@@ -31,13 +31,13 @@ const serviceCards = [
   },
   {
     title: 'Ремонт маникюрных аппаратов',
-    text: 'Диагностика, чистка и ремонт маникюрных аппаратов. Гарантия на работу до 3-х месяцев. Скидки на последующий ремонт!',
-    img: '/images/services1.jpg',
+    text: 'Диагностика, чистка и ремонт маникюрных аппаратов. Гарантия на работу до 2-х месяцев. Скидки на последующий ремонт!',
+    img: '/images/services5.jpg',
   },
   {
     title: 'Домашний и садовый инструмент',
     text: 'Заточка домашних, садовых и портных ножниц, топоров, лопат, пил и др. Взгляните на полный прайс-лист.',
-    img: '/images/services2.jpg',
+    img: '/images/services4.jpg',
   },
 ]
 
@@ -220,7 +220,7 @@ const workingHours = [
         </div>
         <div class="flex items-center gap-3 lg:gap-4">
           <img src="/images/map_pin.png" class="w-10 h-10 lg:w-[52px] lg:h-[52px] object-contain shrink-0" alt="" />
-          <span class="text-lg lg:text-[28px] leading-snug">г. Орёл, ул. Полесская д. 2</span>
+          <span class="text-lg lg:text-[28px] leading-snug">{{ settings?.address || 'г. Орёл, ул. Полесская д. 2' }}</span>
         </div>
         <div class="flex items-start gap-3 lg:gap-4">
           <img src="/images/clock_icon.png" class="w-10 h-12 lg:w-[52px] lg:h-16 object-contain mt-1 shrink-0" alt="" />
@@ -240,9 +240,9 @@ const workingHours = [
         </div>
         <div class="text-base lg:text-xl leading-relaxed text-[#444]">
           Свяжитесь с нами по телефону
-          <a href="tel:+79103043040" class="text-brand no-underline font-semibold whitespace-nowrap">8 (910) 304-30-40</a>
+          <a :href="settings?.phone_href || 'tel:+79103043040'" class="text-brand no-underline font-semibold whitespace-nowrap">{{ settings?.phone || '8 (910) 304-30-40' }}</a>
           или напишите на
-          <a href="mailto:zatochka_test@yandex.ru" class="text-brand no-underline font-semibold break-all">zatochka_test@yandex.ru</a>
+          <a :href="`mailto:${settings?.email || 'zatochka_test@yandex.ru'}`" class="text-brand no-underline font-semibold break-all">{{ settings?.email || 'zatochka_test@yandex.ru' }}</a>
         </div>
       </div>
 

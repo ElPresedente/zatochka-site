@@ -22,6 +22,19 @@ const zoomed = ref(false)
 const zoomEl = ref<HTMLElement | null>(null)
 const selectedServiceIds = ref(new Set<string>())
 
+const touchStartX = ref(0)
+
+function onTouchStart(e: TouchEvent) {
+  touchStartX.value = e.touches[0].clientX
+}
+
+function onTouchEnd(e: TouchEvent) {
+  if (!multiplePhotos.value) return
+  const dx = e.changedTouches[0].clientX - touchStartX.value
+  if (Math.abs(dx) < 40) return
+  dx < 0 ? next() : prev()
+}
+
 watch(() => props.product, () => {
   photoIdx.value = 0
   zoomed.value = false
@@ -106,6 +119,8 @@ const stockBadgeText = computed(() => {
           :alt="product.name"
           class="max-w-full max-h-full object-contain rounded-xl select-none"
           @click.stop
+          @touchstart.passive="onTouchStart"
+          @touchend="onTouchEnd"
         />
 
         <button
@@ -149,6 +164,8 @@ const stockBadgeText = computed(() => {
                 :class="currentPhoto ? 'cursor-zoom-in' : ''"
                 :style="currentPhoto ? `background-image: url('${currentPhoto}')` : ''"
                 @click="currentPhoto && (zoomed = true)"
+                @touchstart.passive="onTouchStart"
+                @touchend="onTouchEnd"
               />
 
               <!-- Zoom hint -->

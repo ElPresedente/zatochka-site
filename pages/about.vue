@@ -1,6 +1,8 @@
 <script setup lang="ts">
 useHead({ title: 'Острый край — О нас' })
 
+const { data: settings } = await useFetch<Record<string, string>>('/api/settings')
+
 const whoWeAreServices = [
   'Маникюрного инструмента',
   'Педикюрного инструмента',
@@ -138,13 +140,13 @@ const workingHours = [
         <div class="flex flex-col gap-4 lg:gap-5 text-base lg:text-xl">
           <p>
             Наша мастерская расположена по адресу
-            <strong>г. Орёл, ул. Полесская д. 2</strong>,
+            <strong>{{ settings?.address || 'г. Орёл, ул. Полесская д. 2' }}</strong>,
             и мы всегда рады видеть вас в числе наших клиентов.
           </p>
           <div>
             Свяжитесь с нами:<br />
-            <a href="tel:+79103043040" class="text-brand no-underline whitespace-nowrap">8 (910) 304-30-40</a><br />
-            <a href="mailto:zatochka_test@yandex.ru" class="text-brand no-underline break-all">zatochka_test@yandex.ru</a>
+            <a :href="settings?.phone_href || 'tel:+79103043040'" class="text-brand no-underline whitespace-nowrap">{{ settings?.phone || '8 (910) 304-30-40' }}</a><br />
+            <a :href="`mailto:${settings?.email || 'zatochka_test@yandex.ru'}`" class="text-brand no-underline break-all">{{ settings?.email || 'zatochka_test@yandex.ru' }}</a>
           </div>
         </div>
         <div>

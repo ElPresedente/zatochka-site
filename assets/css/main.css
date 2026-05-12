@@ -22,7 +22,7 @@
   }
 
   .section-title {
-    @apply text-3xl lg:text-5xl font-bold relative inline-block pb-3;
+    @apply text-3xl lg:text-5xl font-bold relative inline-block pb-3 lg:pb-5;
   }
 
   .section-title::after {

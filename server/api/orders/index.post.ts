@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
 
   const db = useDb()
 
-  const order = await db.transaction(async (tx) => {
+  const txResult = await db.transaction(async (tx) => {
     const [user] = await tx.select(userPublicColumns).from(users).where(eq(users.id, session.data.userId!))
     if (!user) {
       throw createError({ statusCode: 401, message: 'Пользователь не найден' })
@@ -115,21 +115,28 @@ export default defineEventHandler(async (event) => {
       description: 'Заказ оформлен',
     })
 
-    return createdOrder
+    return { createdOrder, itemsToInsert }
   })
 
+  const { createdOrder, itemsToInsert: notifyItems } = txResult
+
   await notifyOrderCreated({
-    id: order.id,
-    customerName: `${order.customerFirstName} ${order.customerLastName}`,
-    customerPhone: order.customerPhone,
-    totalAmount: order.totalAmount,
-    status: order.status as OrderStatus,
+    id: createdOrder.id,
+    totalAmount: createdOrder.totalAmount,
+    status: createdOrder.status as OrderStatus,
+    items: notifyItems.map(item => ({
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: item.totalPrice,
+      services: JSON.parse(item.services) as { name: string; price: number }[],
+    })),
   })
 
   return {
-    id: order.id,
-    status: order.status,
-    totalAmount: order.totalAmount,
-    createdAt: order.createdAt,
+    id: createdOrder.id,
+    status: createdOrder.status,
+    totalAmount: createdOrder.totalAmount,
+    createdAt: createdOrder.createdAt,
   }
 })
