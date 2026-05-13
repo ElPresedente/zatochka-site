@@ -76,6 +76,7 @@ Composables:
 | `/shop` | Магазин, корзина, создание заказов |
 | `/login` | Публичная авторизация |
 | `/register` | Регистрация |
+| `/forgot-password` | Заявка на восстановление пароля |
 | `/account` | Личный кабинет (история заказов, профиль) |
 | `/privacy` | Политика конфиденциальности |
 | `/admin` | Дашборд |
@@ -98,7 +99,7 @@ Composables:
 - Endpoint: `POST /api/orders`.
 - Требует авторизованного пользователя.
 - Сохраняет текущую корзину, комментарий пользователя и сумму на момент заказа.
-- Уведомление пока заглушка: `server/utils/order-notifications.ts`; позже заменить на Telegram.
+- Уведомление о новом заказе отправляется в Telegram через `notifyOrderCreated` в `server/utils/order-notifications.ts`. Требует `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` в env.
 
 Статусы:
 
@@ -120,9 +121,21 @@ accepted/in_progress/ready -> cancelled
 
 `POST /api/admin/upload` — загружает изображение в `public/uploads/`. Разрешённые форматы: JPEG, PNG, WebP, GIF. Лимит: 8 МБ. Возвращает `{ url: "/uploads/<filename>" }`.
 
+`public/` целиком в `.gitignore`. Исключения, добавленные форсом (`git add -f`):
+- `public/icons/` — favicon и иконки для iOS/Android, сгенерированы скриптом `scripts/generate-icons.mjs` из `public/images/logo.png`.
+- `public/robots.txt` — запрещает индексацию `/admin/`, `/api/`, `/account`, `/login`, `/register`.
+
 ## Rate limiting
 
 Утилиты в `server/utils/rate-limit.ts`: `assertRateLimit`, `recordRateLimitHit`, `clearRateLimit`. Используют Nitro storage (`rate-limit` namespace). Вызывать `assertRateLimit` перед обработкой и `recordRateLimitHit` после успешной проверки.
+
+`assertRateLimit` — no-op при `NODE_ENV=development`, работает только в production.
+
+Эндпоинты с rate limiting:
+- `POST /api/auth/login` — 10 попыток / 15 мин (ключ: IP + телефон)
+- `POST /api/auth/register` — 5 попыток / 1 час (ключ: IP)
+- `POST /api/auth/forgot-password` — 3 попытки / 1 час (ключ: IP)
+- `POST /api/orders` — 10 заказов / 1 час (ключ: IP + userId)
 
 ## Миграции
 
@@ -153,3 +166,5 @@ accepted/in_progress/ready -> cancelled
 - `NODE_ENV` — `development` или `production`.
 - `ADMIN_PHONE` — телефон первого администратора для seed.
 - `ADMIN_PASSWORD` — пароль первого администратора для seed.
+- `TELEGRAM_BOT_TOKEN` — токен Telegram-бота для уведомлений о заказах и заявках на сброс пароля.
+- `TELEGRAM_CHAT_ID` — ID чата/канала, куда отправляются уведомления.
