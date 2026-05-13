@@ -65,9 +65,14 @@ async function submit() {
       </div>
 
       <div class="px-5 py-4 lg:px-7 lg:py-5 border-t border-[#eee] flex items-center justify-between gap-3">
-        <NuxtLink to="/register" class="text-sm text-[#999] no-underline hover:text-[#555] transition-colors">
-          Создать аккаунт
-        </NuxtLink>
+        <div class="flex flex-col gap-1">
+          <NuxtLink to="/register" class="text-sm text-[#999] no-underline hover:text-[#555] transition-colors">
+            Создать аккаунт
+          </NuxtLink>
+          <NuxtLink to="/forgot-password" class="text-xs text-[#bbb] no-underline hover:text-[#888] transition-colors">
+            Забыли пароль?
+          </NuxtLink>
+        </div>
         <button
           type="submit"
           :disabled="loading || !phone.trim() || !password"

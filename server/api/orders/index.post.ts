@@ -1,9 +1,19 @@
 import { and, eq, inArray } from 'drizzle-orm'
+import type { H3Event } from 'h3'
 import { useDb } from '~/server/db'
 import { orderHistory, orderItems, orders, products, users, type OrderStatus } from '~/server/db/schema'
 import { userPublicColumns } from '~/server/db/projections'
+import { assertRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
 import { parseOptionalString } from '~/server/utils/validators'
 import { parseProductPhotos, parseProductServices } from '~/server/utils/json-shapes'
+
+const WINDOW_MS = 60 * 60 * 1000
+const MAX_ORDERS = 10
+
+function getRateLimitKey(event: H3Event, userId: number) {
+  const ip = getRequestIP(event, { xForwardedFor: true }) ?? 'unknown'
+  return `order:${ip}:${userId}`
+}
 
 interface OrderItemInput {
   id: number
@@ -42,6 +52,14 @@ export default defineEventHandler(async (event) => {
   if (!session.data.userId) {
     throw createError({ statusCode: 401, message: 'Не авторизован' })
   }
+
+  const rateLimit = {
+    key: getRateLimitKey(event, session.data.userId),
+    windowMs: WINDOW_MS,
+    max: MAX_ORDERS,
+    message: 'Слишком много заказов. Попробуйте позже.',
+  }
+  await assertRateLimit(rateLimit)
 
   const body = await readBody(event)
   const cartItems = parseItems(body?.items)
@@ -119,6 +137,8 @@ export default defineEventHandler(async (event) => {
   })
 
   const { createdOrder, itemsToInsert: notifyItems } = txResult
+
+  await recordRateLimitHit(rateLimit)
 
   await notifyOrderCreated({
     id: createdOrder.id,

@@ -32,6 +32,37 @@ async function toggleAdmin(u: UserRow) {
   }
   await refresh()
 }
+
+const resetPasswordUserId = ref<number | null>(null)
+const resetPasswordValue = ref('')
+const resetPasswordCopied = ref(false)
+const resetPasswordLoading = ref(false)
+
+async function resetPassword(u: UserRow) {
+  if (!confirm(`Сгенерировать новый пароль для ${u.firstName} ${u.lastName}? Текущий пароль перестанет работать.`)) return
+  resetPasswordLoading.value = true
+  resetPasswordUserId.value = u.id
+  resetPasswordValue.value = ''
+  resetPasswordCopied.value = false
+  try {
+    const res = await $fetch<{ password: string }>(`/api/admin/users/${u.id}/reset-password`, { method: 'POST' })
+    resetPasswordValue.value = res.password
+  } finally {
+    resetPasswordLoading.value = false
+  }
+}
+
+async function copyPassword() {
+  await navigator.clipboard.writeText(resetPasswordValue.value)
+  resetPasswordCopied.value = true
+  setTimeout(() => { resetPasswordCopied.value = false }, 2000)
+}
+
+function closeResetPassword() {
+  resetPasswordUserId.value = null
+  resetPasswordValue.value = ''
+  resetPasswordCopied.value = false
+}
 </script>
 
 <template>
@@ -51,7 +82,7 @@ async function toggleAdmin(u: UserRow) {
             <th class="px-5 py-3.5 font-semibold text-[#777]">Согласие ПДн</th>
             <th class="px-5 py-3.5 font-semibold text-[#777]">Зарегистрирован</th>
             <th class="px-5 py-3.5 font-semibold text-[#777]">Роль</th>
-            <th class="px-5 py-3.5 font-semibold text-[#777]"></th>
+            <th class="px-5 py-3.5 font-semibold text-[#777]" colspan="2"></th>
           </tr>
         </thead>
         <tbody>
@@ -91,6 +122,15 @@ async function toggleAdmin(u: UserRow) {
               </button>
               <span v-else class="text-xs text-[#ccc]">вы</span>
             </td>
+            <td class="px-5 py-3.5 text-right">
+              <button
+                class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors"
+                :disabled="resetPasswordLoading && resetPasswordUserId === u.id"
+                @click="resetPassword(u)"
+              >
+                Сбросить пароль
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -125,7 +165,13 @@ async function toggleAdmin(u: UserRow) {
             ✓ ПДн {{ formatDate(u.consentGivenAt) }}
           </span>
         </div>
-        <div class="flex justify-end mt-1">
+        <div class="flex justify-end gap-2 mt-1">
+          <button
+            class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors"
+            @click="resetPassword(u)"
+          >
+            Сбросить пароль
+          </button>
           <button
             v-if="u.id !== currentUser?.id"
             class="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
@@ -144,4 +190,47 @@ async function toggleAdmin(u: UserRow) {
       </div>
     </div>
   </div>
+
+  <!-- Reset password modal -->
+  <Teleport to="body">
+    <Transition name="fade">
+      <div
+        v-if="resetPasswordValue"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+        @click.self="closeResetPassword"
+      >
+        <div class="bg-white rounded-2xl shadow-xl border border-[#eee] w-full max-w-sm p-6">
+          <div class="text-base font-bold text-[#222] mb-1">Новый пароль</div>
+          <p class="text-xs text-[#888] mb-4">
+            Скопируйте пароль и передайте пользователю. После закрытия он больше не будет доступен.
+          </p>
+
+          <div class="flex items-center gap-2 bg-[#f5f5f5] rounded-xl px-4 py-3 mb-4">
+            <span class="flex-1 font-mono text-lg font-bold tracking-widest text-[#222] select-all">
+              {{ resetPasswordValue }}
+            </span>
+            <button
+              class="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              :class="resetPasswordCopied ? 'bg-green-100 text-green-600' : 'bg-brand/10 text-brand hover:bg-brand/20'"
+              @click="copyPassword"
+            >
+              {{ resetPasswordCopied ? 'Скопировано!' : 'Копировать' }}
+            </button>
+          </div>
+
+          <button
+            class="w-full py-2.5 rounded-xl bg-[#f5f5f5] text-[#555] text-sm font-semibold hover:bg-[#eee] transition-colors"
+            @click="closeResetPassword"
+          >
+            Закрыть
+          </button>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>

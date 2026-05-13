@@ -46,7 +46,33 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'ru' },
+      meta: [
+        // TODO: заменить на реальный URL сайта после деплоя
+        // { property: 'og:url', content: 'https://example.ru' },
+
+        // TODO: заменить на реальное название сайта
+        // { property: 'og:site_name', content: 'Острый край' },
+
+        { property: 'og:type', content: 'website' },
+        { property: 'og:locale', content: 'ru_RU' },
+
+        // TODO: заменить на реальный заголовок
+        // { property: 'og:title', content: 'Острый край — Заточка инструмента' },
+
+        // TODO: заменить на реальное описание
+        // { property: 'og:description', content: 'Профессиональная заточка маникюрного, парикмахерского и домашнего инструмента в Брянске' },
+
+        // TODO: загрузить OG-картинку 1200×630 px в public/images/og-cover.jpg и раскомментировать
+        // { property: 'og:image', content: 'https://example.ru/images/og-cover.jpg' },
+        // { property: 'og:image:width', content: '1200' },
+        // { property: 'og:image:height', content: '630' },
+      ],
       link: [
+        { rel: 'icon', type: 'image/x-icon', href: '/icons/favicon.ico' },
+        { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/icons/favicon-16x16.png' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/icons/favicon-32x32.png' },
+        { rel: 'icon', type: 'image/png', sizes: '96x96', href: '/icons/favicon-96x96.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/icons/apple-touch-icon.png' },
         {
           rel: 'preconnect',
           href: 'https://fonts.googleapis.com',
