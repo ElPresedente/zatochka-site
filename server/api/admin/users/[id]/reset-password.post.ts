@@ -16,7 +16,7 @@ function generatePassword(): string {
 }
 
 export default defineEventHandler(async (event) => {
-  const userId = parseRouteId(event, 'id')
+  const userId = parseRouteId(getRouterParam(event, 'id'), 'пользователя')
 
   const db = useDb()
   const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId))
