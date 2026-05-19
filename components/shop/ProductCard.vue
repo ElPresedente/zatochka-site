@@ -15,56 +15,55 @@ const emit = defineEmits<{
 
 const { formatPrice } = useFormatters()
 
-const stockBadgeClass = computed(() => {
-  if (props.product.stock === 0) return 'bg-red-100 text-red-500'
-  if (props.product.stock < 5) return 'bg-orange-100 text-orange-500'
-  return 'bg-green-100 text-green-600'
-})
-
-const stockBadgeText = computed(() => {
-  if (props.product.stock === 0) return 'Нет в наличии'
-  if (props.product.stock < 5) return `Осталось ${props.product.stock}`
-  return 'В наличии'
+const stockLabel = computed(() => {
+  if (props.product.stock === 0) return { text: 'Нет в наличии', cls: 'text-red-500' }
+  if (props.product.stock < 5) return { text: `Осталось ${props.product.stock} шт.`, cls: 'text-orange-500' }
+  return null
 })
 </script>
 
 <template>
   <div
-    class="bg-white rounded-2xl overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.07)] flex flex-col cursor-pointer hover:shadow-[0_8px_32px_rgba(0,0,0,0.13)] hover:-translate-y-1 transition-all duration-200"
+    class="bg-white rounded-xl overflow-hidden shadow-[0_1px_6px_rgba(0,0,0,0.07)] flex flex-col cursor-pointer hover:shadow-[0_6px_20px_rgba(0,0,0,0.13)] hover:-translate-y-0.5 transition-all duration-200"
     @click="emit('open', product)"
   >
+    <!-- Фото -->
     <div
-      class="h-[140px] sm:h-[180px] lg:h-[200px] bg-center bg-cover bg-[rgb(235,235,235)]"
-      :style="product.photos[0] ? `background-image: url('${product.photos[0]}')` : ''"
-    />
-    <div class="p-3 lg:p-5 flex flex-col flex-1 gap-1.5 lg:gap-2">
-      <div class="text-sm lg:text-[17px] font-semibold text-[#222] leading-snug flex-1 line-clamp-3">{{ product.name }}</div>
-      <div class="text-xs lg:text-sm text-[#888] line-clamp-1">{{ product.category }}</div>
-      <div class="flex items-center justify-between gap-2 mt-1 lg:mt-2 flex-wrap">
-        <span class="text-lg lg:text-[22px] font-bold text-brand">{{ formatPrice(product.price) }}</span>
-        <span class="text-[10px] lg:text-xs font-semibold px-2 lg:px-2.5 py-0.5 lg:py-1 rounded-lg" :class="stockBadgeClass">
-          {{ stockBadgeText }}
-        </span>
+      class="relative aspect-[3/4] bg-[rgb(238,238,238)] bg-cover shrink-0"
+      :style="{
+        backgroundImage: product.photos[0] ? `url('${product.photos[0]}')` : undefined,
+        backgroundPosition: product.coverPosition || 'center center',
+      }"
+    >
+      <!-- Количество в корзине -->
+      <span
+        v-if="cartQty > 0"
+        class="absolute top-1.5 left-1.5 min-w-[20px] h-5 bg-brand text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 shadow"
+      >{{ cartQty }}</span>
+    </div>
+
+    <!-- Информация -->
+    <div class="p-2 sm:p-2.5 flex flex-col gap-1 flex-1">
+      <div class="text-[11px] sm:text-xs lg:text-sm font-semibold text-[#222] leading-snug flex-1 line-clamp-3">{{ product.name }}</div>
+
+      <div class="flex items-baseline gap-1.5 flex-wrap">
+        <span class="text-sm sm:text-base lg:text-lg font-bold text-brand leading-tight">{{ formatPrice(product.price) }}</span>
+        <span v-if="stockLabel" class="text-[10px] font-semibold leading-tight" :class="stockLabel.cls">{{ stockLabel.text }}</span>
       </div>
-      <!-- Product with services: always open modal to choose -->
+
+      <!-- Товар с услугами -->
       <template v-if="product.services.length > 0">
-        <div v-if="cartQty > 0" class="mt-1 lg:mt-2 flex items-center justify-between gap-2" @click.stop>
-          <span class="text-xs text-[#888]">В корзине: {{ cartQty }} шт.</span>
-          <button class="text-xs text-brand font-semibold hover:underline" @click.stop="emit('open', product)">
-            Изменить
-          </button>
-        </div>
         <button
-          class="mt-1 lg:mt-2 btn-primary py-2 lg:py-2.5 text-sm lg:text-base w-full"
+          class="mt-1 btn-primary py-1.5 sm:py-2 text-[11px] sm:text-xs lg:text-sm w-full"
           :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
           :disabled="product.stock === 0"
           @click.stop="emit('open', product)"
         >{{ cartQty > 0 ? 'Добавить ещё' : 'Выбрать' }}</button>
       </template>
 
-      <!-- Regular product: direct add or qty control -->
+      <!-- Обычный товар -->
       <template v-else>
-        <div v-if="cartQty > 0" class="mt-1 lg:mt-2 flex justify-center" @click.stop>
+        <div v-if="cartQty > 0" class="mt-1 flex justify-center" @click.stop>
           <ShopQtyInput
             :qty="cartQty"
             :stock="product.stock"
@@ -74,7 +73,7 @@ const stockBadgeText = computed(() => {
         </div>
         <button
           v-else
-          class="mt-1 lg:mt-2 btn-primary py-2 lg:py-2.5 text-sm lg:text-base w-full"
+          class="mt-1 btn-primary py-1.5 sm:py-2 text-[11px] sm:text-xs lg:text-sm w-full"
           :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
           :disabled="product.stock === 0"
           @click.stop="emit('add', product)"

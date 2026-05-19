@@ -4,6 +4,12 @@ import { productCategories, products } from '~/server/db/schema'
 import { parseNonNegativeInteger, parsePositiveInteger, parseTrimmedString } from '~/server/utils/validators'
 import { parseProductPhotos, parseProductServices, parseProductSpecs } from '~/server/utils/json-shapes'
 
+const COVER_POSITIONS = [
+  'left top', 'center top', 'right top',
+  'left center', 'center center', 'right center',
+  'left bottom', 'center bottom', 'right bottom',
+]
+
 export default defineEventHandler(async (event) => {
   const db = useDb()
   const body = await readBody(event)
@@ -24,6 +30,7 @@ export default defineEventHandler(async (event) => {
   const specs = Array.isArray(body?.specs) ? body.specs : []
   const services = Array.isArray(body?.services) ? body.services : []
   const active = body?.active !== false
+  const coverPosition = COVER_POSITIONS.includes(body?.coverPosition) ? body.coverPosition : 'center center'
 
   const [row] = await db.insert(products).values({
     categoryId,
@@ -36,6 +43,7 @@ export default defineEventHandler(async (event) => {
     services: JSON.stringify(services),
     active,
     sortOrder,
+    coverPosition,
   }).returning()
 
   return {

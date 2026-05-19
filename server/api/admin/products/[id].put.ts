@@ -9,6 +9,12 @@ import {
 } from '~/server/utils/validators'
 import { parseProductPhotos, parseProductServices, parseProductSpecs } from '~/server/utils/json-shapes'
 
+const COVER_POSITIONS = [
+  'left top', 'center top', 'right top',
+  'left center', 'center center', 'right center',
+  'left bottom', 'center bottom', 'right bottom',
+]
+
 export default defineEventHandler(async (event) => {
   const db = useDb()
   const id = parseRouteId(getRouterParam(event, 'id'), 'товара')
@@ -41,6 +47,9 @@ export default defineEventHandler(async (event) => {
   }
   if (body.active !== undefined) update.active = !!body.active
   if (body.sortOrder !== undefined) update.sortOrder = parseNonNegativeInteger(body.sortOrder, 'Порядок сортировки', 1_000_000)
+  if (body.coverPosition !== undefined) {
+    update.coverPosition = COVER_POSITIONS.includes(body.coverPosition) ? body.coverPosition : 'center center'
+  }
 
   if (Object.keys(update).length === 0) throw createError({ statusCode: 400, message: 'Нет данных для сохранения' })
 

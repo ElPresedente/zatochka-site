@@ -20,6 +20,7 @@ export default defineEventHandler(async () => {
       services: products.services,
       active: products.active,
       sortOrder: products.sortOrder,
+      coverPosition: products.coverPosition,
       createdAt: products.createdAt,
     })
     .from(products)

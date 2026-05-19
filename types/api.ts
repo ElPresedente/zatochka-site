@@ -31,6 +31,7 @@ export interface ProductDto {
   services: ProductService[]
   active: boolean
   sortOrder: number
+  coverPosition: string
   createdAt?: string
   updatedAt?: string
 }

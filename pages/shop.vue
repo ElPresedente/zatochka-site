@@ -294,9 +294,9 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-10 py-6 lg:py-10">
+    <div class="max-w-[1440px] mx-auto px-2 sm:px-3 lg:px-10 py-4 lg:py-6">
       <p v-if="filtered.length === 0" class="text-center text-base lg:text-xl text-[#888] py-16 lg:py-20">Ничего не найдено</p>
-      <div class="grid gap-3 sm:gap-4 lg:gap-6 grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(220px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
+      <div class="grid gap-3 sm:gap-4 lg:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         <ShopProductCard
           v-for="product in filtered"
           :key="product.id"

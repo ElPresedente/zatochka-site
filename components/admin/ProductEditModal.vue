@@ -35,6 +35,7 @@ function initialForm(): ProductForm {
   return {
     name: '', categoryId: props.categories[0]?.id ?? 0, price: 0, stock: 0,
     description: '', photos: [], specs: [], services: [], active: true, sortOrder: 0,
+    coverPosition: 'center center',
   }
 }
 
@@ -85,6 +86,12 @@ function addService() {
   form.value.services.push({ id: crypto.randomUUID(), name: '', price: 0 })
 }
 function removeService(i: number) { form.value.services.splice(i, 1) }
+
+const COVER_POSITIONS = [
+  'left top', 'center top', 'right top',
+  'left center', 'center center', 'right center',
+  'left bottom', 'center bottom', 'right bottom',
+]
 
 const photoUrl = ref('')
 function addPhotoByUrl() {
@@ -203,6 +210,31 @@ async function onFileChange(e: Event) {
                   class="absolute -top-1.5 -right-1.5 w-6 h-6 lg:w-5 lg:h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
                   @click="removePhoto(i)"
                 >×</button>
+              </div>
+            </div>
+
+            <div v-if="form.photos.length > 0" class="mt-4">
+              <label class="block text-xs font-semibold text-[#777] mb-2">Позиция обложки в карточке</label>
+              <div class="flex gap-4 items-center">
+                <div class="relative w-[72px] h-[96px] rounded-xl overflow-hidden border border-[#ddd] bg-[#eee] shrink-0">
+                  <div
+                    class="absolute inset-0 bg-cover"
+                    :style="form.photos[0] ? { backgroundImage: `url('${form.photos[0]}')`, backgroundPosition: form.coverPosition || 'center center' } : {}"
+                  />
+                  <div class="absolute inset-0 grid grid-cols-3 grid-rows-3">
+                    <button
+                      v-for="pos in COVER_POSITIONS"
+                      :key="pos"
+                      type="button"
+                      class="border border-white/30 transition-colors"
+                      :class="(form.coverPosition || 'center center') === pos ? 'bg-brand/70 ring-1 ring-brand ring-inset' : 'bg-black/5 hover:bg-brand/30'"
+                      @click="form.coverPosition = pos"
+                    />
+                  </div>
+                </div>
+                <p class="text-xs text-[#888] leading-relaxed">
+                  Нажмите на область превью,<br>которая будет показываться<br>на карточке в магазине
+                </p>
               </div>
             </div>
           </div>

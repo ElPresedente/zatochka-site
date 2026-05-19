@@ -14,5 +14,6 @@ export const products = pgTable('products', {
   services: text('services').notNull().default('[]'),
   active: boolean('active').notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(0),
+  coverPosition: text('cover_position').notNull().default('center center'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
