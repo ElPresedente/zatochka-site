@@ -63,6 +63,7 @@ Composables:
 - `server/middleware/admin-auth.ts` — защищает `/api/admin/**`: проверяет сессию и запись в `admins`, устанавливает `event.context.userId`.
 - `middleware/admin.global.ts` — клиентская/SSR защита `/admin/**` (кроме `/admin/login`).
 - `middleware/account.ts` — клиентская защита `/account`.
+- `PATCH /api/account/profile` — обновление имени и фамилии текущего пользователя, требует авторизации.
 - В SSR-запросах к `/api/auth/me` нужно использовать `useRequestFetch()`, иначе cookie пользователя может не попасть в server-side fetch.
 
 ## Основные страницы
@@ -85,6 +86,34 @@ Composables:
 | `/admin/products` | Товары магазина |
 | `/admin/users` | Пользователи и права админа |
 | `/admin/gallery`, `/admin/prices`, `/admin/workers`, `/admin/contacts` | Остальные разделы админки |
+
+## Схема БД
+
+Таблицы в `server/db/schema/`:
+
+| Таблица | Назначение |
+|---|---|
+| `users` | Пользователи: телефон, имя, фамилия, хэш пароля, согласие |
+| `admins` | Привязка userId → роль администратора (userId PK, onDelete cascade) |
+| `orders` | Заказы: клиентские данные, сумма, статус, комментарии |
+| `order_items` | Снимок состава заказа: название, фото, цена, `stockDeducted`, `services` (JSON) |
+| `order_history` | Журнал событий заказа (смена статуса, суммы) с `adminId` автора |
+| `products` | Товары: `photos`, `specs`, `services` хранятся как JSON-строки |
+| `product_categories` | Категории товаров (динамические, управляются из БД) |
+| `service_categories` | Категории прайса с `sortOrder` |
+| `service_items` | Позиции прайса: `categoryId`, `name`, `price`, `sortOrder` |
+| `service_notes` | Сноски к прайсу с `sortOrder` |
+| `gallery_sections` | Разделы галереи с `sortOrder` |
+| `gallery_images` | Изображения галереи: `sectionId`, `src`, `label`, `sortOrder` |
+| `workers` | Мастера: `name`, `role`, `photo`, `sortOrder` |
+| `site_settings` | Key-value хранилище настроек сайта (контакты, часы и т.д.) |
+
+## Настройки сайта
+
+`site_settings` — key-value таблица для контактов, часов работы и других параметров.
+
+- `GET /api/settings` — публичный, возвращает все настройки как плоский объект `{ [key]: value }`.
+- `PUT /api/admin/settings` — обновляет набор ключей, защищён `admin-auth`.
 
 ## Заказы
 
@@ -149,23 +178,6 @@ accepted/in_progress/ready -> cancelled
 
 В этом проекте первая миграция создавалась на уже существующую базу, поэтому `0000_perfect_namorita.sql` намеренно сделана инкрементальной и использует `IF NOT EXISTS`.
 
-## Обработка ошибок БД
-
-`server/db/index.ts` экспортирует `handleDbConnectionError(e)`. Вызывать в catch-блоке перед любой другой обработкой — функция перехватывает сетевые ошибки (`ECONNREFUSED`, `ETIMEDOUT` и др.) и SQLSTATE-коды потери соединения (`08000`, `08003`, `08006`, `57P01`), а также проверяет `e.cause` (Drizzle оборачивает оригинальную ошибку pg), и бросает `503` с читаемым сообщением вместо системного лога.
-
-Паттерн использования:
-
-```ts
-try {
-  // ... db запросы
-} catch (e) {
-  handleDbConnectionError(e)
-  throw e
-}
-```
-
-Если в catch уже обрабатываются другие коды ошибок (например, `23505`), вызывать `handleDbConnectionError` первым.
-
 ## Стиль правок
 
 - Следовать существующим паттернам Nuxt pages + server API.
@@ -174,7 +186,14 @@ try {
 - Не хранить секреты в репозитории.
 - При добавлении write endpoints под `/api/admin/**` полагаться на `admin-auth` middleware, но всё равно валидировать входные данные в endpoint.
 - Публичные write endpoints должны проверять авторизацию и same-origin, если используют cookie session.
-- Для валидации входных данных использовать хелперы из `server/utils/validators.ts` (`parseTrimmedString`, `parsePositiveInteger`, `parseRouteId` и т.д.).
+- Для валидации входных данных использовать хелперы из `server/utils/validators.ts`:
+  - `parseTrimmedString(value, fieldName, opts?)` — строка с проверкой длины и required.
+  - `parseOptionalString(value, fieldName, opts?)` — `undefined` → не трогать, `null` → `''`, строка → trimmed.
+  - `parsePositiveInteger(value, fieldName)` — целое > 0.
+  - `parseNonNegativeInteger(value, fieldName, max?)` — целое ≥ 0.
+  - `parseRouteId(value, entity?)` — принимает `string | undefined` (результат `getRouterParam`), бросает 400 если не валидный id. Второй аргумент — название сущности для сообщения об ошибке.
+  - `safeJsonParse(value, fallback)` — тихий JSON.parse с fallback.
+  - `normalizePhone(raw)` — нормализует российский номер до 10 цифр, возвращает `null` если невалидный.
 
 ## Важные env-переменные
 
