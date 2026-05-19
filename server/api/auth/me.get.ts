@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { useDb } from '~/server/db'
+import { handleDbConnectionError, useDb } from '~/server/db'
 import { users, admins } from '~/server/db/schema'
 
 export default defineEventHandler(async (event) => {
@@ -9,25 +9,31 @@ export default defineEventHandler(async (event) => {
   }
 
   const db = useDb()
-  const [row] = await db
-    .select({
-      id: users.id,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      phone: users.phone,
-      adminUserId: admins.userId,
-    })
-    .from(users)
-    .leftJoin(admins, eq(admins.userId, users.id))
-    .where(eq(users.id, session.data.userId))
 
-  if (!row) throw createError({ statusCode: 401, message: 'Пользователь не найден' })
+  try {
+    const [row] = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        phone: users.phone,
+        adminUserId: admins.userId,
+      })
+      .from(users)
+      .leftJoin(admins, eq(admins.userId, users.id))
+      .where(eq(users.id, session.data.userId))
 
-  return {
-    id: row.id,
-    firstName: row.firstName,
-    lastName: row.lastName,
-    phone: row.phone,
-    isAdmin: row.adminUserId !== null,
+    if (!row) throw createError({ statusCode: 401, message: 'Пользователь не найден' })
+
+    return {
+      id: row.id,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      phone: row.phone,
+      isAdmin: row.adminUserId !== null,
+    }
+  } catch (e) {
+    handleDbConnectionError(e)
+    throw e
   }
 })

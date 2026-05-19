@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
-import { useDb } from '~/server/db'
+import { handleDbConnectionError, useDb } from '~/server/db'
 import { users, admins } from '~/server/db/schema'
 import { assertRateLimit, clearRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
 import { normalizePhone } from '~/server/utils/validators'
@@ -32,34 +32,40 @@ export default defineEventHandler(async (event) => {
     await recordRateLimitHit(rateLimit)
     throw createError({ statusCode: 401, message: 'Неверный телефон или пароль' })
   }
-  const [user] = await db
-    .select({
-      id: users.id,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      phone: users.phone,
-      passwordHash: users.passwordHash,
-    })
-    .from(users)
-    .where(eq(users.phone, normalizedPhone))
 
-  if (!user || !await bcrypt.compare(password, user.passwordHash)) {
-    await recordRateLimitHit(rateLimit)
-    throw createError({ statusCode: 401, message: 'Неверный телефон или пароль' })
-  }
+  try {
+    const [user] = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        phone: users.phone,
+        passwordHash: users.passwordHash,
+      })
+      .from(users)
+      .where(eq(users.phone, normalizedPhone))
 
-  await clearRateLimit(loginKey)
+    if (!user || !await bcrypt.compare(password, user.passwordHash)) {
+      await recordRateLimitHit(rateLimit)
+      throw createError({ statusCode: 401, message: 'Неверный телефон или пароль' })
+    }
 
-  const session = await getAuthSession(event)
-  await session.update({ userId: user.id })
+    await clearRateLimit(loginKey)
 
-  const [admin] = await db.select({ userId: admins.userId }).from(admins).where(eq(admins.userId, user.id))
+    const session = await getAuthSession(event)
+    await session.update({ userId: user.id })
 
-  return {
-    id: user.id,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    phone: user.phone,
-    isAdmin: !!admin,
+    const [admin] = await db.select({ userId: admins.userId }).from(admins).where(eq(admins.userId, user.id))
+
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone,
+      isAdmin: !!admin,
+    }
+  } catch (e) {
+    handleDbConnectionError(e)
+    throw e
   }
 })

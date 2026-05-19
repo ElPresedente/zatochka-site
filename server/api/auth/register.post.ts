@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import type { H3Event } from 'h3'
-import { useDb } from '~/server/db'
+import { handleDbConnectionError, useDb } from '~/server/db'
 import { users } from '~/server/db/schema'
 import { assertRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
 import { normalizePhone, parseTrimmedString } from '~/server/utils/validators'
@@ -61,6 +61,7 @@ export default defineEventHandler(async (event) => {
 
     return { id: user.id, firstName: user.firstName, lastName: user.lastName, phone: user.phone }
   } catch (e: any) {
+    handleDbConnectionError(e)
     if (e?.code === '23505') {
       await recordRateLimitHit(rateLimit)
       throw createError({ statusCode: 409, message: 'Пользователь с таким телефоном уже зарегистрирован' })
