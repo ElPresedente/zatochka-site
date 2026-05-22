@@ -4,9 +4,10 @@ import type { CartItemService } from '~/composables/useCart'
 
 useHead({ title: 'Острый край — Магазин' })
 
-const [{ data: allProducts }, { data: categoriesRaw }] = await Promise.all([
+const [{ data: allProducts }, { data: categoriesRaw }, { data: siteSettings }] = await Promise.all([
   useFetch<ProductDto[]>('/api/products'),
   useFetch<ProductCategoryDto[]>('/api/product-categories'),
+  useFetch<Record<string, string>>('/api/settings'),
 ])
 
 const search = ref('')
@@ -331,6 +332,7 @@ onBeforeUnmount(() => {
     :loading="checkoutLoading"
     :error="orderError"
     :product-stock="productStock"
+    :pickup-address="siteSettings?.address || ''"
     @close="cartOpen = false"
     @set-qty="setQty"
     @remove="removeFromCart"

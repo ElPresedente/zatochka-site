@@ -18,7 +18,7 @@ const emit = defineEmits<{
   saved: []
 }>()
 
-const isNew = computed(() => !props.product)
+const isNew = computed(() => !props.product?.id)
 
 const form = ref<ProductForm>(initialForm())
 
@@ -284,7 +284,7 @@ async function onFileChange(e: Event) {
     >
       <div class="bg-white rounded-none sm:rounded-2xl w-full h-full sm:h-auto max-w-[720px] sm:max-h-[90vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between px-4 lg:px-7 py-4 lg:py-5 border-b border-[#eee] shrink-0">
-          <div class="text-base lg:text-lg font-bold">{{ isNew ? 'Новый товар' : 'Редактировать товар' }}</div>
+          <div class="text-base lg:text-lg font-bold">{{ !props.product ? 'Новый товар' : isNew ? 'Копия товара' : 'Редактировать товар' }}</div>
           <button class="text-[#aaa] hover:text-[#333] text-2xl" @click="emit('close')">×</button>
         </div>
 
@@ -311,6 +311,10 @@ async function onFileChange(e: Event) {
                 <input id="active-toggle" v-model="form.active" type="checkbox" class="w-4 h-4 accent-brand" />
                 <label for="active-toggle" class="text-sm text-[#444]">Показывать в магазине</label>
               </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Порядок (меньше = выше)</label>
+              <input v-model.number="form.sortOrder" type="number" min="0" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
             </div>
             <div>
               <label class="block text-xs font-semibold text-[#777] mb-1.5">Цена (₽)</label>

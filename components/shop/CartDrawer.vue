@@ -10,6 +10,7 @@ defineProps<{
   loading: boolean
   error: string
   productStock: (id: number) => number
+  pickupAddress?: string
 }>()
 
 const emit = defineEmits<{
@@ -22,6 +23,7 @@ const emit = defineEmits<{
 }>()
 
 const { formatPrice } = useFormatters()
+const deliveryType = ref<'pickup' | 'delivery'>('pickup')
 </script>
 
 <template>
@@ -43,7 +45,7 @@ const { formatPrice } = useFormatters()
           <div v-for="item in cart" :key="item.cartKey" class="flex gap-3 items-start">
             <div
               class="w-14 h-14 lg:w-16 lg:h-16 rounded-xl bg-center bg-cover bg-[#f0f0f0] shrink-0"
-              :style="item.photo ? `background-image: url('${item.photo}')` : ''"
+              :style="`background-image: url('${item.photo || '/images/nofoto.jpg'}')`"
             />
             <div class="flex-1 min-w-0">
               <div class="text-sm font-semibold text-[#222] leading-snug mb-0.5 line-clamp-2">{{ item.name }}</div>
@@ -73,6 +75,31 @@ const { formatPrice } = useFormatters()
           <div class="flex justify-between text-lg lg:text-xl font-bold">
             <span>Итого:</span>
             <span class="text-brand">{{ formatPrice(totalPrice) }}</span>
+          </div>
+          <!-- Delivery type -->
+          <div>
+            <label class="block text-xs font-semibold text-[#777] mb-2">Способ получения</label>
+            <div class="flex flex-col gap-2">
+              <!-- Pickup option -->
+              <label
+                class="flex items-start gap-3 rounded-xl border-2 px-4 py-3 cursor-pointer transition-colors"
+                :class="deliveryType === 'pickup' ? 'border-brand bg-brand/5' : 'border-[#e0e0e0]'"
+              >
+                <input type="radio" v-model="deliveryType" value="pickup" class="mt-0.5 accent-brand shrink-0" />
+                <div>
+                  <div class="text-sm font-semibold text-[#222]">Самовывоз</div>
+                  <div v-if="pickupAddress" class="text-xs text-[#666] mt-0.5 leading-snug">{{ pickupAddress }}</div>
+                </div>
+              </label>
+              <!-- Delivery stub -->
+              <label class="flex items-start gap-3 rounded-xl border-2 border-[#e0e0e0] px-4 py-3 opacity-60 cursor-not-allowed select-none">
+                <input type="radio" disabled class="mt-0.5 shrink-0" />
+                <div>
+                  <div class="text-sm font-semibold text-[#222]">Доставка</div>
+                  <div class="text-xs text-[#888] mt-0.5">Работаем над добавлением доставки</div>
+                </div>
+              </label>
+            </div>
           </div>
           <div>
             <label class="block text-xs font-semibold text-[#777] mb-1.5">Комментарий к заказу</label>

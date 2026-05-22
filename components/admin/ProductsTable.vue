@@ -8,14 +8,16 @@ type SortDir = 'asc' | 'desc'
 const props = defineProps<{ products: ProductDto[] }>()
 const emit = defineEmits<{
   edit: [product: ProductDto]
+  copy: [product: ProductDto]
   toggle: [product: ProductDto]
   remove: [product: ProductDto]
   inlineSaved: [product: ProductDto]
+  reordered: []
 }>()
 
 const { formatPrice } = useFormatters()
 
-// ── Sort ──────────────────────────────────────────────────────────────
+// ── Column sort ───────────────────────────────────────────────────────
 const sortKey = ref<SortKey | null>(null)
 const sortDir = ref<SortDir>('asc')
 
@@ -34,8 +36,17 @@ function resetSort() {
   sortDir.value = 'asc'
 }
 
-const sorted = computed(() => {
-  if (!sortKey.value) return props.products
+// ── Local list for drag-and-drop ──────────────────────────────────────
+const localList = ref<ProductDto[]>([...props.products])
+const isDirty = ref(false)
+
+watch(() => props.products, (next) => {
+  if (!isDirty.value) localList.value = [...next]
+}, { deep: true })
+
+// What the template renders
+const displayedList = computed(() => {
+  if (!sortKey.value) return localList.value
   const key = sortKey.value
   const mul = sortDir.value === 'asc' ? 1 : -1
   return [...props.products].sort((a, b) => {
@@ -48,6 +59,53 @@ const sorted = computed(() => {
     return 0
   })
 })
+
+// ── Drag-and-drop ─────────────────────────────────────────────────────
+const dragging = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
+
+function onDragStart(index: number, e: DragEvent) {
+  dragging.value = index
+  e.dataTransfer!.effectAllowed = 'move'
+}
+
+function onDragOver(index: number) {
+  if (dragging.value !== null) dragOverIndex.value = index
+}
+
+function onDrop(toIndex: number) {
+  if (dragging.value === null || dragging.value === toIndex) return
+  const list = [...localList.value]
+  const [moved] = list.splice(dragging.value, 1)
+  list.splice(toIndex, 0, moved)
+  localList.value = list
+  isDirty.value = true
+}
+
+function onDragEnd() {
+  dragging.value = null
+  dragOverIndex.value = null
+}
+
+const saveLoading = ref(false)
+
+async function saveOrder() {
+  saveLoading.value = true
+  try {
+    await $fetch('/api/admin/products/reorder', {
+      method: 'POST',
+      body: { items: localList.value.map((p, i) => ({ id: p.id, sortOrder: i })) },
+    })
+    isDirty.value = false
+    emit('reordered')
+  }
+  catch (err: any) {
+    alert(err?.data?.message ?? 'Не удалось сохранить порядок')
+  }
+  finally {
+    saveLoading.value = false
+  }
+}
 
 // ── Inline edit ───────────────────────────────────────────────────────
 const inlineEdit = ref<{ id: number; field: InlineField; value: string } | null>(null)
@@ -109,174 +167,215 @@ async function saveInlineEdit(p: ProductDto, field: InlineField) {
 
 <template>
   <div>
+    <!-- Unsaved order banner -->
+    <div
+      v-if="isDirty"
+      class="flex items-center justify-between gap-3 mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm"
+    >
+      <span class="text-amber-700 font-medium">Порядок изменён — не забудьте сохранить</span>
+      <button
+        class="px-4 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-60 shrink-0"
+        :disabled="saveLoading"
+        @click="saveOrder"
+      >{{ saveLoading ? 'Сохранение...' : 'Сохранить порядок' }}</button>
+    </div>
+
     <!-- Desktop table -->
     <div class="hidden lg:block bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden">
-    <table class="w-full text-sm">
-      <thead class="bg-[#f8f8f8] border-b border-[#eee]">
-        <tr>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">Фото</th>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">
-            <button
-              class="flex items-center gap-1 hover:text-brand transition-colors group"
-              :class="sortKey === 'name' ? 'text-brand' : ''"
-              @click="setSort('name')"
-            >
-              Название
-              <span class="text-xs w-3 text-center">
-                <template v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
-                <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
-              </span>
-            </button>
-          </th>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">
-            <button
-              class="flex items-center gap-1 hover:text-brand transition-colors group"
-              :class="sortKey === 'category' ? 'text-brand' : ''"
-              @click="setSort('category')"
-            >
-              Категория
-              <span class="text-xs w-3 text-center">
-                <template v-if="sortKey === 'category'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
-                <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
-              </span>
-            </button>
-          </th>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">
-            <button
-              class="flex items-center gap-1 hover:text-brand transition-colors group"
-              :class="sortKey === 'price' ? 'text-brand' : ''"
-              @click="setSort('price')"
-            >
-              Цена
-              <span class="text-xs w-3 text-center">
-                <template v-if="sortKey === 'price'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
-                <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
-              </span>
-            </button>
-          </th>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">
-            <button
-              class="flex items-center gap-1 hover:text-brand transition-colors group"
-              :class="sortKey === 'stock' ? 'text-brand' : ''"
-              @click="setSort('stock')"
-            >
-              Остаток
-              <span class="text-xs w-3 text-center">
-                <template v-if="sortKey === 'stock'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
-                <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
-              </span>
-            </button>
-          </th>
-          <th class="text-left px-5 py-3 font-semibold text-[#555]">
-            <button
-              class="flex items-center gap-1 hover:text-brand transition-colors group"
-              :class="sortKey === 'active' ? 'text-brand' : ''"
-              @click="setSort('active')"
-            >
-              Статус
-              <span class="text-xs w-3 text-center">
-                <template v-if="sortKey === 'active'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
-                <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
-              </span>
-            </button>
-          </th>
-          <th class="px-5 py-3 text-right">
-            <button
-              v-if="sortKey"
-              class="text-xs text-[#aaa] hover:text-red-400 transition-colors font-normal"
-              @click="resetSort"
-            >
-              Сбросить ↺
-            </button>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="p in sorted"
-          :key="p.id"
-          class="border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors"
-        >
-          <td class="px-5 py-3">
-            <div
-              class="w-12 h-12 rounded-xl bg-center bg-cover bg-[#eee]"
-              :style="p.photos[0] ? `background-image: url('${p.photos[0]}')` : ''"
-            />
-          </td>
-          <td class="px-5 py-3 font-semibold text-[#222] max-w-[240px]">{{ p.name }}</td>
-          <td class="px-5 py-3 text-[#777]">{{ p.category }}</td>
-          <td class="px-5 py-3">
-            <input
-              v-if="isInlineEditing(p, 'price')"
-              :id="inlineInputId(p, 'price')"
-              v-model="inlineEdit!.value"
-              type="number"
-              min="0"
-              step="1"
-              class="w-28 rounded-lg border border-brand px-2.5 py-1 text-sm font-bold text-brand outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
-              :disabled="inlineSaving"
-              @blur="saveInlineEdit(p, 'price')"
-              @keydown.enter.prevent="saveInlineEdit(p, 'price')"
-              @keydown.esc.prevent="cancelInlineEdit"
-            />
-            <button
-              v-else
-              class="rounded-lg px-2.5 py-1 -ml-2.5 font-bold text-brand transition-colors hover:bg-brand/10"
-              title="Изменить цену"
-              @click="startInlineEdit(p, 'price')"
-            >
-              {{ formatPrice(p.price) }}
-            </button>
-          </td>
-          <td class="px-5 py-3">
-            <input
-              v-if="isInlineEditing(p, 'stock')"
-              :id="inlineInputId(p, 'stock')"
-              v-model="inlineEdit!.value"
-              type="number"
-              min="0"
-              step="1"
-              class="w-20 rounded-lg border border-brand px-2.5 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
-              :disabled="inlineSaving"
-              @blur="saveInlineEdit(p, 'stock')"
-              @keydown.enter.prevent="saveInlineEdit(p, 'stock')"
-              @keydown.esc.prevent="cancelInlineEdit"
-            />
-            <span
-              v-else
-              class="px-2.5 py-1 rounded-lg font-semibold text-xs cursor-pointer transition-colors hover:ring-2 hover:ring-brand/20"
-              :class="p.stock === 0 ? 'bg-red-100 text-red-500' : p.stock < 5 ? 'bg-orange-100 text-orange-500' : 'bg-green-100 text-green-600'"
-              title="Изменить остаток"
-              @click="startInlineEdit(p, 'stock')"
-            >{{ p.stock }} шт.</span>
-          </td>
-          <td class="px-5 py-3">
-            <button
-              class="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
-              :class="p.active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-[#eee] text-[#999] hover:bg-[#e0e0e0]'"
-              @click="emit('toggle', p)"
-            >{{ p.active ? 'Активен' : 'Скрыт' }}</button>
-          </td>
-          <td class="px-5 py-3">
-            <div class="flex gap-2 justify-end">
-              <button class="px-3 py-1.5 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20 transition-colors" @click="emit('edit', p)">Изменить</button>
-              <button class="px-3 py-1.5 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100 transition-colors" @click="emit('remove', p)">Удалить</button>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div v-if="products.length === 0" class="py-16 text-center text-[#aaa]">Нет товаров</div>
+      <table class="w-full text-sm">
+        <thead class="bg-[#f8f8f8] border-b border-[#eee]">
+          <tr>
+            <th v-if="!sortKey" class="w-8 px-3 py-3" />
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">Фото</th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">
+              <button
+                class="flex items-center gap-1 hover:text-brand transition-colors group"
+                :class="sortKey === 'name' ? 'text-brand' : ''"
+                @click="setSort('name')"
+              >
+                Название
+                <span class="text-xs w-3 text-center">
+                  <template v-if="sortKey === 'name'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
+                  <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
+                </span>
+              </button>
+            </th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">
+              <button
+                class="flex items-center gap-1 hover:text-brand transition-colors group"
+                :class="sortKey === 'category' ? 'text-brand' : ''"
+                @click="setSort('category')"
+              >
+                Категория
+                <span class="text-xs w-3 text-center">
+                  <template v-if="sortKey === 'category'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
+                  <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
+                </span>
+              </button>
+            </th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">
+              <button
+                class="flex items-center gap-1 hover:text-brand transition-colors group"
+                :class="sortKey === 'price' ? 'text-brand' : ''"
+                @click="setSort('price')"
+              >
+                Цена
+                <span class="text-xs w-3 text-center">
+                  <template v-if="sortKey === 'price'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
+                  <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
+                </span>
+              </button>
+            </th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">
+              <button
+                class="flex items-center gap-1 hover:text-brand transition-colors group"
+                :class="sortKey === 'stock' ? 'text-brand' : ''"
+                @click="setSort('stock')"
+              >
+                Остаток
+                <span class="text-xs w-3 text-center">
+                  <template v-if="sortKey === 'stock'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
+                  <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
+                </span>
+              </button>
+            </th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">
+              <button
+                class="flex items-center gap-1 hover:text-brand transition-colors group"
+                :class="sortKey === 'active' ? 'text-brand' : ''"
+                @click="setSort('active')"
+              >
+                Статус
+                <span class="text-xs w-3 text-center">
+                  <template v-if="sortKey === 'active'">{{ sortDir === 'asc' ? '↑' : '↓' }}</template>
+                  <template v-else><span class="text-[#ccc] group-hover:text-[#aaa]">↕</span></template>
+                </span>
+              </button>
+            </th>
+            <th class="px-5 py-3 text-right">
+              <button
+                v-if="sortKey"
+                class="text-xs text-[#aaa] hover:text-red-400 transition-colors font-normal"
+                @click="resetSort"
+              >
+                Сбросить ↺
+              </button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="(p, i) in displayedList"
+            :key="p.id"
+            class="border-b border-[#f0f0f0] transition-colors"
+            :class="[
+              dragOverIndex === i && !sortKey ? 'bg-brand/10' : 'hover:bg-[#fafafa]',
+              dragging === i && !sortKey ? 'opacity-40' : '',
+            ]"
+            :draggable="!sortKey"
+            @dragstart="!sortKey && onDragStart(i, $event)"
+            @dragover.prevent="!sortKey && onDragOver(i)"
+            @drop.prevent="!sortKey && onDrop(i)"
+            @dragend="onDragEnd"
+          >
+            <td v-if="!sortKey" class="pl-3 pr-1 py-3">
+              <span class="text-[#bbb] cursor-grab active:cursor-grabbing select-none text-base" title="Перетащить">⠿</span>
+            </td>
+            <td class="px-5 py-3">
+              <div
+                class="w-12 h-12 rounded-xl bg-center bg-cover bg-[#eee]"
+                :style="p.photos[0] ? `background-image: url('${p.photos[0]}')` : ''"
+              />
+            </td>
+            <td class="px-5 py-3 font-semibold text-[#222] max-w-[240px]">{{ p.name }}</td>
+            <td class="px-5 py-3 text-[#777]">{{ p.category }}</td>
+            <td class="px-5 py-3">
+              <input
+                v-if="isInlineEditing(p, 'price')"
+                :id="inlineInputId(p, 'price')"
+                v-model="inlineEdit!.value"
+                type="number"
+                min="0"
+                step="1"
+                class="w-28 rounded-lg border border-brand px-2.5 py-1 text-sm font-bold text-brand outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
+                :disabled="inlineSaving"
+                @blur="saveInlineEdit(p, 'price')"
+                @keydown.enter.prevent="saveInlineEdit(p, 'price')"
+                @keydown.esc.prevent="cancelInlineEdit"
+              />
+              <button
+                v-else
+                class="rounded-lg px-2.5 py-1 -ml-2.5 font-bold text-brand transition-colors hover:bg-brand/10"
+                title="Изменить цену"
+                @click="startInlineEdit(p, 'price')"
+              >
+                {{ formatPrice(p.price) }}
+              </button>
+            </td>
+            <td class="px-5 py-3">
+              <input
+                v-if="isInlineEditing(p, 'stock')"
+                :id="inlineInputId(p, 'stock')"
+                v-model="inlineEdit!.value"
+                type="number"
+                min="0"
+                step="1"
+                class="w-20 rounded-lg border border-brand px-2.5 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
+                :disabled="inlineSaving"
+                @blur="saveInlineEdit(p, 'stock')"
+                @keydown.enter.prevent="saveInlineEdit(p, 'stock')"
+                @keydown.esc.prevent="cancelInlineEdit"
+              />
+              <span
+                v-else
+                class="px-2.5 py-1 rounded-lg font-semibold text-xs cursor-pointer transition-colors hover:ring-2 hover:ring-brand/20"
+                :class="p.stock === 0 ? 'bg-red-100 text-red-500' : p.stock < 5 ? 'bg-orange-100 text-orange-500' : 'bg-green-100 text-green-600'"
+                title="Изменить остаток"
+                @click="startInlineEdit(p, 'stock')"
+              >{{ p.stock }} шт.</span>
+            </td>
+            <td class="px-5 py-3">
+              <button
+                class="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+                :class="p.active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-[#eee] text-[#999] hover:bg-[#e0e0e0]'"
+                @click="emit('toggle', p)"
+              >{{ p.active ? 'Активен' : 'Скрыт' }}</button>
+            </td>
+            <td class="px-5 py-3">
+              <div class="flex gap-2 justify-end">
+                <button class="px-3 py-1.5 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20 transition-colors" @click="emit('edit', p)">Изменить</button>
+                <button class="px-3 py-1.5 rounded-lg bg-[#f0f0f0] text-[#666] text-xs font-semibold hover:bg-[#e8e8e8] transition-colors" @click="emit('copy', p)">Копия</button>
+                <button class="px-3 py-1.5 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100 transition-colors" @click="emit('remove', p)">Удалить</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="products.length === 0" class="py-16 text-center text-[#aaa]">Нет товаров</div>
     </div>
 
     <!-- Mobile cards -->
     <div class="lg:hidden flex flex-col gap-3">
       <div
-        v-for="p in sorted"
+        v-for="(p, i) in displayedList"
         :key="p.id"
-        class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden flex flex-col"
+        class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden flex flex-col transition-colors"
+        :class="[
+          dragOverIndex === i && !sortKey ? 'border-brand bg-brand/5' : '',
+          dragging === i && !sortKey ? 'opacity-40' : '',
+        ]"
+        :draggable="!sortKey"
+        @dragstart="!sortKey && onDragStart(i, $event)"
+        @dragover.prevent="!sortKey && onDragOver(i)"
+        @drop.prevent="!sortKey && onDrop(i)"
+        @dragend="onDragEnd"
       >
         <div class="flex gap-3 p-3">
+          <span
+            v-if="!sortKey"
+            class="text-[#ccc] cursor-grab active:cursor-grabbing select-none text-xl self-center shrink-0 px-1"
+            title="Перетащить"
+          >⠿</span>
           <div
             class="w-16 h-16 rounded-xl bg-center bg-cover bg-[#eee] shrink-0"
             :style="p.photos[0] ? `background-image: url('${p.photos[0]}')` : ''"
@@ -340,6 +439,7 @@ async function saveInlineEdit(p: ProductDto, field: InlineField) {
         </div>
         <div class="flex gap-2 px-3 pb-3 border-t border-[#f4f4f4] pt-2">
           <button class="flex-1 px-3 py-2 rounded-lg bg-brand/10 text-brand text-xs font-semibold hover:bg-brand/20 transition-colors" @click="emit('edit', p)">Изменить</button>
+          <button class="flex-1 px-3 py-2 rounded-lg bg-[#f0f0f0] text-[#666] text-xs font-semibold hover:bg-[#e8e8e8] transition-colors" @click="emit('copy', p)">Копия</button>
           <button class="flex-1 px-3 py-2 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100 transition-colors" @click="emit('remove', p)">Удалить</button>
         </div>
       </div>

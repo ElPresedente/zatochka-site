@@ -46,7 +46,7 @@ watch(zoomed, (val) => {
 })
 
 const multiplePhotos = computed(() => props.product.photos.length > 1)
-const currentPhoto = computed(() => props.product.photos[photoIdx.value] ?? '')
+const currentPhoto = computed(() => props.product.photos[photoIdx.value] || '/images/nofoto.jpg')
 
 const selectedServices = computed<CartItemService[]>(() =>
   props.product.services.filter(s => selectedServiceIds.value.has(s.id)),

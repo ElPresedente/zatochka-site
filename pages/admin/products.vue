@@ -37,6 +37,11 @@ function openEdit(p: ProductDto) {
   editorOpen.value = true
 }
 
+function copyProduct(p: ProductDto) {
+  editingProduct.value = { ...p, id: 0 }
+  editorOpen.value = true
+}
+
 async function toggleActive(p: ProductDto) {
   await $fetch(`/api/admin/products/${p.id}`, { method: 'PUT', body: { active: !p.active } })
   await refresh()
@@ -97,9 +102,11 @@ const catPanelOpen = ref(false)
     <AdminProductsTable
       :products="filtered"
       @edit="openEdit"
+      @copy="copyProduct"
       @toggle="toggleActive"
       @remove="deleteProduct"
       @inline-saved="onInlineSaved"
+      @reordered="refresh"
     />
   </div>
 

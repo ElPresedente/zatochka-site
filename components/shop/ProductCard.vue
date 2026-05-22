@@ -17,10 +17,10 @@ const { formatPrice } = useFormatters()
 
 // coverPosition: new format "BSX BSY PX PY" (4 numbers) or legacy CSS string
 const coverStyle = computed(() => {
-  const img = props.product.photos[0] ? `url('${props.product.photos[0]}')` : undefined
+  const img = `url('${props.product.photos[0] || '/images/nofoto.jpg'}')`
   const pos = props.product.coverPosition?.trim() ?? ''
   const parts = pos.split(/\s+/)
-  if (img && parts.length === 4 && parts.every(p => p !== '' && !isNaN(Number(p)))) {
+  if (parts.length === 4 && parts.every(p => p !== '' && !isNaN(Number(p)))) {
     return {
       backgroundImage: img,
       backgroundSize: `${parts[0]}% ${parts[1]}%`,
