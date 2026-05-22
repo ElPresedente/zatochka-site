@@ -9,11 +9,15 @@ import {
 } from '~/server/utils/validators'
 import { parseProductPhotos, parseProductServices, parseProductSpecs } from '~/server/utils/json-shapes'
 
-const COVER_POSITIONS = [
-  'left top', 'center top', 'right top',
-  'left center', 'center center', 'right center',
-  'left bottom', 'center bottom', 'right bottom',
-]
+function parseCoverPosition(value: unknown): string {
+  if (typeof value !== 'string') return 'center center'
+  const parts = value.trim().split(/\s+/)
+  // new format: "BSX BSY PX PY" (4 numbers)
+  if (parts.length === 4 && parts.every(p => /^\d+(\.\d+)?$/.test(p))) return value.trim()
+  // legacy format: named positions
+  const LEGACY = ['left top', 'center top', 'right top', 'left center', 'center center', 'right center', 'left bottom', 'center bottom', 'right bottom']
+  return LEGACY.includes(value.trim()) ? value.trim() : 'center center'
+}
 
 export default defineEventHandler(async (event) => {
   const db = useDb()
@@ -48,7 +52,7 @@ export default defineEventHandler(async (event) => {
   if (body.active !== undefined) update.active = !!body.active
   if (body.sortOrder !== undefined) update.sortOrder = parseNonNegativeInteger(body.sortOrder, 'Порядок сортировки', 1_000_000)
   if (body.coverPosition !== undefined) {
-    update.coverPosition = COVER_POSITIONS.includes(body.coverPosition) ? body.coverPosition : 'center center'
+    update.coverPosition = parseCoverPosition(body.coverPosition)
   }
 
   if (Object.keys(update).length === 0) throw createError({ statusCode: 400, message: 'Нет данных для сохранения' })

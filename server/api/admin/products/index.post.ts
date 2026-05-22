@@ -4,11 +4,13 @@ import { productCategories, products } from '~/server/db/schema'
 import { parseNonNegativeInteger, parsePositiveInteger, parseTrimmedString } from '~/server/utils/validators'
 import { parseProductPhotos, parseProductServices, parseProductSpecs } from '~/server/utils/json-shapes'
 
-const COVER_POSITIONS = [
-  'left top', 'center top', 'right top',
-  'left center', 'center center', 'right center',
-  'left bottom', 'center bottom', 'right bottom',
-]
+function parseCoverPosition(value: unknown): string {
+  if (typeof value !== 'string') return 'center center'
+  const parts = value.trim().split(/\s+/)
+  if (parts.length === 4 && parts.every(p => /^\d+(\.\d+)?$/.test(p))) return value.trim()
+  const LEGACY = ['left top', 'center top', 'right top', 'left center', 'center center', 'right center', 'left bottom', 'center bottom', 'right bottom']
+  return LEGACY.includes(value.trim()) ? value.trim() : 'center center'
+}
 
 export default defineEventHandler(async (event) => {
   const db = useDb()
@@ -30,7 +32,7 @@ export default defineEventHandler(async (event) => {
   const specs = Array.isArray(body?.specs) ? body.specs : []
   const services = Array.isArray(body?.services) ? body.services : []
   const active = body?.active !== false
-  const coverPosition = COVER_POSITIONS.includes(body?.coverPosition) ? body.coverPosition : 'center center'
+  const coverPosition = parseCoverPosition(body?.coverPosition)
 
   const [row] = await db.insert(products).values({
     categoryId,

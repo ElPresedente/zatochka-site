@@ -15,6 +15,26 @@ const emit = defineEmits<{
 
 const { formatPrice } = useFormatters()
 
+// coverPosition: new format "BSX BSY PX PY" (4 numbers) or legacy CSS string
+const coverStyle = computed(() => {
+  const img = props.product.photos[0] ? `url('${props.product.photos[0]}')` : undefined
+  const pos = props.product.coverPosition?.trim() ?? ''
+  const parts = pos.split(/\s+/)
+  if (img && parts.length === 4 && parts.every(p => p !== '' && !isNaN(Number(p)))) {
+    return {
+      backgroundImage: img,
+      backgroundSize: `${parts[0]}% ${parts[1]}%`,
+      backgroundPosition: `${parts[2]}% ${parts[3]}%`,
+      backgroundRepeat: 'no-repeat',
+    }
+  }
+  return {
+    backgroundImage: img,
+    backgroundSize: 'cover',
+    backgroundPosition: pos || 'center center',
+  }
+})
+
 const stockLabel = computed(() => {
   if (props.product.stock === 0) return { text: 'Нет в наличии', cls: 'text-red-500' }
   if (props.product.stock < 5) return { text: `Осталось ${props.product.stock} шт.`, cls: 'text-orange-500' }
@@ -29,11 +49,8 @@ const stockLabel = computed(() => {
   >
     <!-- Фото -->
     <div
-      class="relative aspect-[3/4] bg-[rgb(238,238,238)] bg-cover shrink-0"
-      :style="{
-        backgroundImage: product.photos[0] ? `url('${product.photos[0]}')` : undefined,
-        backgroundPosition: product.coverPosition || 'center center',
-      }"
+      class="relative aspect-[3/4] bg-[rgb(238,238,238)] shrink-0"
+      :style="coverStyle"
     >
       <!-- Количество в корзине -->
       <span

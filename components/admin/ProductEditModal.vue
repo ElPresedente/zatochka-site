@@ -87,11 +87,159 @@ function addService() {
 }
 function removeService(i: number) { form.value.services.splice(i, 1) }
 
-const COVER_POSITIONS = [
-  'left top', 'center top', 'right top',
-  'left center', 'center center', 'right center',
-  'left bottom', 'center bottom', 'right bottom',
-]
+const CROP_DISPLAY_W = 260
+const CARD_ASPECT = 3 / 4
+const CROP_MIN_ZOOM = 1
+const CROP_MAX_ZOOM = 4
+
+const cropImgNatural = ref({ w: 0, h: 0 })
+const cropDragging = ref(false)
+const cropDragStart = ref({ mouseX: 0, mouseY: 0, vpX: 0, vpY: 0 })
+const cropVpOffset = ref({ x: 0, y: 0 })
+const cropZoom = ref(1)
+
+const cropDisplayH = computed(() =>
+  cropImgNatural.value.w
+    ? Math.round(CROP_DISPLAY_W * cropImgNatural.value.h / cropImgNatural.value.w)
+    : 0,
+)
+
+// Cover-equivalent background-size in % of container (zoom=1)
+function computeCoverSizePct(natW: number, natH: number) {
+  const imgAspect = natW / natH
+  return imgAspect >= CARD_ASPECT
+    ? { w: imgAspect / CARD_ASPECT * 100, h: 100 }
+    : { w: 100, h: CARD_ASPECT / imgAspect * 100 }
+}
+
+// Frame size at zoom=1 (fills the constrained axis completely)
+const cropBaseFrame = computed(() => {
+  const dh = cropDisplayH.value
+  if (!dh) return { w: 0, h: 0 }
+  const imgAspect = CROP_DISPLAY_W / dh
+  return imgAspect >= CARD_ASPECT
+    ? { w: Math.round(dh * CARD_ASPECT), h: dh }
+    : { w: CROP_DISPLAY_W, h: Math.round(CROP_DISPLAY_W / CARD_ASPECT) }
+})
+
+// Frame shrinks as zoom increases (higher zoom = smaller visible area)
+const cropVpSize = computed(() => ({
+  w: Math.max(20, Math.round(cropBaseFrame.value.w / cropZoom.value)),
+  h: Math.max(27, Math.round(cropBaseFrame.value.h / cropZoom.value)),
+}))
+
+const cropRangeX = computed(() => Math.max(0, CROP_DISPLAY_W - cropVpSize.value.w))
+const cropRangeY = computed(() => Math.max(0, cropDisplayH.value - cropVpSize.value.h))
+
+function parseCoverPositionOld(pos: string): { x: number; y: number } {
+  const parts = pos.trim().split(/\s+/)
+  const parse = (v: string) => {
+    if (v === 'left' || v === 'top') return 0
+    if (v === 'right' || v === 'bottom') return 100
+    if (v === 'center') return 50
+    return parseFloat(v) || 50
+  }
+  return { x: parse(parts[0] ?? '50%'), y: parse(parts[1] ?? '50%') }
+}
+
+// coverPosition format: "BSX BSY PX PY" (4 numbers) or legacy "X% Y%" / "center center"
+function initCropFromCoverPosition() {
+  const pos = form.value.coverPosition?.trim() ?? ''
+  const parts = pos.split(/\s+/)
+  let bpX = 50, bpY = 50
+  if (parts.length === 4 && parts.every(p => p !== '' && !isNaN(Number(p)))) {
+    const base = computeCoverSizePct(cropImgNatural.value.w, cropImgNatural.value.h)
+    cropZoom.value = Math.max(CROP_MIN_ZOOM, Math.min(CROP_MAX_ZOOM, Number(parts[0]) / base.w))
+    bpX = Number(parts[2])
+    bpY = Number(parts[3])
+  }
+  else {
+    cropZoom.value = CROP_MIN_ZOOM
+    const parsed = parseCoverPositionOld(pos || 'center center')
+    bpX = parsed.x
+    bpY = parsed.y
+  }
+  cropVpOffset.value = {
+    x: Math.round(bpX / 100 * cropRangeX.value),
+    y: Math.round(bpY / 100 * cropRangeY.value),
+  }
+}
+
+function updateCoverPositionFromCrop() {
+  if (!cropImgNatural.value.w) return
+  const base = computeCoverSizePct(cropImgNatural.value.w, cropImgNatural.value.h)
+  const bsX = Math.round(base.w * cropZoom.value)
+  const bsY = Math.round(base.h * cropZoom.value)
+  const x = cropRangeX.value > 0 ? Math.round(cropVpOffset.value.x / cropRangeX.value * 100) : 50
+  const y = cropRangeY.value > 0 ? Math.round(cropVpOffset.value.y / cropRangeY.value * 100) : 50
+  form.value.coverPosition = `${bsX} ${bsY} ${x} ${y}`
+}
+
+function onCropImgLoad(e: Event) {
+  const img = e.target as HTMLImageElement
+  cropImgNatural.value = { w: img.naturalWidth, h: img.naturalHeight }
+  nextTick(initCropFromCoverPosition)
+}
+
+watch(() => form.value.photos[0], () => {
+  cropImgNatural.value = { w: 0, h: 0 }
+  cropZoom.value = CROP_MIN_ZOOM
+})
+
+function onZoomInput(e: Event) {
+  cropZoom.value = Number((e.target as HTMLInputElement).value)
+  cropVpOffset.value = {
+    x: Math.max(0, Math.min(cropRangeX.value, cropVpOffset.value.x)),
+    y: Math.max(0, Math.min(cropRangeY.value, cropVpOffset.value.y)),
+  }
+  updateCoverPositionFromCrop()
+}
+
+function startDrag(clientX: number, clientY: number, containerEl: HTMLElement) {
+  const rect = containerEl.getBoundingClientRect()
+  const clickX = clientX - rect.left
+  const clickY = clientY - rect.top
+  const newX = Math.max(0, Math.min(cropRangeX.value, clickX - cropVpSize.value.w / 2))
+  const newY = Math.max(0, Math.min(cropRangeY.value, clickY - cropVpSize.value.h / 2))
+  cropVpOffset.value = { x: newX, y: newY }
+  updateCoverPositionFromCrop()
+  cropDragging.value = true
+  cropDragStart.value = { mouseX: clientX, mouseY: clientY, vpX: newX, vpY: newY }
+}
+
+function moveDrag(clientX: number, clientY: number) {
+  if (!cropDragging.value) return
+  cropVpOffset.value = {
+    x: Math.max(0, Math.min(cropRangeX.value, cropDragStart.value.vpX + clientX - cropDragStart.value.mouseX)),
+    y: Math.max(0, Math.min(cropRangeY.value, cropDragStart.value.vpY + clientY - cropDragStart.value.mouseY)),
+  }
+  updateCoverPositionFromCrop()
+}
+
+function onContainerMouseDown(e: MouseEvent) {
+  startDrag(e.clientX, e.clientY, e.currentTarget as HTMLElement)
+  window.addEventListener('mousemove', onCropMouseMove)
+  window.addEventListener('mouseup', onCropMouseUp)
+}
+
+function onCropMouseMove(e: MouseEvent) { moveDrag(e.clientX, e.clientY) }
+
+function onCropMouseUp() {
+  cropDragging.value = false
+  window.removeEventListener('mousemove', onCropMouseMove)
+  window.removeEventListener('mouseup', onCropMouseUp)
+}
+
+function onContainerTouchStart(e: TouchEvent) {
+  startDrag(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget as HTMLElement)
+}
+function onCropTouchMove(e: TouchEvent) { moveDrag(e.touches[0].clientX, e.touches[0].clientY) }
+function onCropTouchEnd() { cropDragging.value = false }
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', onCropMouseMove)
+  window.removeEventListener('mouseup', onCropMouseUp)
+})
 
 const photoUrl = ref('')
 function addPhotoByUrl() {
@@ -214,28 +362,68 @@ async function onFileChange(e: Event) {
             </div>
 
             <div v-if="form.photos.length > 0" class="mt-4">
-              <label class="block text-xs font-semibold text-[#777] mb-2">Позиция обложки в карточке</label>
-              <div class="flex gap-4 items-center">
-                <div class="relative w-[72px] h-[96px] rounded-xl overflow-hidden border border-[#ddd] bg-[#eee] shrink-0">
+              <img v-if="form.photos[0]" :src="form.photos[0]" class="hidden" @load="onCropImgLoad" />
+              <label class="block text-xs font-semibold text-[#777] mb-2">Кадрирование обложки</label>
+              <div v-if="cropImgNatural.w > 0" class="flex gap-4 items-start flex-wrap">
+                <div class="flex flex-col gap-2 shrink-0">
+                  <!-- Crop area: drag anywhere to reposition frame -->
                   <div
-                    class="absolute inset-0 bg-cover"
-                    :style="form.photos[0] ? { backgroundImage: `url('${form.photos[0]}')`, backgroundPosition: form.coverPosition || 'center center' } : {}"
-                  />
-                  <div class="absolute inset-0 grid grid-cols-3 grid-rows-3">
-                    <button
-                      v-for="pos in COVER_POSITIONS"
-                      :key="pos"
-                      type="button"
-                      class="border border-white/30 transition-colors"
-                      :class="(form.coverPosition || 'center center') === pos ? 'bg-brand/70 ring-1 ring-brand ring-inset' : 'bg-black/5 hover:bg-brand/30'"
-                      @click="form.coverPosition = pos"
+                    class="relative overflow-hidden rounded-xl border border-[#ddd] select-none"
+                    :class="cropDragging ? 'cursor-grabbing' : 'cursor-crosshair'"
+                    :style="{
+                      width: `${CROP_DISPLAY_W}px`,
+                      height: `${cropDisplayH}px`,
+                      backgroundImage: `url('${form.photos[0]}')`,
+                      backgroundSize: `${CROP_DISPLAY_W}px ${cropDisplayH}px`,
+                      backgroundRepeat: 'no-repeat',
+                    }"
+                    @mousedown.prevent="onContainerMouseDown"
+                    @touchstart.prevent="onContainerTouchStart"
+                    @touchmove.prevent="onCropTouchMove"
+                    @touchend="onCropTouchEnd"
+                  >
+                    <div class="absolute inset-0 bg-black/50 pointer-events-none" />
+                    <!-- Crop frame: shows image through overlay via matching bg-image offset -->
+                    <div
+                      class="absolute pointer-events-none"
+                      :style="{
+                        left: `${cropVpOffset.x}px`,
+                        top: `${cropVpOffset.y}px`,
+                        width: `${cropVpSize.w}px`,
+                        height: `${cropVpSize.h}px`,
+                        backgroundImage: `url('${form.photos[0]}')`,
+                        backgroundSize: `${CROP_DISPLAY_W}px ${cropDisplayH}px`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: `-${cropVpOffset.x}px -${cropVpOffset.y}px`,
+                        boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.9), inset 0 0 0 3px rgba(0,0,0,0.35)',
+                      }"
+                    >
+                      <span class="absolute top-0 left-0 w-3.5 h-3.5 border-t-2 border-l-2 border-white" />
+                      <span class="absolute top-0 right-0 w-3.5 h-3.5 border-t-2 border-r-2 border-white" />
+                      <span class="absolute bottom-0 left-0 w-3.5 h-3.5 border-b-2 border-l-2 border-white" />
+                      <span class="absolute bottom-0 right-0 w-3.5 h-3.5 border-b-2 border-r-2 border-white" />
+                    </div>
+                  </div>
+                  <!-- Zoom slider -->
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-[#bbb] leading-none">−</span>
+                    <input
+                      type="range"
+                      :value="cropZoom"
+                      :min="CROP_MIN_ZOOM"
+                      :max="CROP_MAX_ZOOM"
+                      step="0.05"
+                      class="flex-1 accent-brand"
+                      @input="onZoomInput"
                     />
+                    <span class="text-xs text-[#bbb] leading-none">+</span>
                   </div>
                 </div>
-                <p class="text-xs text-[#888] leading-relaxed">
-                  Нажмите на область превью,<br>которая будет показываться<br>на карточке в магазине
+                <p class="text-xs text-[#888] leading-relaxed pt-1">
+                  Кликните или тяните<br>изображение, чтобы<br>переместить рамку.<br><br>Ползунок — масштаб<br>(приближение).
                 </p>
               </div>
+              <div v-else class="text-xs text-[#aaa] py-1">Загрузка изображения...</div>
             </div>
           </div>
 
