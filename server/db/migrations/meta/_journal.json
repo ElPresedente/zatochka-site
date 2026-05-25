@@ -78,6 +78,13 @@
       "when": 1748217600000,
       "tag": "0010_user_deletion_request",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1748476800000,
+      "tag": "0011_product_collections",
+      "breakpoints": true
     }
   ]
 }

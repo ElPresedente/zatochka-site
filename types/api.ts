@@ -81,6 +81,22 @@ export interface OrderDetailsDto extends OrderRowDto {
   history: OrderHistoryDto[]
 }
 
+export interface ProductCollectionDto {
+  id: number
+  name: string
+  sortOrder: number
+  active: boolean
+  products: ProductDto[]
+}
+
+export interface AdminProductCollectionDto {
+  id: number
+  name: string
+  sortOrder: number
+  active: boolean
+  productIds: number[]
+}
+
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   created: 'Создан',
   cancelled: 'Отменён',

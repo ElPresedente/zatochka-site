@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import type { ProductDto, ProductCategoryDto } from '~/types/api'
+import type { ProductDto, ProductCategoryDto, ProductCollectionDto } from '~/types/api'
 import type { CartItemService } from '~/composables/useCart'
 
 useHead({ title: 'Острый край — Магазин' })
 
-const [{ data: allProducts }, { data: categoriesRaw }, { data: siteSettings }] = await Promise.all([
+const [{ data: allProducts }, { data: categoriesRaw }, { data: siteSettings }, { data: collections }] = await Promise.all([
   useFetch<ProductDto[]>('/api/products'),
   useFetch<ProductCategoryDto[]>('/api/product-categories'),
   useFetch<Record<string, string>>('/api/settings'),
+  useFetch<ProductCollectionDto[]>('/api/collections'),
 ])
 
 const search = ref('')
@@ -51,6 +52,77 @@ const filtered = computed(() => {
   else if (sortBy.value === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name, 'ru'))
   return list
 })
+
+// Reactive column count matching the CSS grid breakpoints
+const gridCols = ref(4)
+
+function updateGridCols() {
+  const w = window.innerWidth
+  if (w >= 1536) gridCols.value = 6
+  else if (w >= 1280) gridCols.value = 5
+  else if (w >= 1024) gridCols.value = 4
+  else if (w >= 640) gridCols.value = 3
+  else gridCols.value = 2
+}
+
+// Collections are only shown in the default unfiltered/unsorted view
+const showCollections = computed(() =>
+  activeCategory.value === 'Все' &&
+  !search.value.trim() &&
+  sortBy.value === 'default' &&
+  (collections.value?.length ?? 0) > 0
+)
+
+type DisplayBlock =
+  | { type: 'products'; items: ProductDto[] }
+  | { type: 'collection'; collection: ProductCollectionDto }
+
+const displayBlocks = computed((): DisplayBlock[] => {
+  const prods = filtered.value
+
+  if (!showCollections.value) {
+    return prods.length ? [{ type: 'products', items: prods }] : []
+  }
+
+  const activeCollections = (collections.value ?? [])
+    .filter(c => c.active && c.products.length > 0)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+
+  if (activeCollections.length === 0) {
+    return prods.length ? [{ type: 'products', items: prods }] : []
+  }
+
+  // sortOrder = number of rows; convert to product count based on current viewport columns
+  const cols = gridCols.value
+  const blocks: DisplayBlock[] = []
+  let offset = 0
+
+  for (const coll of activeCollections) {
+    const insertAt = Math.max(0, Math.min(coll.sortOrder * cols, prods.length))
+    if (insertAt > offset) {
+      blocks.push({ type: 'products', items: prods.slice(offset, insertAt) })
+      offset = insertAt
+    }
+    blocks.push({ type: 'collection', collection: coll })
+  }
+
+  if (offset < prods.length) {
+    blocks.push({ type: 'products', items: prods.slice(offset) })
+  }
+
+  return blocks
+})
+
+// Cart state maps for collection sliders
+const cartQtyById = computed(() =>
+  new Map((allProducts.value ?? []).map(p => [p.id, cartQty(p.id)]))
+)
+const canIncreaseById = computed(() =>
+  new Map((allProducts.value ?? []).map(p => [p.id, canIncrease(p.id)]))
+)
+const cartPrimaryKeyById = computed(() =>
+  new Map((allProducts.value ?? []).map(p => [p.id, cartPrimaryKey(p.id)]))
+)
 
 const modalProduct = ref<ProductDto | null>(null)
 function openModal(product: ProductDto) { modalProduct.value = product }
@@ -194,15 +266,18 @@ function onDocClick(e: MouseEvent) {
 }
 
 onMounted(() => {
+  updateGridCols()
   lastScrollY = window.scrollY
   window.addEventListener('scroll', onWindowScroll, { passive: true })
   window.addEventListener('keydown', onWindowKeydown)
+  window.addEventListener('resize', updateGridCols, { passive: true })
   document.addEventListener('click', onDocClick)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onWindowScroll)
   window.removeEventListener('keydown', onWindowKeydown)
+  window.removeEventListener('resize', updateGridCols)
   document.removeEventListener('click', onDocClick)
 })
 </script>
@@ -300,21 +375,36 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="max-w-[1440px] mx-auto px-2 sm:px-3 lg:px-10 py-4 lg:py-6">
+    <div class="max-w-[1440px] mx-auto px-2 sm:px-3 lg:px-10 py-4 lg:py-6 flex flex-col gap-4 lg:gap-6">
       <p v-if="filtered.length === 0" class="text-center text-base lg:text-xl text-[#888] py-16 lg:py-20">Ничего не найдено</p>
-      <div class="grid gap-3 sm:gap-4 lg:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-        <ShopProductCard
-          v-for="product in filtered"
-          :key="product.id"
-          :product="product"
-          :cart-qty="cartQty(product.id)"
-          :can-increase="canIncrease(product.id)"
-          :cart-primary-key="cartPrimaryKey(product.id)"
+      <template v-for="(block, i) in displayBlocks" :key="i">
+        <ShopCollectionRow
+          v-if="block.type === 'collection'"
+          :collection="block.collection"
+          :cart-qty-by-id="cartQtyById"
+          :can-increase-by-id="canIncreaseById"
+          :cart-primary-key-by-id="cartPrimaryKeyById"
           @open="openModal"
           @add="(p: ProductDto) => addToCart(p)"
           @set-qty="(cartKey: string, qty: number, stock: number) => setQty(cartKey, qty, stock)"
         />
-      </div>
+        <div
+          v-else
+          class="grid gap-3 sm:gap-4 lg:gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+        >
+          <ShopProductCard
+            v-for="product in block.items"
+            :key="product.id"
+            :product="product"
+            :cart-qty="cartQty(product.id)"
+            :can-increase="canIncrease(product.id)"
+            :cart-primary-key="cartPrimaryKey(product.id)"
+            @open="openModal"
+            @add="(p: ProductDto) => addToCart(p)"
+            @set-qty="(cartKey: string, qty: number, stock: number) => setQty(cartKey, qty, stock)"
+          />
+        </div>
+      </template>
     </div>
   </main>
 
