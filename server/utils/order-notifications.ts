@@ -1,5 +1,12 @@
 import type { OrderStatus } from '~/server/db/schema'
 
+export interface DeletionRequestPayload {
+  userId: number
+  firstName: string
+  lastName: string
+  phone: string
+}
+
 export interface PasswordResetRequestPayload {
   userId: number
   firstName: string
@@ -68,6 +75,39 @@ export async function notifyOrderCreated(order: OrderNotificationPayload) {
     })
   } catch (err) {
     console.error('[tg] Failed to send notification for order', order.id, err)
+  }
+}
+
+export async function notifyDeletionRequest(payload: DeletionRequestPayload) {
+  const config = useRuntimeConfig()
+  const token = config.telegramBotToken
+  const chatId = config.telegramChatId
+
+  if (!token || !chatId) {
+    console.info('[tg] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set, skipping deletion request notification')
+    return
+  }
+
+  const parts = [
+    '🗑 <b>Запрос на удаление аккаунта</b>',
+    '',
+    `👤 ${payload.lastName} ${payload.firstName} (ID: ${payload.userId})`,
+    `📞 ${payload.phone}`,
+    '',
+    'Пользователь отозвал согласие на обработку ПДн. Удалите аккаунт в разделе <b>Пользователи</b> в админке.',
+  ]
+
+  try {
+    await $fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      body: {
+        chat_id: chatId,
+        text: parts.join('\n'),
+        parse_mode: 'HTML',
+      },
+    })
+  } catch (err) {
+    console.error('[tg] Failed to send deletion request notification for user', payload.userId, err)
   }
 }
 

@@ -87,6 +87,11 @@ function canIncrease(id: number): boolean {
   return cartQty(id) < productStock(id)
 }
 
+function cartPrimaryKey(id: number): string | undefined {
+  const items = cart.value.filter(i => i.id === id)
+  return items.length === 1 ? items[0].cartKey : undefined
+}
+
 function canIncreaseByKey(cartKey: string): boolean {
   const item = cart.value.find(i => i.cartKey === cartKey)
   if (!item) return true
@@ -304,6 +309,7 @@ onBeforeUnmount(() => {
           :product="product"
           :cart-qty="cartQty(product.id)"
           :can-increase="canIncrease(product.id)"
+          :cart-primary-key="cartPrimaryKey(product.id)"
           @open="openModal"
           @add="(p: ProductDto) => addToCart(p)"
           @set-qty="(cartKey: string, qty: number, stock: number) => setQty(cartKey, qty, stock)"

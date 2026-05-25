@@ -1,6 +1,6 @@
 import { useDb } from '~/server/db'
 import { users, admins } from '~/server/db/schema'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, sql } from 'drizzle-orm'
 import { parseNonNegativeInteger } from '~/server/utils/validators'
 
 const DEFAULT_LIMIT = 200
@@ -23,12 +23,13 @@ export default defineEventHandler(async (event) => {
       firstName: users.firstName,
       phone: users.phone,
       consentGivenAt: users.consentGivenAt,
+      deletionRequestedAt: users.deletionRequestedAt,
       createdAt: users.createdAt,
       adminUserId: admins.userId,
     })
     .from(users)
     .leftJoin(admins, eq(admins.userId, users.id))
-    .orderBy(desc(users.createdAt))
+    .orderBy(sql`${users.deletionRequestedAt} IS NOT NULL DESC`, desc(users.deletionRequestedAt), desc(users.createdAt))
     .limit(limit)
     .offset(offset)
 

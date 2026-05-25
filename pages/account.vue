@@ -11,6 +11,7 @@ interface ProfileDto {
   firstName: string
   lastName: string
   phone: string
+  deletionRequestedAt: string | null
 }
 
 interface OrderWithItems {
@@ -31,6 +32,7 @@ interface OrderWithItems {
 const { formatPrice, formatDate, formatPhone } = useFormatters()
 const { fetchUser } = useAuth()
 
+const router = useRouter()
 const route = useRoute()
 const tab = ref<'profile' | 'orders'>(route.query.tab === 'orders' ? 'orders' : 'profile')
 
@@ -69,7 +71,83 @@ async function saveProfile() {
   }
 }
 
+const passwordForm = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
+const passwordSaving = ref(false)
+const passwordError = ref('')
+const passwordSuccess = ref(false)
 
+async function changePassword() {
+  passwordError.value = ''
+  passwordSuccess.value = false
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    passwordError.value = 'Пароли не совпадают'
+    return
+  }
+  if (passwordForm.newPassword.length < 6) {
+    passwordError.value = 'Новый пароль должен быть не короче 6 символов'
+    return
+  }
+  passwordSaving.value = true
+  try {
+    await $fetch('/api/account/password', {
+      method: 'PATCH',
+      body: { currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword },
+    })
+    passwordForm.currentPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
+    passwordSuccess.value = true
+    setTimeout(() => { passwordSuccess.value = false }, 4000)
+  } catch (e: any) {
+    passwordError.value = e?.data?.message ?? 'Ошибка при смене пароля'
+  } finally {
+    passwordSaving.value = false
+  }
+}
+
+const resetRequesting = ref(false)
+const resetRequestSent = ref(false)
+const resetRequestError = ref('')
+
+async function requestPasswordReset() {
+  resetRequesting.value = true
+  resetRequestError.value = ''
+  try {
+    await $fetch('/api/account/password-reset', { method: 'POST' })
+    resetRequestSent.value = true
+  } catch (e: any) {
+    resetRequestError.value = e?.data?.message ?? 'Ошибка при отправке запроса'
+  } finally {
+    resetRequesting.value = false
+  }
+}
+
+const showDeleteModal = ref(false)
+const deleteConfirmText = ref('')
+const requesting = ref(false)
+const requestError = ref('')
+const requestSent = ref(false)
+
+function openDeleteModal() {
+  deleteConfirmText.value = ''
+  requestError.value = ''
+  showDeleteModal.value = true
+}
+
+async function confirmDeletionRequest() {
+  requesting.value = true
+  requestError.value = ''
+  try {
+    await $fetch('/api/account/deletion-request', { method: 'POST' })
+    await refreshProfile()
+    requestSent.value = true
+    showDeleteModal.value = false
+  } catch (e: any) {
+    requestError.value = e?.data?.message ?? 'Ошибка при отправке запроса'
+  } finally {
+    requesting.value = false
+  }
+}
 </script>
 
 <template>
@@ -106,7 +184,7 @@ async function saveProfile() {
       </div>
 
       <!-- Profile tab -->
-      <div v-if="tab === 'profile'">
+      <div v-if="tab === 'profile'" class="flex flex-col gap-5">
         <div class="bg-white rounded-2xl shadow-sm p-5 lg:p-8 max-w-[540px]">
           <h2 class="text-lg lg:text-xl font-bold text-[#111] mb-5 lg:mb-6">Личные данные</h2>
 
@@ -157,6 +235,96 @@ async function saveProfile() {
               </Transition>
             </div>
           </form>
+        </div>
+
+        <!-- Password change -->
+        <div class="bg-white rounded-2xl shadow-sm p-5 lg:p-8 max-w-[540px]">
+          <h2 class="text-lg lg:text-xl font-bold text-[#111] mb-5 lg:mb-6">Смена пароля</h2>
+
+          <form class="flex flex-col gap-4" @submit.prevent="changePassword">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-semibold text-[#555]">Текущий пароль</label>
+              <input
+                v-model="passwordForm.currentPassword"
+                type="password"
+                required
+                autocomplete="current-password"
+                class="border border-[#ddd] rounded-xl px-4 py-2.5 text-base outline-none focus:border-brand transition-colors"
+              />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-semibold text-[#555]">Новый пароль</label>
+              <input
+                v-model="passwordForm.newPassword"
+                type="password"
+                required
+                autocomplete="new-password"
+                class="border border-[#ddd] rounded-xl px-4 py-2.5 text-base outline-none focus:border-brand transition-colors"
+                placeholder="Минимум 6 символов"
+              />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-semibold text-[#555]">Повторите новый пароль</label>
+              <input
+                v-model="passwordForm.confirmPassword"
+                type="password"
+                required
+                autocomplete="new-password"
+                class="border border-[#ddd] rounded-xl px-4 py-2.5 text-base outline-none focus:border-brand transition-colors"
+              />
+            </div>
+
+            <div class="flex items-center gap-4 pt-1">
+              <button
+                type="submit"
+                class="btn-primary px-8 py-2.5 text-base disabled:opacity-50"
+                :disabled="passwordSaving"
+              >{{ passwordSaving ? 'Сохранение...' : 'Изменить пароль' }}</button>
+              <Transition name="hint-fade">
+                <span v-if="passwordSuccess" class="text-green-600 font-semibold text-sm">Пароль изменён</span>
+                <span v-else-if="passwordError" class="text-red-500 text-sm">{{ passwordError }}</span>
+              </Transition>
+            </div>
+          </form>
+
+          <div class="mt-5 pt-5 border-t border-[#f0f0f0]">
+            <p class="text-sm text-[#888] mb-3">Не помните текущий пароль? Мы сбросим его вручную и свяжемся с вами.</p>
+            <template v-if="resetRequestSent">
+              <p class="text-sm text-green-600 font-semibold">Запрос отправлен — ожидайте звонка</p>
+            </template>
+            <template v-else>
+              <button
+                class="text-sm font-semibold text-brand hover:underline disabled:opacity-50"
+                :disabled="resetRequesting"
+                @click="requestPasswordReset"
+              >{{ resetRequesting ? 'Отправка...' : 'Запросить сброс пароля' }}</button>
+              <p v-if="resetRequestError" class="text-xs text-red-500 mt-1">{{ resetRequestError }}</p>
+            </template>
+          </div>
+        </div>
+
+        <!-- Consent revocation / account deletion -->
+        <div
+          class="bg-white rounded-2xl shadow-sm p-5 lg:p-8 max-w-[540px]"
+          :class="profile?.deletionRequestedAt ? 'border border-orange-200' : 'border border-red-100'"
+        >
+          <h2 class="text-base font-bold text-[#333] mb-1">Отзыв согласия на обработку персональных данных</h2>
+
+          <template v-if="profile?.deletionRequestedAt">
+            <p class="text-sm text-orange-600 font-semibold mt-2 mb-1">Запрос на удаление отправлен</p>
+            <p class="text-sm text-[#777] leading-relaxed">
+              Мы получили ваш запрос и удалим аккаунт в ближайшее время. Если вы передумали — свяжитесь с нами.
+            </p>
+          </template>
+          <template v-else>
+            <p class="text-sm text-[#777] mb-4 leading-relaxed">
+              Вы можете отозвать согласие на обработку персональных данных. Мы получим уведомление и удалим ваш аккаунт в ближайшее время. Ваши заказы будут сохранены в нашей системе в обезличенном виде.
+            </p>
+            <button
+              class="text-sm font-semibold text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 rounded-xl px-5 py-2 transition-colors"
+              @click="openDeleteModal"
+            >Отозвать согласие и удалить аккаунт</button>
+          </template>
         </div>
       </div>
 
@@ -252,9 +420,48 @@ async function saveProfile() {
 
     </div>
   </main>
+
+  <!-- Delete confirmation modal -->
+  <Teleport to="body">
+    <Transition name="modal-fade">
+      <div
+        v-if="showDeleteModal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+        @click.self="showDeleteModal = false"
+      >
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-[440px] p-6 lg:p-8">
+          <h3 class="text-lg font-bold text-[#111] mb-2">Отзыв согласия на обработку ПДн</h3>
+          <p class="text-sm text-[#555] mb-4 leading-relaxed">
+            Мы получим уведомление и удалим ваш аккаунт в ближайшее время. Для подтверждения введите слово <strong class="text-[#111]">УДАЛИТЬ</strong>.
+          </p>
+          <input
+            v-model="deleteConfirmText"
+            type="text"
+            placeholder="УДАЛИТЬ"
+            class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-base outline-none focus:border-red-400 transition-colors mb-4"
+          />
+          <p v-if="requestError" class="text-sm text-red-500 mb-3">{{ requestError }}</p>
+          <div class="flex gap-3">
+            <button
+              class="flex-1 py-2.5 rounded-xl border border-[#ddd] text-[#555] font-semibold text-sm hover:bg-[#f5f5f5] transition-colors"
+              :disabled="requesting"
+              @click="showDeleteModal = false"
+            >Отмена</button>
+            <button
+              class="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold text-sm transition-colors disabled:opacity-50"
+              :disabled="deleteConfirmText !== 'УДАЛИТЬ' || requesting"
+              @click="confirmDeletionRequest"
+            >{{ requesting ? 'Отправка...' : 'Отправить запрос' }}</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
 .hint-fade-enter-active, .hint-fade-leave-active { transition: opacity 0.2s; }
 .hint-fade-enter-from, .hint-fade-leave-to { opacity: 0; }
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.15s; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
 </style>

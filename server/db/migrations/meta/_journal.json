@@ -64,6 +64,20 @@
       "when": 1747612800000,
       "tag": "0008_product_cover_position",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1748131200000,
+      "tag": "0009_user_deletable",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1748217600000,
+      "tag": "0010_user_deletion_request",
+      "breakpoints": true
     }
   ]
 }

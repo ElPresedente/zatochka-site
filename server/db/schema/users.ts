@@ -8,6 +8,7 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   consentGivenAt: timestamp('consent_given_at'),
   consentVersion: text('consent_version'),
+  deletionRequestedAt: timestamp('deletion_requested_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 

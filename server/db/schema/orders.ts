@@ -8,8 +8,8 @@ export type OrderStatus = typeof orderStatuses[number]
 
 export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
-  userId: integer('user_id').notNull()
-    .references(() => users.id, { onDelete: 'restrict' }),
+  userId: integer('user_id')
+    .references(() => users.id, { onDelete: 'set null' }),
   customerFirstName: text('customer_first_name').notNull(),
   customerLastName: text('customer_last_name').notNull(),
   customerPhone: text('customer_phone').notNull(),

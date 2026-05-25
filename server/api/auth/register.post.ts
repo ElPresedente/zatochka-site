@@ -62,9 +62,10 @@ export default defineEventHandler(async (event) => {
     return { id: user.id, firstName: user.firstName, lastName: user.lastName, phone: user.phone }
   } catch (e: any) {
     handleDbConnectionError(e)
-    if (e?.code === '23505') {
+    const pgCode = e?.code ?? e?.cause?.code
+    if (pgCode === '23505') {
       await recordRateLimitHit(rateLimit)
-      throw createError({ statusCode: 409, message: 'Пользователь с таким телефоном уже зарегистрирован' })
+      throw createError({ statusCode: 409, message: 'Аккаунт с таким номером телефона уже создан. Войдите или воспользуйтесь восстановлением пароля.' })
     }
     throw e
   }

@@ -5,6 +5,7 @@ const props = defineProps<{
   product: ProductDto
   cartQty: number
   canIncrease: boolean
+  cartPrimaryKey?: string
 }>()
 
 const emit = defineEmits<{
@@ -70,7 +71,16 @@ const stockLabel = computed(() => {
 
       <!-- Товар с услугами -->
       <template v-if="product.services.length > 0">
+        <div v-if="cartQty > 0 && cartPrimaryKey" class="mt-1 flex justify-center" @click.stop>
+          <ShopQtyInput
+            :qty="cartQty"
+            :stock="product.stock"
+            size="sm"
+            @update="emit('setQty', cartPrimaryKey!, $event, product.stock)"
+          />
+        </div>
         <button
+          v-else
           class="mt-1 btn-primary py-1.5 sm:py-2 text-[11px] sm:text-xs lg:text-sm w-full"
           :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
           :disabled="product.stock === 0"

@@ -9,6 +9,7 @@ interface UserRow {
   firstName: string
   phone: string
   consentGivenAt: string | null
+  deletionRequestedAt: string | null
   createdAt: string
   isAdmin: boolean
 }
@@ -63,6 +64,12 @@ function closeResetPassword() {
   resetPasswordValue.value = ''
   resetPasswordCopied.value = false
 }
+
+async function deleteUser(u: UserRow) {
+  if (!confirm(`Удалить аккаунт ${u.lastName} ${u.firstName}? Это действие необратимо.`)) return
+  await $fetch(`/api/admin/users/${u.id}`, { method: 'DELETE' })
+  await refresh()
+}
 </script>
 
 <template>
@@ -82,20 +89,29 @@ function closeResetPassword() {
             <th class="px-5 py-3.5 font-semibold text-[#777]">Согласие ПДн</th>
             <th class="px-5 py-3.5 font-semibold text-[#777]">Зарегистрирован</th>
             <th class="px-5 py-3.5 font-semibold text-[#777]">Роль</th>
-            <th class="px-5 py-3.5 font-semibold text-[#777]" colspan="2"></th>
+            <th class="px-5 py-3.5 font-semibold text-[#777]" colspan="3"></th>
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="u in users"
             :key="u.id"
-            class="border-b border-[#f5f5f5] hover:bg-[#fafafa] transition-colors"
+            class="border-b border-[#f5f5f5] transition-colors"
+            :class="u.deletionRequestedAt ? 'bg-red-50 hover:bg-red-100/70' : 'hover:bg-[#fafafa]'"
           >
             <td class="px-5 py-3.5 text-[#bbb]">{{ u.id }}</td>
-            <td class="px-5 py-3.5 font-medium text-[#222]">{{ u.lastName }} {{ u.firstName }}</td>
+            <td class="px-5 py-3.5 font-medium text-[#222]">
+              {{ u.lastName }} {{ u.firstName }}
+              <span v-if="u.deletionRequestedAt" class="ml-2 text-[10px] font-bold uppercase tracking-wide text-red-500 bg-red-100 px-1.5 py-0.5 rounded">
+                Запрос на удаление
+              </span>
+            </td>
             <td class="px-5 py-3.5 text-[#555]">{{ formatPhone(u.phone) }}</td>
             <td class="px-5 py-3.5">
-              <span v-if="u.consentGivenAt" class="text-green-600 text-xs font-semibold">
+              <span v-if="u.deletionRequestedAt" class="text-red-500 text-xs font-semibold">
+                Отозвано {{ formatDate(u.deletionRequestedAt) }}
+              </span>
+              <span v-else-if="u.consentGivenAt" class="text-green-600 text-xs font-semibold">
                 ✓ {{ formatDate(u.consentGivenAt) }}
               </span>
               <span v-else class="text-[#bbb] text-xs">—</span>
@@ -131,6 +147,15 @@ function closeResetPassword() {
                 Сбросить пароль
               </button>
             </td>
+            <td class="px-5 py-3.5 text-right">
+              <button
+                v-if="u.deletionRequestedAt && u.id !== currentUser?.id"
+                class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+                @click="deleteUser(u)"
+              >
+                Удалить
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -144,7 +169,8 @@ function closeResetPassword() {
       <div
         v-for="u in users"
         :key="u.id"
-        class="bg-white rounded-2xl shadow-sm border border-[#eee] p-4 flex flex-col gap-2"
+        class="rounded-2xl shadow-sm border p-4 flex flex-col gap-2"
+        :class="u.deletionRequestedAt ? 'bg-red-50 border-red-200' : 'bg-white border-[#eee]'"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
@@ -161,11 +187,14 @@ function closeResetPassword() {
         <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[#888]">
           <span>ID: <span class="text-[#555]">{{ u.id }}</span></span>
           <span>Регистрация: <span class="text-[#555]">{{ formatDate(u.createdAt) }}</span></span>
-          <span v-if="u.consentGivenAt" class="text-green-600">
+          <span v-if="u.deletionRequestedAt" class="text-red-500 font-semibold">
+            Запрос на удаление {{ formatDate(u.deletionRequestedAt) }}
+          </span>
+          <span v-else-if="u.consentGivenAt" class="text-green-600">
             ✓ ПДн {{ formatDate(u.consentGivenAt) }}
           </span>
         </div>
-        <div class="flex justify-end gap-2 mt-1">
+        <div class="flex justify-end gap-2 mt-1 flex-wrap">
           <button
             class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-orange-50 text-orange-500 hover:bg-orange-100 transition-colors"
             @click="resetPassword(u)"
@@ -183,6 +212,13 @@ function closeResetPassword() {
             {{ u.isAdmin ? 'Снять админа' : 'Назначить админом' }}
           </button>
           <span v-else class="text-xs text-[#ccc]">вы</span>
+          <button
+            v-if="u.deletionRequestedAt && u.id !== currentUser?.id"
+            class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+            @click="deleteUser(u)"
+          >
+            Удалить аккаунт
+          </button>
         </div>
       </div>
       <div v-if="!users?.length" class="text-center text-[#aaa] py-16">

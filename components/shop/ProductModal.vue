@@ -160,13 +160,18 @@ const stockBadgeText = computed(() => {
             <!-- Main photo with slider -->
             <div class="relative group">
               <div
-                class="h-[240px] lg:h-[280px] rounded-xl bg-center bg-cover bg-[#f0f0f0] transition-opacity"
+                class="rounded-xl overflow-hidden transition-opacity"
                 :class="currentPhoto ? 'cursor-zoom-in' : ''"
-                :style="currentPhoto ? `background-image: url('${currentPhoto}')` : ''"
                 @click="currentPhoto && (zoomed = true)"
                 @touchstart.passive="onTouchStart"
                 @touchend="onTouchEnd"
-              />
+              >
+                <img
+                  :src="currentPhoto || '/images/nofoto.jpg'"
+                  class="w-full h-auto max-h-[240px] lg:max-h-[280px] object-contain block select-none"
+                  draggable="false"
+                />
+              </div>
 
               <!-- Zoom hint -->
               <div
@@ -260,13 +265,17 @@ const stockBadgeText = computed(() => {
             </div>
 
             <div v-if="product.specs.length > 0" class="border border-[#eee] rounded-xl overflow-hidden">
-              <div
-                v-for="spec in product.specs"
-                :key="spec.key"
-                class="flex flex-col sm:flex-row sm:gap-4 gap-0.5 px-3 lg:px-4 py-2 lg:py-2.5 text-xs lg:text-sm border-b border-[#f0f0f0] last:border-0"
-              >
-                <span class="text-[#888] sm:min-w-[140px]">{{ spec.key }}</span>
-                <span class="font-semibold text-[#222]">{{ spec.value }}</span>
+              <div class="grid pl-3 lg:pl-4 text-xs lg:text-sm" style="grid-template-columns: auto 1fr">
+                <template v-for="(spec, i) in product.specs" :key="spec.key">
+                  <span
+                    class="text-[#888] py-2 lg:py-2.5 pr-4 border-r border-[#eee]"
+                    :class="{ 'border-b border-[#f0f0f0]': i < product.specs.length - 1 }"
+                  >{{ spec.key }}</span>
+                  <span
+                    class="font-semibold text-[#222] py-2 lg:py-2.5 pl-4 pr-3 lg:pr-4"
+                    :class="{ 'border-b border-[#f0f0f0]': i < product.specs.length - 1 }"
+                  >{{ spec.value }}</span>
+                </template>
               </div>
             </div>
 
