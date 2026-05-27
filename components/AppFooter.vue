@@ -69,7 +69,9 @@
         </div>
         <div class="flex flex-col gap-1">
           <NuxtLink to="/offer" class="text-brand text-base no-underline">Публичная оферта</NuxtLink>
+          <NuxtLink to="/terms" class="text-brand text-base no-underline">Пользовательское соглашение</NuxtLink>
           <NuxtLink to="/privacy" class="text-brand text-base no-underline">Политика обработки ПДн</NuxtLink>
+          <NuxtLink to="/consent" class="text-brand text-base no-underline">Согласие на обработку ПДн</NuxtLink>
           <span class="text-[#aaa] text-sm">
             {{ settings?.legal_name || 'ИП Бельцев В. А.' }}&nbsp;&nbsp;ИНН: {{ settings?.inn || '575207208997' }}
           </span>

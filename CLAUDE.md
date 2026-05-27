@@ -63,8 +63,18 @@ Composables:
 - `server/middleware/admin-auth.ts` — защищает `/api/admin/**`: проверяет сессию и запись в `admins`, устанавливает `event.context.userId`.
 - `middleware/admin.global.ts` — клиентская/SSR защита `/admin/**` (кроме `/admin/login`).
 - `middleware/account.ts` — клиентская защита `/account`.
-- `PATCH /api/account/profile` — обновление имени и фамилии текущего пользователя, требует авторизации.
 - В SSR-запросах к `/api/auth/me` нужно использовать `useRequestFetch()`, иначе cookie пользователя может не попасть в server-side fetch.
+
+## Личный кабинет
+
+Все `/api/account/*` требуют авторизации (проверяют `session.data.userId`).
+
+- `GET /api/account/profile` — имя, фамилия, телефон текущего пользователя.
+- `PATCH /api/account/profile` — обновление имени и фамилии.
+- `GET /api/account/orders` — история заказов пользователя.
+- `PATCH /api/account/password` — смена пароля; тело: `{ currentPassword, newPassword }`, минимум 6 символов.
+- `POST /api/account/password-reset` — пользователь запрашивает сброс пароля администратором; отправляет уведомление в Telegram через `notifyPasswordResetRequest` (без публичного `forgot-password` — это отдельный эндпоинт).
+- `POST /api/account/deletion-request` — запрос на удаление аккаунта; проставляет `deletionRequestedAt`, отправляет уведомление в Telegram через `notifyDeletionRequest`. Повторный запрос возвращает 409.
 
 ## Основные страницы
 
@@ -79,11 +89,15 @@ Composables:
 | `/register` | Регистрация |
 | `/forgot-password` | Заявка на восстановление пароля |
 | `/account` | Личный кабинет (история заказов, профиль) |
-| `/privacy` | Политика конфиденциальности |
+| `/offer` | Публичная оферта |
+| `/terms` | Пользовательское соглашение |
+| `/privacy` | Политика обработки персональных данных |
+| `/consent` | Согласие на обработку персональных данных (152-ФЗ) |
 | `/admin` | Дашборд |
 | `/admin/login` | Вход в админку |
 | `/admin/orders` | Обработка заказов |
 | `/admin/products` | Товары магазина |
+| `/admin/collections` | Подборки товаров |
 | `/admin/users` | Пользователи и права админа |
 | `/admin/gallery`, `/admin/prices`, `/admin/workers`, `/admin/contacts` | Остальные разделы админки |
 
@@ -93,13 +107,15 @@ Composables:
 
 | Таблица | Назначение |
 |---|---|
-| `users` | Пользователи: телефон, имя, фамилия, хэш пароля, согласие |
+| `users` | Пользователи: телефон, имя, фамилия, хэш пароля, `consentGivenAt`, `consentVersion`, `deletionRequestedAt` |
 | `admins` | Привязка userId → роль администратора (userId PK, onDelete cascade) |
-| `orders` | Заказы: клиентские данные, сумма, статус, комментарии |
+| `orders` | Заказы: клиентские данные, сумма, статус, `userComment`, `sellerComment` |
 | `order_items` | Снимок состава заказа: название, фото, цена, `stockDeducted`, `services` (JSON) |
 | `order_history` | Журнал событий заказа (смена статуса, суммы) с `adminId` автора |
-| `products` | Товары: `photos`, `specs`, `services` хранятся как JSON-строки |
-| `product_categories` | Категории товаров (динамические, управляются из БД) |
+| `products` | Товары: `photos`, `specs`, `services` — JSON-строки; `coverPosition` — CSS `object-position` обложки; `active`, `sortOrder` |
+| `product_categories` | Категории товаров: `name`, `sortOrder`, `hidden` (скрыть на сайте, не удалять) |
+| `product_collections` | Подборки товаров: `name`, `sortOrder`, `active` |
+| `product_collection_items` | Состав подборки: составной PK `(collectionId, productId)`, `sortOrder`; onDelete cascade |
 | `service_categories` | Категории прайса с `sortOrder` |
 | `service_items` | Позиции прайса: `categoryId`, `name`, `price`, `sortOrder` |
 | `service_notes` | Сноски к прайсу с `sortOrder` |
@@ -144,11 +160,32 @@ accepted/in_progress/ready -> cancelled
 
 ## Товары
 
-Поля `photos`, `specs`, `services` в таблице `products` хранятся как `text` (JSON-строки) и парсятся на уровне API. Аналогично `services` в `order_items`. При работе с этими полями всегда использовать `JSON.parse`/`JSON.stringify`, не сохранять объекты напрямую.
+Поля `photos`, `specs`, `services` в таблице `products` хранятся как `text` (JSON-строки). Аналогично `services` в `order_items`. Для их парсинга использовать типизированные хелперы из `server/utils/json-shapes.ts` — они никогда не бросают и возвращают безопасный fallback при битых данных:
 
-## Загрузка файлов
+- `parseProductPhotos(value)` → `string[]`
+- `parseProductSpecs(value)` → `{ key, value }[]`
+- `parseProductServices(value)` → `{ id, name, price }[]`
+- `parseOrderItemServices(value)` → `{ name, price }[]`
+
+Не использовать сырой `JSON.parse` для этих полей — используй хелперы.
+
+## Подборки товаров
+
+Подборки — именованные списки товаров для отображения на страницах (напр., «Рекомендуем»). Управляются через `/admin/collections`.
+
+- `GET /api/collections` — публичный список активных подборок с товарами.
+- `GET /api/admin/collections` — список всех подборок (включая неактивные).
+- `POST /api/admin/collections` — создать подборку.
+- `PUT /api/admin/collections/[id]` — обновить подборку (название, состав, порядок, active).
+- `DELETE /api/admin/collections/[id]` — удалить подборку.
+
+## Загрузка и удаление файлов
 
 `POST /api/admin/upload` — загружает изображение в `public/uploads/`. Разрешённые форматы: JPEG, PNG, WebP, GIF. Лимит: 8 МБ. Возвращает `{ url: "/uploads/<filename>" }`.
+
+При удалении продукта или изображения галереи нужно также удалять файлы с диска. Для этого использовать хелперы из `server/utils/uploads.ts`:
+- `deleteUploadFile(url)` — удаляет один файл, если url начинается с `/uploads/`. Защита от path traversal встроена. Не бросает при отсутствии файла.
+- `deleteUploadFiles(urls[])` — удаляет несколько файлов параллельно.
 
 `public/` целиком в `.gitignore`. Исключения, добавленные форсом (`git add -f`):
 - `public/icons/` — favicon и иконки для iOS/Android, сгенерированы скриптом `scripts/generate-icons.mjs` из `public/images/logo.png`.
@@ -204,3 +241,21 @@ accepted/in_progress/ready -> cancelled
 - `ADMIN_PASSWORD` — пароль первого администратора для seed.
 - `TELEGRAM_BOT_TOKEN` — токен Telegram-бота для уведомлений о заказах и заявках на сброс пароля.
 - `TELEGRAM_CHAT_ID` — ID чата/канала, куда отправляются уведомления.
+
+## Запланированные изменения
+
+### При подключении доставки
+
+- Добавить поле «адрес доставки» в форму заказа — только при выборе способа «доставка» (принцип минимизации: при самовывозе адрес не запрашивается).
+- Обновить п. 5 в `/privacy` — добавить передачу данных службе доставки. Место помечено `TODO` в коде.
+- Убедиться, что `/consent` и `/privacy` остаются согласованными.
+
+### При подключении онлайн-оплаты (ЮMoney)
+
+- Обновить п. 5 в `/privacy` — добавить передачу платёжных данных оператору платёжного сервиса. Место помечено `TODO` в коде.
+- Проверить, что на страницу ЮMoney уходит только необходимый для платежа объём данных.
+
+### При выпуске новой редакции согласия на ПД
+
+- Обновить `CONSENT_VERSION` в `server/api/auth/register.post.ts` — единственная точка изменения версии.
+- Синхронно обновить дату вступления в силу на страницах `/consent` и `/privacy`.

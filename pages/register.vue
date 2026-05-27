@@ -7,6 +7,7 @@ const form = ref({
   phone: '',
   password: '',
   passwordConfirm: '',
+  termsAccepted: false,
   consentGiven: false,
 })
 const error = ref('')
@@ -19,6 +20,10 @@ async function submit() {
 
   if (form.value.password !== form.value.passwordConfirm) {
     error.value = 'Пароли не совпадают'
+    return
+  }
+  if (!form.value.termsAccepted) {
+    error.value = 'Необходимо принять условия Пользовательского соглашения'
     return
   }
   if (!form.value.consentGiven) {
@@ -53,6 +58,7 @@ const canSubmit = computed(() =>
   form.value.phone.trim() &&
   form.value.password &&
   form.value.passwordConfirm &&
+  form.value.termsAccepted &&
   form.value.consentGiven &&
   !loading.value
 )
@@ -121,6 +127,21 @@ const canSubmit = computed(() =>
           />
         </div>
 
+        <!-- Пользовательское соглашение -->
+        <label class="flex items-start gap-3 cursor-pointer select-none">
+          <input
+            v-model="form.termsAccepted"
+            type="checkbox"
+            class="mt-0.5 w-4 h-4 accent-brand shrink-0"
+          />
+          <span class="text-sm text-[#555] leading-relaxed">
+            Я ознакомлен(а) и согласен(а) с условиями
+            <NuxtLink to="/terms" target="_blank" class="text-brand no-underline hover:underline">
+              Пользовательского соглашения
+            </NuxtLink>
+          </span>
+        </label>
+
         <!-- Согласие 152-ФЗ -->
         <label class="flex items-start gap-3 cursor-pointer select-none">
           <input
@@ -129,8 +150,12 @@ const canSubmit = computed(() =>
             class="mt-0.5 w-4 h-4 accent-brand shrink-0"
           />
           <span class="text-sm text-[#555] leading-relaxed">
-            Я даю согласие на обработку моих персональных данных (фамилия, имя, номер телефона) в соответствии с&nbsp;
-            <NuxtLink to="/privacy" target="_blank" class="text-brand no-underline hover:underline">
+            Я даю
+            <NuxtLink to="/consent" target="_blank" rel="noopener" class="text-brand no-underline hover:underline">
+              согласие на обработку персональных данных
+            </NuxtLink>
+            и подтверждаю, что ознакомлен(а) с
+            <NuxtLink to="/privacy" target="_blank" rel="noopener" class="text-brand no-underline hover:underline">
               Политикой обработки персональных данных
             </NuxtLink>
           </span>
