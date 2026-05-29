@@ -24,7 +24,6 @@ const actionLoading = ref<OrderStatus | null>(null)
 const editSaving = ref(false)
 const actionError = ref('')
 const sellerCommentForm = ref('')
-const totalAmountForm = ref(0)
 const orderItemsForm = ref<FormItem[]>([])
 const originalItems = ref<FormItem[]>([])
 const showPicker = ref(false)
@@ -42,7 +41,6 @@ function deriveServiceIds(item: OrderItemDto): string[] {
 function applyOrder(order: OrderDetailsDto) {
   selectedOrder.value = order
   sellerCommentForm.value = order.sellerComment
-  totalAmountForm.value = order.totalAmount
   const formItems = order.items.map(item => ({ ...item, serviceIds: deriveServiceIds(item) }))
   orderItemsForm.value = formItems
   originalItems.value = formItems.map(i => ({ ...i }))
@@ -87,7 +85,6 @@ const hasOrderItemsChanges = computed(() => {
 const hasOrderEditChanges = computed(() => {
   if (!selectedOrder.value) return false
   return sellerCommentForm.value.trim() !== selectedOrder.value.sellerComment
-    || totalAmountForm.value !== selectedOrder.value.totalAmount
     || hasOrderItemsChanges.value
 })
 
@@ -124,35 +121,24 @@ function customerName(order: { customerFirstName: string, customerLastName: stri
   return `${order.customerFirstName} ${order.customerLastName}`.trim()
 }
 
-function canEditTotalAmount(status: OrderStatus) {
-  return status === 'created' || status === 'accepted' || status === 'in_progress'
-}
-
 function canEditItems(status: OrderStatus) {
   return status === 'created' || status === 'accepted' || status === 'in_progress'
-}
-
-function syncTotalFromItems() {
-  totalAmountForm.value = orderItemsSubtotal.value
 }
 
 function setOrderItemQuantity(index: number, quantity: number) {
   if (!Number.isInteger(quantity) || quantity < 1) return
   orderItemsForm.value[index].quantity = quantity
   orderItemsForm.value[index].totalPrice = orderItemsForm.value[index].unitPrice * quantity
-  syncTotalFromItems()
 }
 
 function setOrderItemUnitPrice(index: number, price: number) {
   if (!Number.isInteger(price) || price < 0) return
   orderItemsForm.value[index].unitPrice = price
   orderItemsForm.value[index].totalPrice = price * orderItemsForm.value[index].quantity
-  syncTotalFromItems()
 }
 
 function removeOrderItem(index: number) {
   orderItemsForm.value.splice(index, 1)
-  syncTotalFromItems()
 }
 
 function comboKey(productId: number, serviceIds: string[]): string {
@@ -192,7 +178,6 @@ function handlePickerAdd(pickerItems: { productId: number, quantity: number, ser
       } as FormItem)
     }
   }
-  syncTotalFromItems()
   showPicker.value = false
 }
 
@@ -206,7 +191,6 @@ async function saveOrderEdits(): Promise<boolean> {
       method: 'PUT',
       body: {
         sellerComment: sellerCommentForm.value,
-        totalAmount: totalAmountForm.value,
         ...(hasOrderItemsChanges.value ? { items: orderItemsPayload.value } : {}),
       },
     })
@@ -272,10 +256,8 @@ async function setStatus(status: OrderStatus) {
           <AdminOrderHeader :order="selectedOrder" />
 
           <AdminOrderEditForm
-            v-model:total-amount="totalAmountForm"
             v-model:seller-comment="sellerCommentForm"
             :user-comment="selectedOrder.userComment"
-            :can-edit-total="canEditTotalAmount(selectedOrder.status)"
             :saving="editSaving"
             :has-changes="hasOrderEditChanges"
             @save="saveOrderEdits"

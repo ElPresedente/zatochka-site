@@ -194,7 +194,7 @@ watch([cart, allProducts], () => {
   }
 }, { deep: true })
 
-async function checkout() {
+async function checkout(paymentMethod: 'cash' | 'online_card', email: string) {
   orderError.value = ''
 
   if (!user.value) {
@@ -206,7 +206,7 @@ async function checkout() {
 
   checkoutLoading.value = true
   try {
-    const order = await $fetch<{ id: number }>('/api/orders', {
+    const order = await $fetch<{ id: number; confirmationUrl?: string }>('/api/orders', {
       method: 'POST',
       body: {
         items: cart.value.map(item => ({
@@ -215,13 +215,22 @@ async function checkout() {
           serviceIds: item.services.map(s => s.id),
         })),
         comment: orderComment.value,
+        paymentMethod,
+        email,
       },
     })
-    createdOrderId.value = order.id
+
     clearCart()
     orderComment.value = ''
     cartOpen.value = false
-    orderSuccess.value = true
+
+    if (order.confirmationUrl) {
+      window.location.href = order.confirmationUrl
+    }
+    else {
+      createdOrderId.value = order.id
+      orderSuccess.value = true
+    }
   } catch (err: any) {
     orderError.value = err?.data?.message ?? 'Не удалось оформить заказ'
   } finally {
@@ -429,6 +438,7 @@ onBeforeUnmount(() => {
     :error="orderError"
     :product-stock="productStock"
     :pickup-address="siteSettings?.address || ''"
+    :user-email="user?.email"
     @close="cartOpen = false"
     @set-qty="setQty"
     @remove="removeFromCart"

@@ -6,6 +6,12 @@ import { users } from './users'
 export const orderStatuses = ['created', 'cancelled', 'accepted', 'in_progress', 'ready', 'completed'] as const
 export type OrderStatus = typeof orderStatuses[number]
 
+export const paymentMethods = ['cash', 'online_card'] as const
+export type PaymentMethod = typeof paymentMethods[number]
+
+export const paymentStatuses = ['unpaid', 'paid', 'failed', 'refunded', 'waiting_for_capture'] as const
+export type PaymentStatus = typeof paymentStatuses[number]
+
 export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
   userId: integer('user_id')
@@ -13,10 +19,18 @@ export const orders = pgTable('orders', {
   customerFirstName: text('customer_first_name').notNull(),
   customerLastName: text('customer_last_name').notNull(),
   customerPhone: text('customer_phone').notNull(),
+  customerEmail: text('customer_email').notNull().default(''),
   userComment: text('user_comment').notNull().default(''),
   sellerComment: text('seller_comment').notNull().default(''),
   status: text('status').notNull().default('created'),
   totalAmount: integer('total_amount').notNull(),
+  paymentMethod: text('payment_method').notNull().default('cash'),
+  paymentStatus: text('payment_status').notNull().default('unpaid'),
+  yookassaPaymentId: text('yookassa_payment_id'),
+  paidAt: timestamp('paid_at'),
+  extraPaymentId: text('extra_payment_id'),
+  extraPaymentAmount: integer('extra_payment_amount'),
+  extraPaymentStatus: text('extra_payment_status').notNull().default('none'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, table => ({

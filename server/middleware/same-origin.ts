@@ -32,6 +32,7 @@ function assertSameOrigin(event: H3Event) {
 
 export default defineEventHandler((event) => {
   if (!event.path.startsWith('/api/')) return
+  if (event.path === '/api/yookassa/webhook') return
 
   assertSameOrigin(event)
 })

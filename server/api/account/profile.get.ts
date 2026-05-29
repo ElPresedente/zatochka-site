@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
       firstName: users.firstName,
       lastName: users.lastName,
       phone: users.phone,
+      email: users.email,
       deletionRequestedAt: users.deletionRequestedAt,
     })
     .from(users)

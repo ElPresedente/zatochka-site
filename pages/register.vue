@@ -5,6 +5,7 @@ const form = ref({
   lastName: '',
   firstName: '',
   phone: '',
+  email: '',
   password: '',
   passwordConfirm: '',
   termsAccepted: false,
@@ -39,6 +40,7 @@ async function submit() {
         lastName: form.value.lastName,
         firstName: form.value.firstName,
         phone: form.value.phone,
+        email: form.value.email,
         password: form.value.password,
         consentGiven: form.value.consentGiven,
       },
@@ -56,6 +58,7 @@ const canSubmit = computed(() =>
   form.value.lastName.trim() &&
   form.value.firstName.trim() &&
   form.value.phone.trim() &&
+  form.value.email.trim() &&
   form.value.password &&
   form.value.passwordConfirm &&
   form.value.termsAccepted &&
@@ -103,6 +106,17 @@ const canSubmit = computed(() =>
             type="tel"
             placeholder="+7 (910) 304-30-40"
             autocomplete="tel"
+            class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand transition-colors"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-[#777] mb-1.5">Email <span class="text-red-400">*</span></label>
+          <input
+            v-model="form.email"
+            type="email"
+            placeholder="you@example.com"
+            autocomplete="email"
             class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand transition-colors"
           />
         </div>

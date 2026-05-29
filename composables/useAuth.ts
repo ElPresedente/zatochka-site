@@ -3,6 +3,7 @@ interface AuthUser {
   firstName: string
   lastName: string
   phone: string
+  email: string | null
   isAdmin: boolean
 }
 
@@ -32,10 +33,10 @@ export function useAuth() {
     }
   }
 
-  async function login(phone: string, password: string) {
+  async function login(loginInput: string, password: string) {
     user.value = await $fetch<AuthUser>('/api/auth/login', {
       method: 'POST',
-      body: { phone, password },
+      body: { login: loginInput, password },
     })
     initialized.value = true
   }

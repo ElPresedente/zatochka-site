@@ -11,6 +11,9 @@ export default defineNuxtConfig({
     sessionSecret: process.env.SESSION_SECRET,
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
     telegramChatId: process.env.TELEGRAM_CHAT_ID,
+    yookassaShopId: process.env.YOOKASSA_SHOP_ID || '',
+    yookassaSecretKey: process.env.YOOKASSA_SECRET_KEY || '',
+    siteUrl: process.env.SITE_URL || '',
   },
 
   nitro: {

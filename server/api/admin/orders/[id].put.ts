@@ -1,24 +1,15 @@
 import { eq } from 'drizzle-orm'
 import { useDb } from '~/server/db'
-import { orderHistory, orders, type OrderStatus } from '~/server/db/schema'
+import { orderHistory, orders, users, type OrderStatus } from '~/server/db/schema'
 import { parseOptionalString, parseRouteId } from '~/server/utils/validators'
 import { recalcOrderItems, type OrderItemInput } from '~/server/services/orders'
+import { buildAdjustmentReceiptItem, createYookassaPayment, createYookassaRefund } from '~/server/utils/yookassa'
 import { ORDER_STATUS_LABELS } from '~/types/api'
 
-const PRICE_EDITABLE_STATUSES = new Set<OrderStatus>(['created', 'accepted', 'in_progress'])
 const ITEMS_EDITABLE_STATUSES = new Set<OrderStatus>(['created', 'accepted', 'in_progress'])
 
 function formatRub(amount: number) {
   return `${amount.toLocaleString('ru-RU')} ₽`
-}
-
-function parseOptionalTotalAmount(input: unknown) {
-  if (input === undefined) return undefined
-  const totalAmount = Number(input)
-  if (!Number.isInteger(totalAmount) || totalAmount < 0 || totalAmount > 100_000_000) {
-    throw createError({ statusCode: 400, message: 'Некорректная сумма заказа' })
-  }
-  return totalAmount
 }
 
 function parseOptionalItems(input: unknown): OrderItemInput[] | undefined {
@@ -55,24 +46,28 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event)
   const sellerComment = parseOptionalString(body?.sellerComment, 'Комментарий продавца', { max: 2000 })
-  const totalAmount = parseOptionalTotalAmount(body?.totalAmount)
   const items = parseOptionalItems(body?.items)
 
-  if (sellerComment === undefined && totalAmount === undefined && items === undefined) {
+  if (sellerComment === undefined && items === undefined) {
     throw createError({ statusCode: 400, message: 'Нет данных для сохранения' })
   }
 
   const db = useDb()
 
-  return await db.transaction(async (tx) => {
+  // Load order before transaction to capture pre-change state for YooKassa calls
+  const [preOrder] = await db.select().from(orders).where(eq(orders.id, id))
+  if (!preOrder) {
+    throw createError({ statusCode: 404, message: 'Заказ не найден' })
+  }
+
+  const updated = await db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(eq(orders.id, id))
     if (!order) {
       throw createError({ statusCode: 404, message: 'Заказ не найден' })
     }
 
     const status = order.status as OrderStatus
-    const nextSellerComment = sellerComment ?? order.sellerComment
-    let nextTotalAmount = totalAmount
+    let nextTotalAmount: number | undefined
     const historyParts: string[] = []
 
     if (items !== undefined) {
@@ -89,7 +84,7 @@ export default defineEventHandler(async (event) => {
         newItems: items,
       })
 
-      nextTotalAmount = totalAmount ?? itemsTotal
+      nextTotalAmount = itemsTotal
 
       const itemParts: string[] = []
       if (addedNames.length) itemParts.push(`добавлено: ${addedNames.map(n => `«${n}»`).join(', ')}`)
@@ -97,21 +92,14 @@ export default defineEventHandler(async (event) => {
       historyParts.push(itemParts.length > 0
         ? `Состав заказа изменён (${itemParts.join('; ')})`
         : 'Цены или количество позиций обновлены')
-    }
 
-    const priceChanged = nextTotalAmount !== undefined && nextTotalAmount !== order.totalAmount
-    if (priceChanged) {
-      if (!PRICE_EDITABLE_STATUSES.has(status)) {
-        throw createError({ statusCode: 409, message: 'Сумму можно менять только в статусах «Создан», «Принят» или «В работе»' })
+      if (nextTotalAmount !== order.totalAmount) {
+        historyParts.push(`Сумма: ${formatRub(order.totalAmount)} → ${formatRub(nextTotalAmount)}`)
       }
-      if (!nextSellerComment.trim()) {
-        throw createError({ statusCode: 400, message: 'При изменении суммы нужно заполнить комментарий продавца' })
-      }
-      historyParts.push(`Сумма: ${formatRub(order.totalAmount)} → ${formatRub(nextTotalAmount!)}`)
     }
 
     const commentChanged = sellerComment !== undefined && sellerComment.trim() !== order.sellerComment.trim()
-    if (commentChanged && !priceChanged) {
+    if (commentChanged) {
       historyParts.push('Обновлён комментарий продавца')
     }
 
@@ -119,7 +107,7 @@ export default defineEventHandler(async (event) => {
     if (sellerComment !== undefined) update.sellerComment = sellerComment
     if (nextTotalAmount !== undefined) update.totalAmount = nextTotalAmount
 
-    const [updated] = await tx.update(orders)
+    const [result] = await tx.update(orders)
       .set(update)
       .where(eq(orders.id, id))
       .returning()
@@ -132,6 +120,80 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    return updated
+    return result
   })
+
+  // After transaction: handle YooKassa for paid orders where total changed
+  if (items !== undefined && preOrder.paymentStatus === 'paid' && updated.totalAmount !== preOrder.totalAmount) {
+    const diff = updated.totalAmount - preOrder.totalAmount
+
+    // Resolve customer email for receipt
+    let email = preOrder.customerEmail || ''
+    if (!email && preOrder.userId) {
+      const [u] = await db.select({ email: users.email }).from(users).where(eq(users.id, preOrder.userId))
+      email = u?.email || ''
+    }
+
+    if (diff < 0) {
+      // Partial refund
+      const refundAmount = -diff
+      const receipt = email
+        ? { email, items: [buildAdjustmentReceiptItem(`Корректировка заказа №${id}`, refundAmount)] }
+        : undefined
+      try {
+        await createYookassaRefund(preOrder.yookassaPaymentId!, refundAmount, receipt)
+        await db.insert(orderHistory).values({
+          orderId: id,
+          adminId,
+          description: `Частичный возврат ${formatRub(refundAmount)} выполнен через ЮKassa (корректировка состава).`,
+        })
+      }
+      catch (err) {
+        console.error('[yookassa] partial refund failed', err)
+        await db.insert(orderHistory).values({
+          orderId: id,
+          adminId,
+          description: `ВНИМАНИЕ: автоматический возврат ${formatRub(refundAmount)} не выполнен. Выполните возврат вручную в ЛК ЮKassa.`,
+        })
+      }
+    }
+    else {
+      // Extra payment required
+      const extraAmount = diff
+      const receipt = email
+        ? { email, items: [buildAdjustmentReceiptItem(`Доплата по заказу №${id}`, extraAmount)] }
+        : undefined
+      const config = useRuntimeConfig()
+      const siteUrl = config.siteUrl || getRequestURL(event).origin
+      const returnUrl = `${siteUrl}/payment/return?order_id=${id}`
+      try {
+        const payment = await createYookassaPayment(id, extraAmount, returnUrl, receipt, 'extra')
+        await db.update(orders).set({
+          extraPaymentId: payment.id,
+          extraPaymentAmount: extraAmount,
+          extraPaymentStatus: 'pending',
+          updatedAt: new Date(),
+        }).where(eq(orders.id, id))
+        await db.insert(orderHistory).values({
+          orderId: id,
+          adminId,
+          description: `Создан запрос на доплату ${formatRub(extraAmount)} (корректировка состава). Клиенту доступна кнопка «Доплатить» в личном кабинете.`,
+        })
+      }
+      catch (err) {
+        console.error('[yookassa] extra payment creation failed', err)
+        await db.insert(orderHistory).values({
+          orderId: id,
+          adminId,
+          description: `ВНИМАНИЕ: ссылка на доплату ${formatRub(extraAmount)} не создана автоматически. Создайте платёж вручную в ЛК ЮKassa.`,
+        })
+      }
+    }
+
+    // Re-fetch to include extra payment fields
+    const [fresh] = await db.select().from(orders).where(eq(orders.id, id))
+    return fresh ?? updated
+  }
+
+  return updated
 })

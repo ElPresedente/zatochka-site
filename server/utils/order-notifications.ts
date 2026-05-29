@@ -26,6 +26,7 @@ export interface OrderNotificationPayload {
   id: number
   totalAmount: number
   status: OrderStatus
+  paymentMethod: 'cash' | 'online_card'
   items: OrderNotificationItem[]
 }
 
@@ -54,6 +55,8 @@ export async function notifyOrderCreated(order: OrderNotificationPayload) {
     return lines.join('\n')
   })
 
+  const paymentLabel = order.paymentMethod === 'online_card' ? '💳 Картой онлайн' : '💵 Наличными'
+
   const parts = [
     '🛒 <b>Новый заказ!</b>',
     '',
@@ -62,6 +65,7 @@ export async function notifyOrderCreated(order: OrderNotificationPayload) {
     ...itemLines,
     '',
     `💰 Итого: <b>${fmt(order.totalAmount)}</b>`,
+    `💳 Оплата: ${paymentLabel}`,
   ]
 
   try {

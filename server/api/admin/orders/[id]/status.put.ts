@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { orderHistory, orderItems, orders, orderStatuses, products, type OrderStatus } from '~/server/db/schema'
+import { createYookassaRefund } from '~/server/utils/yookassa'
 import { ORDER_STATUS_LABELS } from '~/types/api'
 
 const FINAL_STATUSES = new Set<OrderStatus>(['cancelled', 'completed'])
@@ -36,6 +37,29 @@ export default defineEventHandler(async (event) => {
   const nextStatus = parseStatus(body?.status)
   const db = useDb()
 
+  // Load order before the transaction to check if refund is needed
+  const [preOrder] = await db.select().from(orders).where(eq(orders.id, id))
+  if (!preOrder) {
+    throw createError({ statusCode: 404, message: 'Заказ не найден' })
+  }
+  assertTransition(preOrder.status as OrderStatus, nextStatus)
+
+  // Refund paid order before cancellation (outside transaction — can't roll back external calls)
+  let refundDone = false
+  if (nextStatus === 'cancelled' && preOrder.paymentStatus === 'paid' && preOrder.yookassaPaymentId) {
+    try {
+      await createYookassaRefund(preOrder.yookassaPaymentId, preOrder.totalAmount)
+      refundDone = true
+    }
+    catch (err) {
+      console.error('[yookassa] refund failed', err)
+      throw createError({
+        statusCode: 502,
+        message: 'Не удалось выполнить возврат в ЮKassa. Попробуйте ещё раз или выполните возврат вручную в личном кабинете ЮKassa.',
+      })
+    }
+  }
+
   const updatedOrder = await db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(eq(orders.id, id))
     if (!order) {
@@ -43,8 +67,6 @@ export default defineEventHandler(async (event) => {
     }
 
     const currentStatus = order.status as OrderStatus
-    assertTransition(currentStatus, nextStatus)
-
     if (currentStatus === nextStatus) return order
 
     const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, id))
@@ -84,8 +106,16 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    const orderUpdate: Partial<typeof orders.$inferInsert> = {
+      status: nextStatus,
+      updatedAt: new Date(),
+    }
+    if (refundDone) {
+      orderUpdate.paymentStatus = 'refunded'
+    }
+
     const [updated] = await tx.update(orders)
-      .set({ status: nextStatus, updatedAt: new Date() })
+      .set(orderUpdate)
       .where(eq(orders.id, id))
       .returning()
 
@@ -95,6 +125,9 @@ export default defineEventHandler(async (event) => {
     }
     if (nextStatus === 'cancelled' && ['accepted', 'in_progress', 'ready'].includes(currentStatus)) {
       historyDesc.push('остатки товаров возвращены')
+    }
+    if (refundDone) {
+      historyDesc.push('возврат средств выполнен через ЮKassa')
     }
     await tx.insert(orderHistory).values({
       orderId: id,

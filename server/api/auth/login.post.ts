@@ -9,28 +9,40 @@ import { normalizePhone } from '~/server/utils/validators'
 const WINDOW_MS = 15 * 60 * 1000
 const MAX_ATTEMPTS = 10
 
-function getClientKey(event: H3Event, phone: unknown) {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
+function getClientKey(event: H3Event, login: unknown) {
   const ip = getRequestIP(event, { xForwardedFor: true }) ?? 'unknown'
-  const normalizedPhone = String(phone ?? '').trim()
-  return `login:${ip}:${normalizedPhone}`
+  return `login:${ip}:${String(login ?? '').trim()}`
 }
 
 export default defineEventHandler(async (event) => {
-  const { phone, password } = await readBody(event)
-  const loginKey = getClientKey(event, phone)
+  const body = await readBody(event)
+  const login: string = String(body?.login ?? body?.phone ?? '').trim()
+  const password: string = body?.password ?? ''
+
+  const loginKey = getClientKey(event, login)
   const rateLimit = { key: loginKey, windowMs: WINDOW_MS, max: MAX_ATTEMPTS, message: 'Слишком много попыток входа. Попробуйте позже.' }
 
   await assertRateLimit(rateLimit)
 
-  if (!phone || !password) {
-    throw createError({ statusCode: 400, message: 'Телефон и пароль обязательны' })
+  if (!login || !password) {
+    throw createError({ statusCode: 400, message: 'Телефон / email и пароль обязательны' })
   }
 
   const db = useDb()
-  const normalizedPhone = normalizePhone(String(phone ?? '').trim())
-  if (!normalizedPhone) {
-    await recordRateLimitHit(rateLimit)
-    throw createError({ statusCode: 401, message: 'Неверный телефон или пароль' })
+  const isEmail = EMAIL_RE.test(login)
+
+  let whereClause
+  if (isEmail) {
+    whereClause = eq(users.email, login.toLowerCase())
+  } else {
+    const normalizedPhone = normalizePhone(login)
+    if (!normalizedPhone) {
+      await recordRateLimitHit(rateLimit)
+      throw createError({ statusCode: 401, message: 'Неверный телефон / email или пароль' })
+    }
+    whereClause = eq(users.phone, normalizedPhone)
   }
 
   try {
@@ -43,11 +55,11 @@ export default defineEventHandler(async (event) => {
         passwordHash: users.passwordHash,
       })
       .from(users)
-      .where(eq(users.phone, normalizedPhone))
+      .where(whereClause)
 
     if (!user || !await bcrypt.compare(password, user.passwordHash)) {
       await recordRateLimitHit(rateLimit)
-      throw createError({ statusCode: 401, message: 'Неверный телефон или пароль' })
+      throw createError({ statusCode: 401, message: 'Неверный телефон / email или пароль' })
     }
 
     await clearRateLimit(loginKey)

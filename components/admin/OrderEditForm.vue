@@ -1,12 +1,10 @@
 <script setup lang="ts">
 defineProps<{
   userComment: string
-  canEditTotal: boolean
   saving: boolean
   hasChanges: boolean
 }>()
 
-const totalAmount = defineModel<number>('totalAmount', { required: true })
 const sellerComment = defineModel<string>('sellerComment', { required: true })
 
 const emit = defineEmits<{
@@ -27,31 +25,15 @@ function hasComment(value: string) {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5 items-start">
-      <div>
-        <label class="block text-xs font-semibold text-[#777] mb-1.5">Сумма заказа</label>
-        <input
-          v-model.number="totalAmount"
-          type="number"
-          min="0"
-          :disabled="!canEditTotal"
-          class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand disabled:bg-[#f7f7f7] disabled:text-[#888]"
-        />
-        <p v-if="!canEditTotal" class="text-xs text-[#aaa] mt-1.5">
-          Сумму можно менять только в статусах «Создан», «Принят» или «В работе».
-        </p>
-      </div>
-      <div>
-        <label class="block text-xs font-semibold text-[#777] mb-1.5">Комментарий продавца</label>
-        <textarea
-          v-model="sellerComment"
-          rows="3"
-          maxlength="2000"
-          placeholder="Причина изменения суммы, доп. работы, скидка или служебная заметка"
-          class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand resize-none"
-        />
-        <p class="text-xs text-[#aaa] mt-1.5">При изменении суммы комментарий обязателен.</p>
-      </div>
+    <div>
+      <label class="block text-xs font-semibold text-[#777] mb-1.5">Комментарий продавца</label>
+      <textarea
+        v-model="sellerComment"
+        rows="3"
+        maxlength="2000"
+        placeholder="Доп. работы, скидка или служебная заметка"
+        class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand resize-none"
+      />
     </div>
 
     <div class="flex justify-end">

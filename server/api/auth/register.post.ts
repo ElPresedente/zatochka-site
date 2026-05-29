@@ -3,7 +3,7 @@ import type { H3Event } from 'h3'
 import { handleDbConnectionError, useDb } from '~/server/db'
 import { users } from '~/server/db/schema'
 import { assertRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
-import { normalizePhone, parseTrimmedString } from '~/server/utils/validators'
+import { normalizePhone, parseEmail, parseTrimmedString } from '~/server/utils/validators'
 
 const CONSENT_VERSION = '1.0'
 const WINDOW_MS = 60 * 60 * 1000
@@ -30,6 +30,7 @@ export default defineEventHandler(async (event) => {
   if (!phone) {
     throw createError({ statusCode: 400, message: 'Некорректный номер телефона. Введите российский номер: +7XXXXXXXXXX или 8XXXXXXXXXX' })
   }
+  const email = parseEmail(body?.email, 'Email', { required: true })
 
   if (consentGiven !== true) {
     throw createError({ statusCode: 400, message: 'Необходимо согласие на обработку персональных данных' })
@@ -49,6 +50,7 @@ export default defineEventHandler(async (event) => {
       lastName,
       firstName,
       phone,
+      email,
       passwordHash,
       consentGivenAt: new Date(),
       consentVersion: CONSENT_VERSION,
@@ -65,6 +67,10 @@ export default defineEventHandler(async (event) => {
     const pgCode = e?.code ?? e?.cause?.code
     if (pgCode === '23505') {
       await recordRateLimitHit(rateLimit)
+      const detail: string = e?.detail ?? e?.cause?.detail ?? ''
+      if (detail.includes('email')) {
+        throw createError({ statusCode: 409, message: 'Аккаунт с таким email уже существует. Войдите или воспользуйтесь восстановлением пароля.' })
+      }
       throw createError({ statusCode: 409, message: 'Аккаунт с таким номером телефона уже создан. Войдите или воспользуйтесь восстановлением пароля.' })
     }
     throw e

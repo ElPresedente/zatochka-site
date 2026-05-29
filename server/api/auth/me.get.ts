@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
         firstName: users.firstName,
         lastName: users.lastName,
         phone: users.phone,
+        email: users.email,
         adminUserId: admins.userId,
       })
       .from(users)
@@ -30,6 +31,7 @@ export default defineEventHandler(async (event) => {
       firstName: row.firstName,
       lastName: row.lastName,
       phone: row.phone,
+      email: row.email,
       isAdmin: row.adminUserId !== null,
     }
   } catch (e) {

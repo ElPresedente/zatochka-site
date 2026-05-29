@@ -5,6 +5,7 @@ export const users = pgTable('users', {
   lastName: text('last_name').notNull(),
   firstName: text('first_name').notNull(),
   phone: text('phone').notNull().unique(),
+  email: text('email'),
   passwordHash: text('password_hash').notNull(),
   consentGivenAt: timestamp('consent_given_at'),
   consentVersion: text('consent_version'),

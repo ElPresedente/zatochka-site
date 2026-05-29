@@ -9,6 +9,7 @@ export const userPublicColumns = {
   firstName: users.firstName,
   lastName: users.lastName,
   phone: users.phone,
+  email: users.email,
   consentGivenAt: users.consentGivenAt,
   consentVersion: users.consentVersion,
   createdAt: users.createdAt,

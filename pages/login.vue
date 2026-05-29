@@ -2,9 +2,9 @@
 useHead({ title: 'Вход — Острый край' })
 
 const route = useRoute()
-const { user, login, fetchUser } = useAuth()
+const { user, login: authLogin, fetchUser } = useAuth()
 
-const phone = ref('')
+const loginInput = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
@@ -20,7 +20,7 @@ async function submit() {
   loading.value = true
 
   try {
-    await login(phone.value, password.value)
+    await authLogin(loginInput.value, password.value)
     await navigateTo(typeof route.query.next === 'string' ? route.query.next : '/shop')
   } catch (e: any) {
     error.value = e?.data?.message ?? 'Неверный телефон или пароль'
@@ -37,11 +37,11 @@ async function submit() {
     <form class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden" @submit.prevent="submit">
       <div class="px-5 py-5 lg:px-7 lg:py-6 flex flex-col gap-4 lg:gap-5">
         <div>
-          <label class="block text-xs font-semibold text-[#777] mb-1.5">Телефон</label>
+          <label class="block text-xs font-semibold text-[#777] mb-1.5">Телефон или Email</label>
           <input
-            v-model="phone"
-            type="tel"
-            placeholder="+7 (910) 304-30-40"
+            v-model="loginInput"
+            type="text"
+            placeholder="+7 (910) 304-30-40 или you@example.com"
             autocomplete="username"
             class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand transition-colors"
           />
@@ -75,7 +75,7 @@ async function submit() {
         </div>
         <button
           type="submit"
-          :disabled="loading || !phone.trim() || !password"
+          :disabled="loading || !loginInput.trim() || !password"
           class="px-7 py-3 rounded-xl bg-brand text-white font-bold text-sm hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)] disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
         >
           {{ loading ? 'Вход...' : 'Войти' }}

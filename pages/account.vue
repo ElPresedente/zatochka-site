@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES } from '~/types/api'
-import type { OrderHistoryDto, OrderItemDto } from '~/types/api'
+import { ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_CLASSES, PAYMENT_METHOD_LABELS } from '~/types/api'
+import type { ExtraPaymentStatus, OrderHistoryDto, OrderItemDto, PaymentMethod, PaymentStatus } from '~/types/api'
 import type { OrderStatus } from '~/server/db/schema'
 
 definePageMeta({ middleware: 'account' })
@@ -11,6 +11,7 @@ interface ProfileDto {
   firstName: string
   lastName: string
   phone: string
+  email: string | null
   deletionRequestedAt: string | null
 }
 
@@ -23,6 +24,12 @@ interface OrderWithItems {
   customerFirstName: string
   customerLastName: string
   customerPhone: string
+  paymentMethod: PaymentMethod
+  paymentStatus: PaymentStatus
+  paidAt: string | null
+  extraPaymentId: string | null
+  extraPaymentAmount: number | null
+  extraPaymentStatus: ExtraPaymentStatus
   createdAt: string
   updatedAt: string
   items: OrderItemDto[]
@@ -42,10 +49,11 @@ const { data: myOrders, pending: ordersPending } = await useFetch<OrderWithItems
 const form = reactive({
   firstName: profile.value?.firstName ?? '',
   lastName: profile.value?.lastName ?? '',
+  email: profile.value?.email ?? '',
 })
 
 watch(profile, (p) => {
-  if (p) { form.firstName = p.firstName; form.lastName = p.lastName }
+  if (p) { form.firstName = p.firstName; form.lastName = p.lastName; form.email = p.email ?? '' }
 })
 
 const saving = ref(false)
@@ -59,7 +67,7 @@ async function saveProfile() {
   try {
     await $fetch('/api/account/profile', {
       method: 'PATCH',
-      body: { firstName: form.firstName.trim(), lastName: form.lastName.trim() },
+      body: { firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim() },
     })
     await Promise.all([refreshProfile(), fetchUser(true)])
     saveSuccess.value = true
@@ -148,6 +156,34 @@ async function confirmDeletionRequest() {
     requesting.value = false
   }
 }
+
+const payingOrderId = ref<number | null>(null)
+const payExtraOrderId = ref<number | null>(null)
+const payErrors = reactive<Record<number, string>>({})
+
+async function payOrder(orderId: number) {
+  payingOrderId.value = orderId
+  delete payErrors[orderId]
+  try {
+    const result = await $fetch<{ confirmationUrl: string }>(`/api/account/orders/${orderId}/pay`, { method: 'POST' })
+    window.location.href = result.confirmationUrl
+  } catch (e: any) {
+    payErrors[orderId] = e?.data?.message ?? 'Ошибка при создании платежа'
+    payingOrderId.value = null
+  }
+}
+
+async function payExtraOrder(orderId: number) {
+  payExtraOrderId.value = orderId
+  delete payErrors[orderId]
+  try {
+    const result = await $fetch<{ confirmationUrl: string }>(`/api/account/orders/${orderId}/pay-extra`, { method: 'POST' })
+    window.location.href = result.confirmationUrl
+  } catch (e: any) {
+    payErrors[orderId] = e?.data?.message ?? 'Ошибка при создании платежа'
+    payExtraOrderId.value = null
+  }
+}
 </script>
 
 <template>
@@ -221,6 +257,18 @@ async function confirmDeletionRequest() {
                 class="border border-[#eee] rounded-xl px-4 py-2.5 text-base bg-[#fafafa] text-[#888] cursor-not-allowed"
               />
               <p class="text-xs text-[#aaa]">Телефон используется для входа и не может быть изменён</p>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-sm font-semibold text-[#555]">Email</label>
+              <input
+                v-model="form.email"
+                type="email"
+                autocomplete="email"
+                class="border border-[#ddd] rounded-xl px-4 py-2.5 text-base outline-none focus:border-brand transition-colors"
+                placeholder="you@example.com"
+              />
+              <p class="text-xs text-[#aaa]">Используется для получения чека при онлайн-оплате</p>
             </div>
 
             <div class="flex items-center gap-4 pt-1">
@@ -354,6 +402,11 @@ async function confirmDeletionRequest() {
                   class="text-xs font-semibold px-2.5 py-1 rounded-lg"
                   :class="ORDER_STATUS_CLASSES[order.status]"
                 >{{ ORDER_STATUS_LABELS[order.status] }}</span>
+                <span
+                  class="text-xs font-semibold px-2.5 py-1 rounded-lg"
+                  :class="PAYMENT_STATUS_CLASSES[order.paymentStatus]"
+                >{{ PAYMENT_STATUS_LABELS[order.paymentStatus] }}</span>
+                <span class="text-xs text-[#aaa]">{{ PAYMENT_METHOD_LABELS[order.paymentMethod] }}</span>
               </div>
               <span class="text-xs lg:text-sm text-[#888]">{{ formatDate(order.createdAt) }}</span>
             </div>
@@ -389,6 +442,43 @@ async function confirmDeletionRequest() {
               <div class="flex justify-between items-center">
                 <span class="text-[#888] text-sm">Итого</span>
                 <span class="text-lg lg:text-xl font-bold text-brand">{{ formatPrice(order.totalAmount) }}</span>
+              </div>
+
+              <!-- Оплатить онлайн (для любого неоплаченного заказа) -->
+              <div
+                v-if="['unpaid', 'failed'].includes(order.paymentStatus) && !['cancelled', 'completed'].includes(order.status)"
+                class="flex flex-col gap-2"
+              >
+                <button
+                  class="self-start text-sm font-semibold text-white bg-brand rounded-xl px-5 py-2 hover:brightness-110 transition-all disabled:opacity-50"
+                  :disabled="payingOrderId === order.id"
+                  @click="payOrder(order.id)"
+                >{{ payingOrderId === order.id ? 'Перенаправление...' : 'Оплатить онлайн' }}</button>
+                <p v-if="payErrors[order.id]" class="text-xs text-red-500">{{ payErrors[order.id] }}</p>
+              </div>
+
+              <!-- Доплатить (если состав заказа был скорректирован в большую сторону) -->
+              <div
+                v-if="order.extraPaymentStatus === 'pending' && order.extraPaymentAmount"
+                class="flex flex-col gap-2 mt-1"
+              >
+                <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 leading-snug">
+                  Состав заказа изменён. Необходима доплата: <span class="font-bold">{{ formatPrice(order.extraPaymentAmount) }}</span>
+                </div>
+                <button
+                  class="self-start text-sm font-semibold text-white bg-amber-500 rounded-xl px-5 py-2 hover:brightness-110 transition-all disabled:opacity-50"
+                  :disabled="payExtraOrderId === order.id"
+                  @click="payExtraOrder(order.id)"
+                >{{ payExtraOrderId === order.id ? 'Перенаправление...' : `Доплатить ${formatPrice(order.extraPaymentAmount)}` }}</button>
+                <p v-if="payErrors[order.id]" class="text-xs text-red-500">{{ payErrors[order.id] }}</p>
+              </div>
+
+              <!-- Доплата выполнена -->
+              <div
+                v-if="order.extraPaymentStatus === 'paid' && order.extraPaymentAmount"
+                class="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 mt-1"
+              >
+                Доплата {{ formatPrice(order.extraPaymentAmount) }} получена.
               </div>
 
               <div v-if="order.userComment" class="text-sm text-[#666] bg-[#fafafa] rounded-xl px-4 py-2.5 mt-1">

@@ -4,8 +4,9 @@ import { useDb } from '~/server/db'
 import { orderHistory, orderItems, orders, products, users, type OrderStatus } from '~/server/db/schema'
 import { userPublicColumns } from '~/server/db/projections'
 import { assertRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
-import { parseOptionalString } from '~/server/utils/validators'
+import { parseOptionalString, parseEmail } from '~/server/utils/validators'
 import { parseProductPhotos, parseProductServices } from '~/server/utils/json-shapes'
+import { createYookassaPayment, buildReceiptItems } from '~/server/utils/yookassa'
 
 const WINDOW_MS = 60 * 60 * 1000
 const MAX_ORDERS = 10
@@ -64,6 +65,8 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const cartItems = parseItems(body?.items)
   const userComment = parseOptionalString(body?.comment, 'Комментарий к заказу', { max: 1000 }) ?? ''
+  const paymentMethodInput = body?.paymentMethod === 'online_card' ? 'online_card' : 'cash'
+  const emailInput = parseEmail(body?.email, 'Email', { required: paymentMethodInput === 'online_card' })
   const productIds = [...new Set(cartItems.map(item => item.id))]
 
   const db = useDb()
@@ -117,9 +120,11 @@ export default defineEventHandler(async (event) => {
       customerFirstName: user.firstName,
       customerLastName: user.lastName,
       customerPhone: user.phone,
+      customerEmail: emailInput,
       userComment,
       status: 'created',
       totalAmount,
+      paymentMethod: paymentMethodInput,
     }).returning()
 
     await tx.insert(orderItems).values(itemsToInsert.map(item => ({
@@ -138,12 +143,20 @@ export default defineEventHandler(async (event) => {
 
   const { createdOrder, itemsToInsert: notifyItems } = txResult
 
+  // Сохранить email в профиле если предоставлен
+  if (emailInput) {
+    await db.update(users)
+      .set({ email: emailInput })
+      .where(eq(users.id, session.data.userId))
+  }
+
   await recordRateLimitHit(rateLimit)
 
   await notifyOrderCreated({
     id: createdOrder.id,
     totalAmount: createdOrder.totalAmount,
     status: createdOrder.status as OrderStatus,
+    paymentMethod: paymentMethodInput,
     items: notifyItems.map(item => ({
       productName: item.productName,
       quantity: item.quantity,
@@ -152,6 +165,42 @@ export default defineEventHandler(async (event) => {
       services: JSON.parse(item.services) as { name: string; price: number }[],
     })),
   })
+
+  if (paymentMethodInput === 'online_card') {
+    const config = useRuntimeConfig()
+    const siteUrl = config.siteUrl || getRequestURL(event).origin
+    const returnUrl = `${siteUrl}/payment/return?order_id=${createdOrder.id}`
+
+    const parsedItems = notifyItems.map(item => ({
+      productName: item.productName,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      services: JSON.parse(item.services) as { name: string; price: number }[],
+    }))
+
+    try {
+      const payment = await createYookassaPayment(
+        createdOrder.id,
+        createdOrder.totalAmount,
+        returnUrl,
+        { email: emailInput, items: buildReceiptItems(parsedItems) },
+      )
+      await db.update(orders)
+        .set({ yookassaPaymentId: payment.id })
+        .where(eq(orders.id, createdOrder.id))
+
+      return {
+        id: createdOrder.id,
+        status: createdOrder.status,
+        totalAmount: createdOrder.totalAmount,
+        createdAt: createdOrder.createdAt,
+        confirmationUrl: payment.confirmationUrl,
+      }
+    }
+    catch (err) {
+      console.error('[yookassa] Failed to create payment for order', createdOrder.id, err)
+    }
+  }
 
   return {
     id: createdOrder.id,

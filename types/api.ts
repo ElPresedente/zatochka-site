@@ -1,6 +1,7 @@
-import type { OrderStatus } from '~/server/db/schema'
+import type { OrderStatus, PaymentMethod, PaymentStatus } from '~/server/db/schema'
 
-export type { OrderStatus }
+export type { OrderStatus, PaymentMethod, PaymentStatus }
+export type ExtraPaymentStatus = 'none' | 'pending' | 'paid' | 'failed'
 
 export interface ProductSpec {
   key: string
@@ -53,6 +54,13 @@ export interface OrderRowDto {
   sellerComment: string
   status: OrderStatus
   totalAmount: number
+  paymentMethod: PaymentMethod
+  paymentStatus: PaymentStatus
+  yookassaPaymentId: string | null
+  paidAt: string | null
+  extraPaymentId: string | null
+  extraPaymentAmount: number | null
+  extraPaymentStatus: ExtraPaymentStatus
   createdAt: string
   updatedAt: string
 }
@@ -95,6 +103,27 @@ export interface AdminProductCollectionDto {
   sortOrder: number
   active: boolean
   productIds: number[]
+}
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  unpaid: 'Не оплачен',
+  paid: 'Оплачен',
+  failed: 'Ошибка оплаты',
+  refunded: 'Возврат',
+  waiting_for_capture: 'Ожидает списания',
+}
+
+export const PAYMENT_STATUS_CLASSES: Record<PaymentStatus, string> = {
+  unpaid: 'bg-orange-100 text-orange-700',
+  paid: 'bg-green-100 text-green-700',
+  failed: 'bg-red-100 text-red-600',
+  refunded: 'bg-slate-100 text-slate-600',
+  waiting_for_capture: 'bg-blue-100 text-blue-700',
+}
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  cash: 'Наличными',
+  online_card: 'Картой онлайн',
 }
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {

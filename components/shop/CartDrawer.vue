@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CartItem } from '~/composables/useCart'
 
-defineProps<{
+const props = defineProps<{
   cart: CartItem[]
   totalPrice: number
   comment: string
@@ -11,6 +11,7 @@ defineProps<{
   error: string
   productStock: (id: number) => number
   pickupAddress?: string
+  userEmail?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -18,12 +19,22 @@ const emit = defineEmits<{
   setQty: [cartKey: string, qty: number, stock: number]
   remove: [cartKey: string]
   clear: []
-  checkout: []
+  checkout: [paymentMethod: 'cash' | 'online_card', email: string]
   'update:comment': [value: string]
 }>()
 
 const { formatPrice } = useFormatters()
 const deliveryType = ref<'pickup' | 'delivery'>('pickup')
+const paymentMethod = ref<'cash' | 'online_card'>('online_card')
+const emailInput = ref('')
+const emailTouched = ref(false)
+
+watch(() => props.userEmail, (val) => {
+  if (val && !emailInput.value) emailInput.value = val
+}, { immediate: true })
+
+const emailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailInput.value.trim()))
+const emailError = computed(() => emailTouched.value && paymentMethod.value === 'online_card' && !emailValid.value)
 </script>
 
 <template>
@@ -101,6 +112,48 @@ const deliveryType = ref<'pickup' | 'delivery'>('pickup')
               </label>
             </div>
           </div>
+          <!-- Payment method -->
+          <div>
+            <label class="block text-xs font-semibold text-[#777] mb-2">Способ оплаты</label>
+            <div class="flex flex-col gap-2">
+              <label
+                class="flex items-start gap-3 rounded-xl border-2 px-4 py-3 cursor-pointer transition-colors"
+                :class="paymentMethod === 'online_card' ? 'border-brand bg-brand/5' : 'border-[#e0e0e0]'"
+              >
+                <input type="radio" v-model="paymentMethod" value="online_card" class="mt-0.5 accent-brand shrink-0" />
+                <div>
+                  <div class="text-sm font-semibold text-[#222]">Картой онлайн</div>
+                  <div class="text-xs text-[#666] mt-0.5">Безопасная оплата через ЮKassa</div>
+                </div>
+              </label>
+              <label
+                class="flex items-start gap-3 rounded-xl border-2 px-4 py-3 cursor-pointer transition-colors"
+                :class="paymentMethod === 'cash' ? 'border-brand bg-brand/5' : 'border-[#e0e0e0]'"
+              >
+                <input type="radio" v-model="paymentMethod" value="cash" class="mt-0.5 accent-brand shrink-0" />
+                <div>
+                  <div class="text-sm font-semibold text-[#222]">Наличными при получении</div>
+                </div>
+              </label>
+            </div>
+          </div>
+          <!-- Email for receipt (required for online payment) -->
+          <div v-if="paymentMethod === 'online_card'">
+            <label class="block text-xs font-semibold text-[#777] mb-1.5">
+              Email для чека <span class="text-red-400">*</span>
+            </label>
+            <input
+              v-model="emailInput"
+              type="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              class="w-full border rounded-xl px-4 py-2.5 text-sm outline-none transition-colors"
+              :class="emailError ? 'border-red-400 focus:border-red-400' : 'border-[#ddd] focus:border-brand'"
+              @blur="emailTouched = true"
+            />
+            <p v-if="emailError" class="text-xs text-red-500 mt-1">Укажите корректный email</p>
+            <p class="text-xs text-[#aaa] mt-1">Чек об оплате придёт на этот адрес</p>
+          </div>
           <div>
             <label class="block text-xs font-semibold text-[#777] mb-1.5">Комментарий к заказу</label>
             <textarea
@@ -118,8 +171,12 @@ const deliveryType = ref<'pickup' | 'delivery'>('pickup')
           <div v-if="error" class="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-3 leading-relaxed">
             {{ error }}
           </div>
-          <button class="btn-primary py-3 lg:py-3.5 text-base lg:text-lg disabled:opacity-50" :disabled="loading" @click="emit('checkout')">
-            {{ loading ? 'Оформляем...' : 'Оформить заказ' }}
+          <button
+            class="btn-primary py-3 lg:py-3.5 text-base lg:text-lg disabled:opacity-50"
+            :disabled="loading || (paymentMethod === 'online_card' && !emailValid)"
+            @click="emailTouched = true; if (paymentMethod === 'cash' || emailValid) emit('checkout', paymentMethod, emailInput.trim())"
+          >
+            {{ loading ? 'Оформляем...' : paymentMethod === 'online_card' ? 'Оплатить онлайн' : 'Оформить заказ' }}
           </button>
           <NuxtLink
             v-if="!authenticated"

@@ -94,6 +94,26 @@ export function normalizePhone(raw: string): string | null {
   return null
 }
 
+export function parseEmail(value: unknown, fieldName: string, opts: { required?: boolean } = {}): string {
+  if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
+    if (opts.required) {
+      throw createError({ statusCode: 400, message: `${fieldName} обязателен` })
+    }
+    return ''
+  }
+  if (typeof value !== 'string') {
+    throw createError({ statusCode: 400, message: `${fieldName} должен быть строкой` })
+  }
+  const trimmed = value.trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed)) {
+    throw createError({ statusCode: 400, message: `${fieldName} имеет неверный формат` })
+  }
+  if (trimmed.length > 255) {
+    throw createError({ statusCode: 400, message: `${fieldName} слишком длинный` })
+  }
+  return trimmed
+}
+
 export function parseRouteId(value: string | undefined, entity = 'записи'): number {
   const parsed = Number(value)
   if (!Number.isInteger(parsed) || parsed <= 0) {
