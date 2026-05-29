@@ -54,10 +54,17 @@ export default defineEventHandler(async (event) => {
 
   const db = useDb()
 
-  // Load order before transaction to capture pre-change state for YooKassa calls
+  // Load order and customer email before transaction
   const [preOrder] = await db.select().from(orders).where(eq(orders.id, id))
   if (!preOrder) {
     throw createError({ statusCode: 404, message: 'Заказ не найден' })
+  }
+
+  // Resolve email upfront — needed for receipts if order is paid
+  let customerEmail = preOrder.customerEmail || ''
+  if (!customerEmail && preOrder.userId) {
+    const [u] = await db.select({ email: users.email }).from(users).where(eq(users.id, preOrder.userId))
+    customerEmail = u?.email || ''
   }
 
   const updated = await db.transaction(async (tx) => {
@@ -96,6 +103,25 @@ export default defineEventHandler(async (event) => {
       if (nextTotalAmount !== order.totalAmount) {
         historyParts.push(`Сумма: ${formatRub(order.totalAmount)} → ${formatRub(nextTotalAmount)}`)
       }
+
+      // Partial refund for paid orders — inside transaction so DB rolls back if YooKassa fails
+      if (preOrder.paymentStatus === 'paid' && nextTotalAmount < preOrder.totalAmount && preOrder.yookassaPaymentId) {
+        const refundAmount = preOrder.totalAmount - nextTotalAmount
+        const receipt = customerEmail
+          ? { email: customerEmail, items: [buildAdjustmentReceiptItem(`Корректировка заказа №${id}`, refundAmount)] }
+          : undefined
+        try {
+          await createYookassaRefund(preOrder.yookassaPaymentId, refundAmount, receipt)
+          historyParts.push(`Частичный возврат ${formatRub(refundAmount)} выполнен через ЮKassa`)
+        }
+        catch (err) {
+          console.error('[yookassa] partial refund failed', err)
+          throw createError({
+            statusCode: 502,
+            message: `Не удалось выполнить возврат ${formatRub(refundAmount)} через ЮKassa. Изменения состава не сохранены. Попробуйте ещё раз или выполните возврат вручную.`,
+          })
+        }
+      }
     }
 
     const commentChanged = sellerComment !== undefined && sellerComment.trim() !== order.sellerComment.trim()
@@ -123,71 +149,36 @@ export default defineEventHandler(async (event) => {
     return result
   })
 
-  // After transaction: handle YooKassa for paid orders where total changed
-  if (items !== undefined && preOrder.paymentStatus === 'paid' && updated.totalAmount !== preOrder.totalAmount) {
-    const diff = updated.totalAmount - preOrder.totalAmount
-
-    // Resolve customer email for receipt
-    let email = preOrder.customerEmail || ''
-    if (!email && preOrder.userId) {
-      const [u] = await db.select({ email: users.email }).from(users).where(eq(users.id, preOrder.userId))
-      email = u?.email || ''
+  // After transaction: create extra payment if total increased (non-blocking — failure doesn't roll back)
+  if (items !== undefined && preOrder.paymentStatus === 'paid' && updated.totalAmount > preOrder.totalAmount) {
+    const extraAmount = updated.totalAmount - preOrder.totalAmount
+    const receipt = customerEmail
+      ? { email: customerEmail, items: [buildAdjustmentReceiptItem(`Доплата по заказу №${id}`, extraAmount)] }
+      : undefined
+    const config = useRuntimeConfig()
+    const siteUrl = config.siteUrl || getRequestURL(event).origin
+    const returnUrl = `${siteUrl}/payment/return?order_id=${id}`
+    try {
+      const payment = await createYookassaPayment(id, extraAmount, returnUrl, receipt, 'extra')
+      await db.update(orders).set({
+        extraPaymentId: payment.id,
+        extraPaymentAmount: extraAmount,
+        extraPaymentStatus: 'pending',
+        updatedAt: new Date(),
+      }).where(eq(orders.id, id))
+      await db.insert(orderHistory).values({
+        orderId: id,
+        adminId,
+        description: `Создан запрос на доплату ${formatRub(extraAmount)} (корректировка состава). Клиенту доступна кнопка «Доплатить» в личном кабинете.`,
+      })
     }
-
-    if (diff < 0) {
-      // Partial refund
-      const refundAmount = -diff
-      const receipt = email
-        ? { email, items: [buildAdjustmentReceiptItem(`Корректировка заказа №${id}`, refundAmount)] }
-        : undefined
-      try {
-        await createYookassaRefund(preOrder.yookassaPaymentId!, refundAmount, receipt)
-        await db.insert(orderHistory).values({
-          orderId: id,
-          adminId,
-          description: `Частичный возврат ${formatRub(refundAmount)} выполнен через ЮKassa (корректировка состава).`,
-        })
-      }
-      catch (err) {
-        console.error('[yookassa] partial refund failed', err)
-        await db.insert(orderHistory).values({
-          orderId: id,
-          adminId,
-          description: `ВНИМАНИЕ: автоматический возврат ${formatRub(refundAmount)} не выполнен. Выполните возврат вручную в ЛК ЮKassa.`,
-        })
-      }
-    }
-    else {
-      // Extra payment required
-      const extraAmount = diff
-      const receipt = email
-        ? { email, items: [buildAdjustmentReceiptItem(`Доплата по заказу №${id}`, extraAmount)] }
-        : undefined
-      const config = useRuntimeConfig()
-      const siteUrl = config.siteUrl || getRequestURL(event).origin
-      const returnUrl = `${siteUrl}/payment/return?order_id=${id}`
-      try {
-        const payment = await createYookassaPayment(id, extraAmount, returnUrl, receipt, 'extra')
-        await db.update(orders).set({
-          extraPaymentId: payment.id,
-          extraPaymentAmount: extraAmount,
-          extraPaymentStatus: 'pending',
-          updatedAt: new Date(),
-        }).where(eq(orders.id, id))
-        await db.insert(orderHistory).values({
-          orderId: id,
-          adminId,
-          description: `Создан запрос на доплату ${formatRub(extraAmount)} (корректировка состава). Клиенту доступна кнопка «Доплатить» в личном кабинете.`,
-        })
-      }
-      catch (err) {
-        console.error('[yookassa] extra payment creation failed', err)
-        await db.insert(orderHistory).values({
-          orderId: id,
-          adminId,
-          description: `ВНИМАНИЕ: ссылка на доплату ${formatRub(extraAmount)} не создана автоматически. Создайте платёж вручную в ЛК ЮKassa.`,
-        })
-      }
+    catch (err) {
+      console.error('[yookassa] extra payment creation failed', err)
+      await db.insert(orderHistory).values({
+        orderId: id,
+        adminId,
+        description: `ВНИМАНИЕ: ссылка на доплату ${formatRub(extraAmount)} не создана автоматически. Создайте платёж вручную в ЛК ЮKassa.`,
+      })
     }
 
     // Re-fetch to include extra payment fields
