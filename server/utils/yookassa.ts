@@ -29,7 +29,7 @@ export function buildReceiptItems(items: Array<{
       lines.push({
         description: item.productName.substring(0, 128),
         quantity: item.quantity.toFixed(2),
-        amount: { value: (basePrice * item.quantity).toFixed(2), currency: 'RUB' },
+        amount: { value: basePrice.toFixed(2), currency: 'RUB' },
         vat_code: 1,
         payment_mode: 'full_payment',
         payment_subject: 'commodity',
@@ -41,7 +41,7 @@ export function buildReceiptItems(items: Array<{
         lines.push({
           description: svc.name.substring(0, 128),
           quantity: item.quantity.toFixed(2),
-          amount: { value: (svc.price * item.quantity).toFixed(2), currency: 'RUB' },
+          amount: { value: svc.price.toFixed(2), currency: 'RUB' },
           vat_code: 1,
           payment_mode: 'full_payment',
           payment_subject: 'service',
