@@ -54,12 +54,14 @@ Composables:
 
 ## Авторизация
 
-- Пользователи: `users` (телефон + хэш пароля).
+- Пользователи: `users` (телефон + хэш пароля + необязательный `email`).
+- Вход: по номеру телефона **или** по email — `POST /api/auth/login` принимает поле `login`, определяет тип по наличию `@`.
+- Регистрация: email обязателен для новых пользователей. Уникальный частичный индекс `users_email_unique` не затрагивает старые аккаунты без email.
 - Админы: отдельная таблица `admins`, связанная с `users` (userId PK, onDelete cascade).
 - Сессия: `server/utils/session.ts`, cookie `sid`, 7 дней, httpOnly, sameSite: lax, secure по протоколу.
 - `SESSION_SECRET` должен быть не короче 32 символов; приложение падает на старте, если секрет дефолтный.
 - Публичные auth endpoints: `server/api/auth/*`.
-- `server/middleware/same-origin.ts` — same-origin guard для всех небезопасных методов (POST/PUT/PATCH/DELETE) на `/api/**`.
+- `server/middleware/same-origin.ts` — same-origin guard для всех небезопасных методов (POST/PUT/PATCH/DELETE) на `/api/**`. **Исключение: `/api/yookassa/webhook`** — ЮKassa шлёт POST без Origin.
 - `server/middleware/admin-auth.ts` — защищает `/api/admin/**`: проверяет сессию и запись в `admins`, устанавливает `event.context.userId`.
 - `middleware/admin.global.ts` — клиентская/SSR защита `/admin/**` (кроме `/admin/login`).
 - `middleware/account.ts` — клиентская защита `/account`.
@@ -69,9 +71,12 @@ Composables:
 
 Все `/api/account/*` требуют авторизации (проверяют `session.data.userId`).
 
-- `GET /api/account/profile` — имя, фамилия, телефон текущего пользователя.
-- `PATCH /api/account/profile` — обновление имени и фамилии.
-- `GET /api/account/orders` — история заказов пользователя.
+- `GET /api/account/profile` — имя, фамилия, телефон, email текущего пользователя.
+- `PATCH /api/account/profile` — обновление имени, фамилии и email.
+- `GET /api/account/orders` — история заказов пользователя (с позициями и историей).
+- `GET /api/account/orders/[id]` — один заказ пользователя по ID.
+- `POST /api/account/orders/[id]/pay` — создать платёж ЮKassa для неоплаченного заказа. Работает для любого способа оплаты (в т.ч. `cash` — тогда `paymentMethod` автоматически меняется на `online_card`).
+- `POST /api/account/orders/[id]/pay-extra` — создать платёж ЮKassa для pending-доплаты (при корректировке состава оплаченного заказа).
 - `PATCH /api/account/password` — смена пароля; тело: `{ currentPassword, newPassword }`, минимум 6 символов.
 - `POST /api/account/password-reset` — пользователь запрашивает сброс пароля администратором; отправляет уведомление в Telegram через `notifyPasswordResetRequest` (без публичного `forgot-password` — это отдельный эндпоинт).
 - `POST /api/account/deletion-request` — запрос на удаление аккаунта; проставляет `deletionRequestedAt`, отправляет уведомление в Telegram через `notifyDeletionRequest`. Повторный запрос возвращает 409.
@@ -89,6 +94,7 @@ Composables:
 | `/register` | Регистрация |
 | `/forgot-password` | Заявка на восстановление пароля |
 | `/account` | Личный кабинет (история заказов, профиль) |
+| `/payment/return` | Страница возврата после оплаты ЮKassa (`?order_id=X`) |
 | `/offer` | Публичная оферта |
 | `/terms` | Пользовательское соглашение |
 | `/privacy` | Политика обработки персональных данных |
@@ -107,9 +113,9 @@ Composables:
 
 | Таблица | Назначение |
 |---|---|
-| `users` | Пользователи: телефон, имя, фамилия, хэш пароля, `consentGivenAt`, `consentVersion`, `deletionRequestedAt` |
+| `users` | Пользователи: телефон, имя, фамилия, хэш пароля, `email` (nullable), `consentGivenAt`, `consentVersion`, `deletionRequestedAt` |
 | `admins` | Привязка userId → роль администратора (userId PK, onDelete cascade) |
-| `orders` | Заказы: клиентские данные, сумма, статус, `userComment`, `sellerComment` |
+| `orders` | Заказы: клиентские данные, сумма, статус, `userComment`, `sellerComment`, поля оплаты (см. ниже) |
 | `order_items` | Снимок состава заказа: название, фото, цена, `stockDeducted`, `services` (JSON) |
 | `order_history` | Журнал событий заказа (смена статуса, суммы) с `adminId` автора |
 | `products` | Товары: `photos`, `specs`, `services` — JSON-строки; `coverPosition` — CSS `object-position` обложки; `active`, `sortOrder` |
@@ -135,15 +141,29 @@ Composables:
 
 Таблицы:
 
-- `orders` — заказ, клиентские данные на момент заказа, сумма, статус, комментарий клиента, комментарий продавца.
+- `orders` — заказ, клиентские данные на момент заказа, сумма, статус, комментарий клиента, комментарий продавца, поля оплаты.
 - `order_items` — снимок состава заказа: товар, название, фото, цена, количество, сумма строки, `stockDeducted` (1 если остаток списан), `services` (JSON строка — список услуг, привязанных к позиции).
 - `order_history` — журнал событий по заказу (смена статуса, изменение суммы), с `adminId` автора.
+
+Поля оплаты в таблице `orders`:
+
+| Поле | Тип | Назначение |
+|---|---|---|
+| `paymentMethod` | `cash` \| `online_card` | Способ оплаты (по умолчанию `cash`) |
+| `paymentStatus` | `unpaid` \| `paid` \| `failed` \| `refunded` \| `waiting_for_capture` | Статус основного платежа |
+| `yookassaPaymentId` | text nullable | ID платежа в ЮKassa |
+| `paidAt` | timestamp nullable | Время оплаты |
+| `customerEmail` | text | Email для чека (снимок на момент заказа) |
+| `extraPaymentId` | text nullable | ID платежа ЮKassa для доплаты |
+| `extraPaymentAmount` | integer nullable | Сумма доплаты в рублях |
+| `extraPaymentStatus` | `none` \| `pending` \| `paid` \| `failed` | Статус доплаты |
 
 Создание заказа:
 
 - Endpoint: `POST /api/orders`.
 - Требует авторизованного пользователя.
 - Сохраняет текущую корзину, комментарий пользователя и сумму на момент заказа.
+- При `paymentMethod = 'online_card'` создаёт платёж ЮKassa и возвращает `{ confirmationUrl }` для редиректа.
 - Уведомление о новом заказе отправляется в Telegram через `notifyOrderCreated` в `server/utils/order-notifications.ts`. Требует `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` в env.
 
 Статусы:
@@ -156,7 +176,15 @@ accepted/in_progress/ready -> cancelled
 
 При переходе `created -> accepted` остатки товаров списываются в транзакции. При отмене после `accepted`, `in_progress` или `ready` остатки возвращаются. `cancelled` и `completed` финальные.
 
-Сумму заказа админ может менять только в статусах `created`, `accepted` и `in_progress`. Если сумма меняется, комментарий продавца обязателен. Правило должно сохраняться на сервере, не только в UI.
+**Отмена оплаченного заказа** (`paymentStatus = 'paid'`): перед сменой статуса на `cancelled` автоматически вызывается полный возврат через ЮKassa API. Если ЮKassa недоступна — отмена блокируется (502). После успешного возврата `paymentStatus` меняется на `refunded`.
+
+**Редактирование состава заказа** (`PUT /api/admin/orders/[id]`):
+- Сумма заказа **не вводится вручную** — она всегда равна сумме позиций и пересчитывается автоматически.
+- Состав редактируется только в статусах `created`, `accepted`, `in_progress`.
+- Если заказ **оплачен** и состав изменён:
+  - Сумма уменьшилась → автоматический частичный возврат через ЮKassa с чеком-корректировкой.
+  - Сумма увеличилась → создаётся extra-платёж ЮKassa на разницу; клиент видит кнопку «Доплатить» в ЛК.
+  - При ошибке ЮKassa пишется запись в историю заказа с пометкой ВНИМАНИЕ.
 
 ## Товары
 
@@ -191,6 +219,26 @@ accepted/in_progress/ready -> cancelled
 - `public/icons/` — favicon и иконки для iOS/Android, сгенерированы скриптом `scripts/generate-icons.mjs` из `public/images/logo.png`.
 - `public/robots.txt` — запрещает индексацию `/admin/`, `/api/`, `/account`, `/login`, `/register`.
 
+## ЮKassa
+
+Утилиты в `server/utils/yookassa.ts`:
+
+- `createYookassaPayment(orderId, amountRubles, returnUrl, receipt?, paymentType?)` — создать платёж. `paymentType: 'extra'` используется для доплат при корректировке состава.
+- `createYookassaRefund(paymentId, amountRubles, receipt?)` — полный или частичный возврат.
+- `fetchYookassaPayment(paymentId)` — получить статус платежа.
+- `buildReceiptItems(items)` — построить позиции чека из состава заказа (54-ФЗ): каждая позиция разбивается на товарную строку + строки услуг.
+- `buildAdjustmentReceiptItem(description, amountRubles)` — одна строка чека для корректировок и доплат.
+
+**Цены в БД хранятся в рублях (целые числа).** Передавать в ЮKassa как `amountRubles.toFixed(2)` — **без деления на 100**.
+
+Webhook `POST /api/yookassa/webhook`:
+- Исключён из same-origin middleware.
+- Обрабатывает `payment.succeeded` и `payment.canceled`.
+- Для extra-платежей: metadata содержит `payment_type: 'extra'` — обновляет `extraPaymentStatus`, не трогает `paymentStatus`.
+- Идемпотентен: обновление происходит только если `yookassaPaymentId` совпадает и статус ещё не `paid`.
+
+В ЛК ЮKassa настроить вебхук: `POST https://your-site.ru/api/yookassa/webhook` (события: `payment.succeeded`, `payment.canceled`).
+
 ## Rate limiting
 
 Утилиты в `server/utils/rate-limit.ts`: `assertRateLimit`, `recordRateLimitHit`, `clearRateLimit`. Используют Nitro storage (`rate-limit` namespace). Вызывать `assertRateLimit` перед обработкой и `recordRateLimitHit` после успешной проверки.
@@ -198,7 +246,7 @@ accepted/in_progress/ready -> cancelled
 `assertRateLimit` — no-op при `NODE_ENV=development`, работает только в production.
 
 Эндпоинты с rate limiting:
-- `POST /api/auth/login` — 10 попыток / 15 мин (ключ: IP + телефон)
+- `POST /api/auth/login` — 10 попыток / 15 мин (ключ: IP + raw login input)
 - `POST /api/auth/register` — 5 попыток / 1 час (ключ: IP)
 - `POST /api/auth/forgot-password` — 3 попытки / 1 час (ключ: IP)
 - `POST /api/orders` — 10 заказов / 1 час (ключ: IP + userId)
@@ -231,6 +279,7 @@ accepted/in_progress/ready -> cancelled
   - `parseRouteId(value, entity?)` — принимает `string | undefined` (результат `getRouterParam`), бросает 400 если не валидный id. Второй аргумент — название сущности для сообщения об ошибке.
   - `safeJsonParse(value, fallback)` — тихий JSON.parse с fallback.
   - `normalizePhone(raw)` — нормализует российский номер до 10 цифр, возвращает `null` если невалидный.
+  - `parseEmail(value, fieldName, opts?)` — валидирует email, приводит к нижнему регистру, max 255 символов.
 
 ## Важные env-переменные
 
@@ -241,6 +290,9 @@ accepted/in_progress/ready -> cancelled
 - `ADMIN_PASSWORD` — пароль первого администратора для seed.
 - `TELEGRAM_BOT_TOKEN` — токен Telegram-бота для уведомлений о заказах и заявках на сброс пароля.
 - `TELEGRAM_CHAT_ID` — ID чата/канала, куда отправляются уведомления.
+- `YOOKASSA_SHOP_ID` — shopId из личного кабинета ЮKassa.
+- `YOOKASSA_SECRET_KEY` — секретный ключ API ЮKassa.
+- `SITE_URL` — базовый URL сайта (например `https://example.ru`), используется для формирования `return_url` платежей.
 
 ## Запланированные изменения
 
@@ -249,11 +301,6 @@ accepted/in_progress/ready -> cancelled
 - Добавить поле «адрес доставки» в форму заказа — только при выборе способа «доставка» (принцип минимизации: при самовывозе адрес не запрашивается).
 - Обновить п. 5 в `/privacy` — добавить передачу данных службе доставки. Место помечено `TODO` в коде.
 - Убедиться, что `/consent` и `/privacy` остаются согласованными.
-
-### При подключении онлайн-оплаты (ЮMoney)
-
-- Обновить п. 5 в `/privacy` — добавить передачу платёжных данных оператору платёжного сервиса. Место помечено `TODO` в коде.
-- Проверить, что на страницу ЮMoney уходит только необходимый для платежа объём данных.
 
 ### При выпуске новой редакции согласия на ПД
 
