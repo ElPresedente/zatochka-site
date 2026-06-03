@@ -5,7 +5,7 @@ const props = defineProps<{
   product: ProductDto
   cartQty: number
   canIncrease: boolean
-  cartPrimaryKey?: string
+  cartServiceData?: { price: number; serviceNames: string[] }
 }>()
 
 const emit = defineEmits<{
@@ -65,47 +65,28 @@ const stockLabel = computed(() => {
       <div class="text-[11px] sm:text-xs lg:text-sm font-semibold text-[#222] leading-snug flex-1 line-clamp-3">{{ product.name }}</div>
 
       <div class="flex items-baseline gap-1.5 flex-wrap">
-        <span class="text-sm sm:text-base lg:text-lg font-bold text-brand leading-tight">{{ formatPrice(product.price) }}</span>
+        <span class="text-sm sm:text-base lg:text-lg font-bold text-brand leading-tight">{{ formatPrice(cartServiceData?.price ?? product.price) }}</span>
         <span v-if="stockLabel" class="text-[10px] font-semibold leading-tight" :class="stockLabel.cls">{{ stockLabel.text }}</span>
       </div>
+      <div v-if="cartServiceData && cartQty > 0" class="text-[9px] sm:text-[10px] text-[#888] leading-tight line-clamp-2">
+        {{ cartServiceData.serviceNames.join(', ') }}
+      </div>
 
-      <!-- Товар с услугами -->
-      <template v-if="product.services.length > 0">
-        <div v-if="cartQty > 0 && cartPrimaryKey" class="mt-1 flex justify-center" @click.stop>
-          <ShopQtyInput
-            :qty="cartQty"
-            :stock="product.stock"
-            size="sm"
-            @update="emit('setQty', cartPrimaryKey!, $event, product.stock)"
-          />
-        </div>
-        <button
-          v-else
-          class="mt-1 btn-primary py-1.5 sm:py-2 text-[11px] sm:text-xs lg:text-sm w-full"
-          :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
-          :disabled="product.stock === 0"
-          @click.stop="emit('open', product)"
-        >{{ cartQty > 0 ? 'Добавить ещё' : 'Выбрать' }}</button>
-      </template>
-
-      <!-- Обычный товар -->
-      <template v-else>
-        <div v-if="cartQty > 0" class="mt-1 flex justify-center" @click.stop>
-          <ShopQtyInput
-            :qty="cartQty"
-            :stock="product.stock"
-            size="sm"
-            @update="emit('setQty', String(product.id), $event, product.stock)"
-          />
-        </div>
-        <button
-          v-else
-          class="mt-1 btn-primary py-1.5 sm:py-2 text-[11px] sm:text-xs lg:text-sm w-full"
-          :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
-          :disabled="product.stock === 0"
-          @click.stop="emit('add', product)"
-        >В корзину</button>
-      </template>
+      <div v-if="cartQty > 0" class="mt-1 flex justify-center" @click.stop>
+        <ShopQtyInput
+          :qty="cartQty"
+          :stock="product.stock"
+          size="sm"
+          @update="emit('setQty', String(product.id), $event, product.stock)"
+        />
+      </div>
+      <button
+        v-else
+        class="mt-1 btn-primary py-1.5 sm:py-2 text-[11px] sm:text-xs lg:text-sm w-full"
+        :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"
+        :disabled="product.stock === 0"
+        @click.stop="emit('add', product)"
+      >В корзину</button>
     </div>
   </div>
 </template>

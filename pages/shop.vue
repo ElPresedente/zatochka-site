@@ -120,15 +120,40 @@ const cartQtyById = computed(() =>
 const canIncreaseById = computed(() =>
   new Map((allProducts.value ?? []).map(p => [p.id, canIncrease(p.id)]))
 )
-const cartPrimaryKeyById = computed(() =>
-  new Map((allProducts.value ?? []).map(p => [p.id, cartPrimaryKey(p.id)]))
+
+// Services data per product for card price display (only when exactly 1 cart entry with services)
+const cartServicesByProductId = computed(() => {
+  const result = new Map<number, { price: number; serviceNames: string[] }>()
+  const grouped = new Map<number, (typeof cart.value)[number][]>()
+  for (const item of cart.value) {
+    if (!grouped.has(item.id)) grouped.set(item.id, [])
+    grouped.get(item.id)!.push(item)
+  }
+  for (const [id, items] of grouped) {
+    if (items.length === 1 && items[0].services.length > 0) {
+      result.set(id, { price: items[0].price, serviceNames: items[0].services.map(s => s.name) })
+    }
+  }
+  return result
+})
+
+// Map productId → available services (for applyServicesToAll)
+const productServicesById = computed(() =>
+  new Map((allProducts.value ?? []).map(p => [p.id, p.services]))
 )
 
 const modalProduct = ref<ProductDto | null>(null)
 function openModal(product: ProductDto) { modalProduct.value = product }
 function closeModal() { modalProduct.value = null }
 
-const { cart, totalQty, totalPrice, addToCart, removeFromCart, setQty, clearCart } = useCart()
+const { cart, totalQty, totalPrice, addToCart, applyServicesToAll, removeFromCart, setQty, clearCart } = useCart()
+
+// Initial service IDs for modal: services already active in cart, filtered by modal product's available services
+const modalInitialServiceIds = computed<string[]>(() => {
+  if (!modalProduct.value || cart.value.length === 0) return []
+  const inCart = new Set(cart.value.flatMap(i => i.services.map(s => s.id)))
+  return modalProduct.value.services.filter(s => inCart.has(s.id)).map(s => s.id)
+})
 const { user, fetchUser } = useAuth()
 const cartOpen = ref(false)
 const orderSuccess = ref(false)
@@ -151,10 +176,6 @@ function cartQty(id: number): number {
   return cart.value.filter(i => i.id === id).reduce((s, i) => s + i.qty, 0)
 }
 
-function cartQtyByKey(cartKey: string): number {
-  return cart.value.find(i => i.cartKey === cartKey)?.qty ?? 0
-}
-
 function canIncrease(id: number): boolean {
   return cartQty(id) < productStock(id)
 }
@@ -164,25 +185,19 @@ function cartPrimaryKey(id: number): string | undefined {
   return items.length === 1 ? items[0].cartKey : undefined
 }
 
-function canIncreaseByKey(cartKey: string): boolean {
-  const item = cart.value.find(i => i.cartKey === cartKey)
-  if (!item) return true
-  return item.qty < productStock(item.id)
-}
+// Синхронизировать остатки только когда обновляются данные товаров (не при каждом изменении корзины)
+watch(allProducts, (newProducts) => {
+  if (!newProducts?.length) return
 
-watch([cart, allProducts], () => {
   let changed = false
-
   const nextCart = cart.value.flatMap((item) => {
-    const product = (allProducts.value ?? []).find(p => p.id === item.id)
+    const product = newProducts.find(p => p.id === item.id)
     if (!product || product.stock <= 0) {
       changed = true
       return []
     }
-
     const nextQty = Math.min(item.qty, product.stock)
     if (nextQty !== item.qty || item.stock !== product.stock) changed = true
-
     return [{ ...item, qty: nextQty, stock: product.stock }]
   })
 
@@ -192,7 +207,7 @@ watch([cart, allProducts], () => {
       localStorage.setItem('ostriy_kray_cart', JSON.stringify(cart.value))
     }
   }
-}, { deep: true })
+})
 
 async function checkout(paymentMethod: 'cash' | 'online_card', email: string) {
   orderError.value = ''
@@ -392,7 +407,8 @@ onBeforeUnmount(() => {
           :collection="block.collection"
           :cart-qty-by-id="cartQtyById"
           :can-increase-by-id="canIncreaseById"
-          :cart-primary-key-by-id="cartPrimaryKeyById"
+          :cart-services-by-product-id="cartServicesByProductId"
+
           @open="openModal"
           @add="(p: ProductDto) => addToCart(p)"
           @set-qty="(cartKey: string, qty: number, stock: number) => setQty(cartKey, qty, stock)"
@@ -407,7 +423,8 @@ onBeforeUnmount(() => {
             :product="product"
             :cart-qty="cartQty(product.id)"
             :can-increase="canIncrease(product.id)"
-            :cart-primary-key="cartPrimaryKey(product.id)"
+            :cart-service-data="cartServicesByProductId.get(product.id)"
+
             @open="openModal"
             @add="(p: ProductDto) => addToCart(p)"
             @set-qty="(cartKey: string, qty: number, stock: number) => setQty(cartKey, qty, stock)"
@@ -420,11 +437,13 @@ onBeforeUnmount(() => {
   <ShopProductModal
     v-if="modalProduct"
     :product="modalProduct"
-    :cart-qty-by-key="cartQtyByKey"
-    :can-increase-by-key="canIncreaseByKey"
+    :cart-qty="cartQty(modalProduct.id)"
+    :cart-key="cartPrimaryKey(modalProduct.id)"
+    :initial-service-ids="modalInitialServiceIds"
     @close="closeModal"
     @add="(p: ProductDto, svcs: CartItemService[]) => addToCart(p, svcs)"
     @set-qty="(cartKey: string, qty: number, stock: number) => setQty(cartKey, qty, stock)"
+    @services-change="(svcs: CartItemService[]) => applyServicesToAll(svcs, productServicesById)"
   />
 
   <ShopCartDrawer

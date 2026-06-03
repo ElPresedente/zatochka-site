@@ -97,10 +97,39 @@ export function useCart() {
     }
   }
 
+  // availableServicesById: Map<productId, available services for that product>
+  function applyServicesToAll(
+    selectedServices: CartItemService[],
+    availableServicesById: Map<number, CartItemService[]>,
+  ) {
+    const updated: CartItem[] = []
+
+    for (const item of cart.value) {
+      const available = availableServicesById.get(item.id)
+      if (available == null) { updated.push(item); continue }
+
+      const applicable = selectedServices.filter(s => available.some(a => a.id === s.id))
+      const newKey = makeCartKey(item.id, applicable.map(s => s.id))
+      const basePrice = item.price - item.services.reduce((s, sv) => s + sv.price, 0)
+      const newPrice = basePrice + applicable.reduce((s, sv) => s + sv.price, 0)
+
+      const existingIdx = updated.findIndex(i => i.cartKey === newKey)
+      if (existingIdx >= 0) {
+        updated[existingIdx].qty = Math.min(updated[existingIdx].qty + item.qty, item.stock ?? Infinity)
+      }
+      else {
+        updated.push({ ...item, cartKey: newKey, services: applicable, price: newPrice })
+      }
+    }
+
+    cart.value = updated
+    saveCart()
+  }
+
   function clearCart() {
     cart.value = []
     saveCart()
   }
 
-  return { cart, totalQty, totalPrice, addToCart, removeFromCart, setQty, clearCart }
+  return { cart, totalQty, totalPrice, addToCart, applyServicesToAll, removeFromCart, setQty, clearCart }
 }

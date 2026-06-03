@@ -5,7 +5,7 @@ const props = defineProps<{
   collection: ProductCollectionDto
   cartQtyById: Map<number, number>
   canIncreaseById: Map<number, boolean>
-  cartPrimaryKeyById: Map<number, string | undefined>
+  cartServicesByProductId: Map<number, { price: number; serviceNames: string[] }>
 }>()
 
 const emit = defineEmits<{
@@ -141,7 +141,8 @@ onBeforeUnmount(() => {
           :product="product"
           :cart-qty="cartQtyById.get(product.id) ?? 0"
           :can-increase="canIncreaseById.get(product.id) ?? true"
-          :cart-primary-key="cartPrimaryKeyById.get(product.id)"
+          :cart-service-data="cartServicesByProductId.get(product.id)"
+
           @open="emit('open', $event)"
           @add="emit('add', $event)"
           @set-qty="(cartKey, qty, stock) => emit('setQty', cartKey, qty, stock)"
