@@ -12,6 +12,12 @@ export type PaymentMethod = typeof paymentMethods[number]
 export const paymentStatuses = ['unpaid', 'paid', 'failed', 'refunded', 'waiting_for_capture'] as const
 export type PaymentStatus = typeof paymentStatuses[number]
 
+export const deliveryMethods = ['pickup', 'delivery'] as const
+export type DeliveryMethod = typeof deliveryMethods[number]
+
+export const deliveryScopes = ['orel', 'russia'] as const
+export type DeliveryScope = typeof deliveryScopes[number]
+
 export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
   userId: integer('user_id')
@@ -31,6 +37,19 @@ export const orders = pgTable('orders', {
   extraPaymentId: text('extra_payment_id'),
   extraPaymentAmount: integer('extra_payment_amount'),
   extraPaymentStatus: text('extra_payment_status').notNull().default('none'),
+  // Delivery fields
+  deliveryMethod: text('delivery_method').notNull().default('pickup'),
+  deliveryScope: text('delivery_scope'),
+  deliveryAddress: text('delivery_address'),
+  deliveryCoords: text('delivery_coords'),
+  deliveryCost: integer('delivery_cost').notNull().default(0),
+  cdekPvzCode: text('cdek_pvz_code'),
+  cdekPvzAddress: text('cdek_pvz_address'),
+  cdekPvzCity: text('cdek_pvz_city'),
+  cdekTariffCode: integer('cdek_tariff_code'),
+  cdekDeliveryDaysMin: integer('cdek_delivery_days_min'),
+  cdekDeliveryDaysMax: integer('cdek_delivery_days_max'),
+  cdekOrderUuid: text('cdek_order_uuid'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, table => ({

@@ -21,6 +21,10 @@ export default defineEventHandler(async () => {
       active: products.active,
       sortOrder: products.sortOrder,
       coverPosition: products.coverPosition,
+      weightG: products.weightG,
+      lengthCm: products.lengthCm,
+      widthCm: products.widthCm,
+      heightCm: products.heightCm,
     })
     .from(products)
     .innerJoin(productCategories, eq(products.categoryId, productCategories.id))

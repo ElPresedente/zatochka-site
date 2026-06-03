@@ -33,6 +33,10 @@ export default defineEventHandler(async (event) => {
   const services = Array.isArray(body?.services) ? body.services : []
   const active = body?.active !== false
   const coverPosition = parseCoverPosition(body?.coverPosition)
+  const weightG = parseNonNegativeInteger(body?.weightG ?? 1, 'Вес (г)', 100_000)
+  const lengthCm = parseNonNegativeInteger(body?.lengthCm ?? 1, 'Длина (см)', 1000)
+  const widthCm = parseNonNegativeInteger(body?.widthCm ?? 1, 'Ширина (см)', 1000)
+  const heightCm = parseNonNegativeInteger(body?.heightCm ?? 1, 'Высота (см)', 1000)
 
   const [row] = await db.insert(products).values({
     categoryId,
@@ -46,6 +50,10 @@ export default defineEventHandler(async (event) => {
     active,
     sortOrder,
     coverPosition,
+    weightG,
+    lengthCm,
+    widthCm,
+    heightCm,
   }).returning()
 
   return {
@@ -54,5 +62,9 @@ export default defineEventHandler(async (event) => {
     photos: parseProductPhotos(row.photos),
     specs: parseProductSpecs(row.specs),
     services: parseProductServices(row.services),
+    weightG: row.weightG,
+    lengthCm: row.lengthCm,
+    widthCm: row.widthCm,
+    heightCm: row.heightCm,
   }
 })

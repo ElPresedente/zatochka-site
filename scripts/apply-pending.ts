@@ -1,7 +1,6 @@
 /**
- * Применяет только реально отсутствующие миграции по SHA-256 хэшу файла.
- * Стандартный Drizzle migrator не используется из-за несовпадения хэша
- * в миграции 0006 (файл был изменён после ручного применения).
+ * Применяет только реально отсутствующие миграции по хэшу,
+ * без попытки переприменить уже выполненные.
  */
 import 'dotenv/config'
 import pg from 'pg'
@@ -30,25 +29,29 @@ for (const file of files) {
   const content = fs.readFileSync(path.join(migrationsDir, file), 'utf-8')
   const hash = crypto.createHash('sha256').update(content).digest('hex')
 
-  if (appliedHashes.has(hash)) continue
+  if (appliedHashes.has(hash)) {
+    console.log(`  ✅ skip   ${file}`)
+    continue
+  }
 
-  console.log(`Applying ${file}...`)
-  await client.query('BEGIN')
+  console.log(`  ⏳ apply  ${file} ...`)
   try {
+    await client.query('BEGIN')
     await client.query(content)
     await client.query(
       'INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)',
       [hash, Date.now()],
     )
     await client.query('COMMIT')
+    console.log(`  ✅ done   ${file}`)
     applied++
   }
   catch (err: any) {
     await client.query('ROLLBACK')
-    console.error(`Migration failed: ${file}\n${err.message}`)
+    console.error(`  ❌ FAIL   ${file}: ${err.message}`)
     process.exit(1)
   }
 }
 
-console.log(applied ? `Done. Applied ${applied} migration(s).` : 'Done. No new migrations.')
+console.log(`\nApplied ${applied} migration(s).`)
 await client.end()

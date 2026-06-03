@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import type { ProductDto } from '~/types/api'
-import { makeCartKey } from '~/composables/useCart'
 import type { CartItemService } from '~/composables/useCart'
 
 const props = defineProps<{
   product: ProductDto
-  cartQtyByKey: (cartKey: string) => number
-  canIncreaseByKey: (cartKey: string) => boolean
+  cartQty: number
+  cartKey: string | undefined
+  initialServiceIds?: string[]
 }>()
 
 const emit = defineEmits<{
   close: []
   add: [product: ProductDto, services: CartItemService[]]
   setQty: [cartKey: string, qty: number, stock: number]
+  servicesChange: [services: CartItemService[]]
 }>()
 
 const { formatPrice } = useFormatters()
@@ -20,7 +21,7 @@ const { formatPrice } = useFormatters()
 const photoIdx = ref(0)
 const zoomed = ref(false)
 const zoomEl = ref<HTMLElement | null>(null)
-const selectedServiceIds = ref(new Set<string>())
+const selectedServiceIds = ref(new Set<string>(props.initialServiceIds ?? []))
 
 const touchStartX = ref(0)
 
@@ -38,7 +39,7 @@ function onTouchEnd(e: TouchEvent) {
 watch(() => props.product, () => {
   photoIdx.value = 0
   zoomed.value = false
-  selectedServiceIds.value = new Set()
+  selectedServiceIds.value = new Set(props.initialServiceIds ?? [])
 })
 
 watch(zoomed, (val) => {
@@ -51,20 +52,17 @@ const currentPhoto = computed(() => props.product.photos[photoIdx.value] || '/im
 const selectedServices = computed<CartItemService[]>(() =>
   props.product.services.filter(s => selectedServiceIds.value.has(s.id)),
 )
-const currentCartKey = computed(() =>
-  makeCartKey(props.product.id, selectedServices.value.map(s => s.id)),
-)
 const servicesTotal = computed(() =>
   selectedServices.value.reduce((s, sv) => s + sv.price, 0),
 )
 const displayPrice = computed(() => props.product.price + servicesTotal.value)
-const cartQty = computed(() => props.cartQtyByKey(currentCartKey.value))
-const canIncrease = computed(() => props.canIncreaseByKey(currentCartKey.value))
 
 function toggleService(id: string) {
   const next = new Set(selectedServiceIds.value)
   next.has(id) ? next.delete(id) : next.add(id)
   selectedServiceIds.value = next
+  // Не используем computed — читаем из next напрямую, чтобы не зависеть от времени обновления Vue
+  emit('servicesChange', props.product.services.filter(s => next.has(s.id)) as CartItemService[])
 }
 
 function prev() {
@@ -279,17 +277,17 @@ const stockBadgeText = computed(() => {
               </div>
             </div>
 
-            <div v-if="cartQty > 0" class="mt-auto flex items-center gap-3">
+            <div v-if="cartQty > 0 && cartKey" class="mt-auto flex items-center gap-3">
               <ShopQtyInput
                 :qty="cartQty"
                 :stock="product.stock"
                 size="lg"
-                @update="emit('setQty', currentCartKey, $event, product.stock)"
+                @update="emit('setQty', cartKey!, $event, product.stock)"
               />
               <span class="text-[#888] text-sm">в корзине</span>
             </div>
             <button
-              v-else
+              v-else-if="cartQty === 0"
               class="btn-primary py-2.5 lg:py-3 text-base lg:text-lg mt-auto"
               :disabled="product.stock === 0"
               :class="{ 'opacity-50 cursor-not-allowed': product.stock === 0 }"

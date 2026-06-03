@@ -1,6 +1,6 @@
-import type { OrderStatus, PaymentMethod, PaymentStatus } from '~/server/db/schema'
+import type { OrderStatus, PaymentMethod, PaymentStatus, DeliveryMethod, DeliveryScope } from '~/server/db/schema'
 
-export type { OrderStatus, PaymentMethod, PaymentStatus }
+export type { OrderStatus, PaymentMethod, PaymentStatus, DeliveryMethod, DeliveryScope }
 export type ExtraPaymentStatus = 'none' | 'pending' | 'paid' | 'failed'
 
 export interface ProductSpec {
@@ -33,6 +33,10 @@ export interface ProductDto {
   active: boolean
   sortOrder: number
   coverPosition: string
+  weightG: number
+  lengthCm: number
+  widthCm: number
+  heightCm: number
   createdAt?: string
   updatedAt?: string
 }
@@ -61,6 +65,18 @@ export interface OrderRowDto {
   extraPaymentId: string | null
   extraPaymentAmount: number | null
   extraPaymentStatus: ExtraPaymentStatus
+  deliveryMethod: DeliveryMethod
+  deliveryScope: DeliveryScope | null
+  deliveryAddress: string | null
+  deliveryCoords: string | null
+  deliveryCost: number
+  cdekPvzCode: string | null
+  cdekPvzAddress: string | null
+  cdekPvzCity: string | null
+  cdekTariffCode: number | null
+  cdekDeliveryDaysMin: number | null
+  cdekDeliveryDaysMax: number | null
+  cdekOrderUuid: string | null
   createdAt: string
   updatedAt: string
 }

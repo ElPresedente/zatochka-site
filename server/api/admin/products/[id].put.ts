@@ -54,6 +54,10 @@ export default defineEventHandler(async (event) => {
   if (body.coverPosition !== undefined) {
     update.coverPosition = parseCoverPosition(body.coverPosition)
   }
+  if (body.weightG !== undefined) update.weightG = parseNonNegativeInteger(body.weightG, 'Вес (г)', 100_000)
+  if (body.lengthCm !== undefined) update.lengthCm = parseNonNegativeInteger(body.lengthCm, 'Длина (см)', 1000)
+  if (body.widthCm !== undefined) update.widthCm = parseNonNegativeInteger(body.widthCm, 'Ширина (см)', 1000)
+  if (body.heightCm !== undefined) update.heightCm = parseNonNegativeInteger(body.heightCm, 'Высота (см)', 1000)
 
   if (Object.keys(update).length === 0) throw createError({ statusCode: 400, message: 'Нет данных для сохранения' })
 
@@ -83,5 +87,9 @@ export default defineEventHandler(async (event) => {
     photos: parseProductPhotos(row.photos),
     specs: parseProductSpecs(row.specs),
     services: parseProductServices(row.services),
+    weightG: row.weightG,
+    lengthCm: row.lengthCm,
+    widthCm: row.widthCm,
+    heightCm: row.heightCm,
   }
 })

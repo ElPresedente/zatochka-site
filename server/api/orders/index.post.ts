@@ -7,6 +7,8 @@ import { assertRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
 import { parseOptionalString, parseEmail } from '~/server/utils/validators'
 import { parseProductPhotos, parseProductServices } from '~/server/utils/json-shapes'
 import { createYookassaPayment, buildReceiptItems } from '~/server/utils/yookassa'
+import { getOrelDeliveryConfig, pointInPolygon, calcOrelDeliveryCost } from '~/server/utils/delivery'
+import { cdekCalculateTariff } from '~/server/utils/cdek'
 
 const WINDOW_MS = 60 * 60 * 1000
 const MAX_ORDERS = 10
@@ -67,6 +69,29 @@ export default defineEventHandler(async (event) => {
   const userComment = parseOptionalString(body?.comment, 'Комментарий к заказу', { max: 1000 }) ?? ''
   const paymentMethodInput = body?.paymentMethod === 'online_card' ? 'online_card' : 'cash'
   const emailInput = parseEmail(body?.email, 'Email', { required: paymentMethodInput === 'online_card' })
+
+  // Delivery fields
+  const deliveryMethod = body?.deliveryMethod === 'delivery' ? 'delivery' : 'pickup'
+  const deliveryScope = deliveryMethod === 'delivery' && body?.deliveryScope === 'russia' ? 'russia' : 'orel'
+  const deliveryAddressInput = typeof body?.deliveryAddress === 'string' ? body.deliveryAddress.trim().slice(0, 500) : ''
+  const deliveryCoordsRaw = body?.deliveryCoords
+  const deliveryCoords = (deliveryCoordsRaw && typeof deliveryCoordsRaw.lat === 'number' && typeof deliveryCoordsRaw.lon === 'number')
+    ? { lat: deliveryCoordsRaw.lat as number, lon: deliveryCoordsRaw.lon as number }
+    : null
+  const cdekPvzCode = typeof body?.cdekPvzCode === 'string' ? body.cdekPvzCode.trim() : ''
+  const cdekPvzAddress = typeof body?.cdekPvzAddress === 'string' ? body.cdekPvzAddress.trim().slice(0, 500) : ''
+  const cdekPvzCity = typeof body?.cdekPvzCity === 'string' ? body.cdekPvzCity.trim().slice(0, 100) : ''
+  const cdekTariffCodeInput = Number.isInteger(body?.cdekTariffCode) ? body.cdekTariffCode as number : null
+  const cdekDaysMin = Number.isInteger(body?.cdekDeliveryDaysMin) ? body.cdekDeliveryDaysMin as number : null
+  const cdekDaysMax = Number.isInteger(body?.cdekDeliveryDaysMax) ? body.cdekDeliveryDaysMax as number : null
+
+  if (deliveryMethod === 'delivery' && deliveryScope === 'russia' && !cdekPvzCode) {
+    throw createError({ statusCode: 400, message: 'Выберите пункт выдачи СДЭК' })
+  }
+  if (deliveryMethod === 'delivery' && deliveryScope === 'orel' && !deliveryAddressInput) {
+    throw createError({ statusCode: 400, message: 'Укажите адрес доставки' })
+  }
+
   const productIds = [...new Set(cartItems.map(item => item.id))]
 
   const db = useDb()
@@ -113,7 +138,48 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    const totalAmount = itemsToInsert.reduce((sum, item) => sum + item.totalPrice, 0)
+    const goodsTotal = itemsToInsert.reduce((sum, item) => {
+      const svcTotal = (JSON.parse(item.services) as { price: number }[]).reduce((s, sv) => s + sv.price, 0)
+      return sum + (item.unitPrice - svcTotal) * item.quantity
+    }, 0)
+    const itemsTotal = itemsToInsert.reduce((sum, item) => sum + item.totalPrice, 0)
+
+    // Server-side delivery cost calculation
+    let deliveryCostCalc = 0
+    if (deliveryMethod === 'delivery') {
+      if (deliveryScope === 'orel') {
+        const orelConfig = await getOrelDeliveryConfig()
+        if (orelConfig.polygon && deliveryCoords) {
+          const inZone = pointInPolygon(deliveryCoords.lat, deliveryCoords.lon, orelConfig.polygon)
+          if (!inZone) {
+            throw createError({ statusCode: 400, message: 'Адрес доставки находится вне зоны доставки по Орлу' })
+          }
+        }
+        deliveryCostCalc = calcOrelDeliveryCost(goodsTotal, orelConfig)
+      }
+      else if (deliveryScope === 'russia' && cdekTariffCodeInput) {
+        try {
+          const goods = itemsToInsert.map(item => ({
+            weight: 1000, length: 10, width: 10, height: 10,
+          }))
+          const tariffs = await cdekCalculateTariff({
+            tariff_code: cdekTariffCodeInput,
+            from_location: { code: 270 },
+            to_location: { address: cdekPvzCity || cdekPvzAddress },
+            packages: goods,
+          })
+          const matched = tariffs.find(t => t.tariff_code === cdekTariffCodeInput)
+          if (matched) deliveryCostCalc = Math.round(matched.delivery_sum)
+          else if (tariffs.length > 0) deliveryCostCalc = Math.round(tariffs[0].delivery_sum)
+        }
+        catch (err) {
+          console.error('[cdek] Tariff verification failed, using client value', err)
+          deliveryCostCalc = typeof body?.cdekDeliveryCost === 'number' ? body.cdekDeliveryCost : 0
+        }
+      }
+    }
+
+    const totalAmount = itemsTotal + deliveryCostCalc
 
     const [createdOrder] = await tx.insert(orders).values({
       userId: user.id,
@@ -125,6 +191,17 @@ export default defineEventHandler(async (event) => {
       status: 'created',
       totalAmount,
       paymentMethod: paymentMethodInput,
+      deliveryMethod,
+      deliveryScope: deliveryMethod === 'delivery' ? deliveryScope : null,
+      deliveryAddress: deliveryMethod === 'delivery' && deliveryScope === 'orel' ? deliveryAddressInput : null,
+      deliveryCoords: deliveryCoords ? JSON.stringify(deliveryCoords) : null,
+      deliveryCost: deliveryCostCalc,
+      cdekPvzCode: cdekPvzCode || null,
+      cdekPvzAddress: cdekPvzAddress || null,
+      cdekPvzCity: cdekPvzCity || null,
+      cdekTariffCode: cdekTariffCodeInput,
+      cdekDeliveryDaysMin: cdekDaysMin,
+      cdekDeliveryDaysMax: cdekDaysMax,
     }).returning()
 
     await tx.insert(orderItems).values(itemsToInsert.map(item => ({

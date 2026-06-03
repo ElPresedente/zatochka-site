@@ -36,6 +36,7 @@ function initialForm(): ProductForm {
     name: '', categoryId: props.categories[0]?.id ?? 0, price: 0, stock: 0,
     description: '', photos: [], specs: [], services: [], active: true, sortOrder: 0,
     coverPosition: 'center center',
+    weightG: 1, lengthCm: 1, widthCm: 1, heightCm: 1,
   }
 }
 
@@ -327,6 +328,22 @@ async function onFileChange(e: Event) {
             <div class="sm:col-span-2">
               <label class="block text-xs font-semibold text-[#777] mb-1.5">Описание</label>
               <textarea v-model="form.description" rows="3" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand resize-none" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Вес, г (для СДЭК)</label>
+              <input v-model.number="form.weightG" type="number" min="1" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Длина, см</label>
+              <input v-model.number="form.lengthCm" type="number" min="1" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Ширина, см</label>
+              <input v-model.number="form.widthCm" type="number" min="1" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-[#777] mb-1.5">Высота, см</label>
+              <input v-model.number="form.heightCm" type="number" min="1" class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand" />
             </div>
           </div>
 

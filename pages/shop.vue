@@ -209,7 +209,7 @@ watch(allProducts, (newProducts) => {
   }
 })
 
-async function checkout(paymentMethod: 'cash' | 'online_card', email: string) {
+async function checkout(params: import('~/components/shop/CartDrawer.vue').CheckoutParams) {
   orderError.value = ''
 
   if (!user.value) {
@@ -230,8 +230,19 @@ async function checkout(paymentMethod: 'cash' | 'online_card', email: string) {
           serviceIds: item.services.map(s => s.id),
         })),
         comment: orderComment.value,
-        paymentMethod,
-        email,
+        paymentMethod: params.paymentMethod,
+        email: params.email,
+        deliveryMethod: params.deliveryMethod,
+        deliveryScope: params.deliveryScope,
+        deliveryAddress: params.deliveryAddress,
+        deliveryCoords: params.deliveryCoords,
+        cdekPvzCode: params.cdekPvzCode,
+        cdekPvzAddress: params.cdekPvzAddress,
+        cdekPvzCity: params.cdekPvzCity,
+        cdekTariffCode: params.cdekTariffCode,
+        cdekDeliveryDaysMin: params.cdekDeliveryDaysMin,
+        cdekDeliveryDaysMax: params.cdekDeliveryDaysMax,
+        cdekDeliveryCost: params.deliveryCost,
       },
     })
 
@@ -457,7 +468,9 @@ onBeforeUnmount(() => {
     :error="orderError"
     :product-stock="productStock"
     :pickup-address="siteSettings?.address || ''"
+    :pickup-maps-url="siteSettings?.yandex_map_url || ''"
     :user-email="user?.email"
+    :settings="siteSettings ?? undefined"
     @close="cartOpen = false"
     @set-qty="setQty"
     @remove="removeFromCart"

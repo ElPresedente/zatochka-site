@@ -15,5 +15,9 @@ export const products = pgTable('products', {
   active: boolean('active').notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(0),
   coverPosition: text('cover_position').notNull().default('center center'),
+  weightG: integer('weight_g').notNull().default(1),
+  lengthCm: integer('length_cm').notNull().default(1),
+  widthCm: integer('width_cm').notNull().default(1),
+  heightCm: integer('height_cm').notNull().default(1),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })

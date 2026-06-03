@@ -14,6 +14,16 @@ export default defineNuxtConfig({
     yookassaShopId: process.env.YOOKASSA_SHOP_ID || '',
     yookassaSecretKey: process.env.YOOKASSA_SECRET_KEY || '',
     siteUrl: process.env.SITE_URL || '',
+    cdekAccount: process.env.CDEK_ACCOUNT || 'EMscd6r9JnFiQ3bLoyjJY6eM',
+    cdekSecure: process.env.CDEK_SECURE || 'PjLZkKBHEiLK3YsjtNrt3TGNG0ahs3kG',
+    cdekTestMode: process.env.CDEK_TEST_MODE !== 'false',
+    public: {
+      yandexMapsJsApiKey: process.env.YANDEX_MAPS_JS_API_KEY || '',
+      // Ключи геокодера и саджеста нужны клиенту для передачи в скрипт JS API.
+      // Оставить пустыми, если продукты подключены на тот же ключ, что JS API.
+      yandexMapsGeocoderKey: process.env.YANDEX_MAPS_GEOCODER_KEY || '',
+      yandexMapsSuggestKey: process.env.YANDEX_MAPS_SUGGEST_KEY || '',
+    },
   },
 
   nitro: {
@@ -34,11 +44,12 @@ export default defineNuxtConfig({
             "frame-ancestors 'none'",
             "object-src 'none'",
             "form-action 'self'",
-            "img-src 'self' data: blob:",
+            "img-src 'self' data: blob: https://*.maps.yandex.net https://static-maps.yandex.ru https://yastatic.net https://yandex.ru https://*.yandex.ru",
             "font-src 'self' https://fonts.gstatic.com",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-            "script-src 'self' 'unsafe-inline'",
-            "connect-src 'self' https://api.telegram.org",
+            "script-src 'self' 'unsafe-inline' https://api-maps.yandex.ru https://yastatic.net https://core-renderer-tiles.maps.yandex.net https://cdn.jsdelivr.net",
+            "worker-src blob:",
+            "connect-src 'self' https://api.telegram.org https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://suggest-maps.yandex.ru https://*.maps.yandex.net https://api.cdek.ru https://api.edu.cdek.ru",
             "frame-src 'self' https://yandex.ru https://*.yandex.ru https://*.yandex.net",
           ].join('; '),
         },

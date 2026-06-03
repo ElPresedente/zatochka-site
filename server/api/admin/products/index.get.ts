@@ -21,6 +21,10 @@ export default defineEventHandler(async () => {
       active: products.active,
       sortOrder: products.sortOrder,
       coverPosition: products.coverPosition,
+      weightG: products.weightG,
+      lengthCm: products.lengthCm,
+      widthCm: products.widthCm,
+      heightCm: products.heightCm,
       createdAt: products.createdAt,
     })
     .from(products)
