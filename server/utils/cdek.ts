@@ -59,6 +59,44 @@ export async function cdekRequest<T = unknown>(
   })
 }
 
+// Протокол виджета CDEK v3 (эталонный dist/service.php): action приходит в query
+// ИЛИ в JSON-теле (сервис мёржит оба), и диспатчится по имени. Реализованы те же
+// действия, что у виджета: offices (GET deliverypoints) и calculate (POST tarifflist).
+const WIDGET_ACTIONS: Record<string, { path: string; method: 'GET' | 'POST' }> = {
+  offices: { path: '/v2/deliverypoints', method: 'GET' },
+  calculate: { path: '/v2/calculator/tarifflist', method: 'POST' },
+}
+
+export async function cdekWidgetRequest(data: Record<string, any>): Promise<unknown> {
+  const action = data?.action
+  if (!action || typeof action !== 'string') {
+    throw createError({ statusCode: 400, message: 'Action is required' })
+  }
+  const route = WIDGET_ACTIONS[action]
+  if (!route) {
+    throw createError({ statusCode: 400, message: `Unknown CDEK action: ${action}` })
+  }
+
+  const { action: _omit, ...params } = data
+
+  try {
+    if (route.method === 'POST') {
+      // calculate: from_location/to_location/packages — вложенные объекты, нужен JSON-body
+      return await cdekRequest(route.path, 'POST', params)
+    }
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+    ).toString()
+    return await cdekRequest(route.path, 'GET', undefined, qs ? `?${qs}` : '')
+  }
+  catch (err: any) {
+    const status = err?.statusCode ?? err?.response?.status ?? 502
+    const cdekBody = err?.data ?? err?.response?._data
+    console.error('[CDEK] widget action error', action, status, JSON.stringify(cdekBody)?.slice(0, 500))
+    throw createError({ statusCode: status, message: 'CDEK API error', data: cdekBody })
+  }
+}
+
 export interface CdekTariffCalcBody {
   tariff_code?: number
   type?: number

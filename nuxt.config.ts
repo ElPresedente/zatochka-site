@@ -17,11 +17,12 @@ export default defineNuxtConfig({
     cdekAccount: process.env.CDEK_ACCOUNT || 'EMscd6r9JnFiQ3bLoyjJY6eM',
     cdekSecure: process.env.CDEK_SECURE || 'PjLZkKBHEiLK3YsjtNrt3TGNG0ahs3kG',
     cdekTestMode: process.env.CDEK_TEST_MODE !== 'false',
+    // Геокодер используется только сервером (через /api/delivery/geocode), ключ не светится в браузере.
+    yandexMapsGeocoderKey: process.env.YANDEX_MAPS_GEOCODER_KEY || '',
     public: {
       yandexMapsJsApiKey: process.env.YANDEX_MAPS_JS_API_KEY || '',
-      // Ключи геокодера и саджеста нужны клиенту для передачи в скрипт JS API.
-      // Оставить пустыми, если продукты подключены на тот же ключ, что JS API.
-      yandexMapsGeocoderKey: process.env.YANDEX_MAPS_GEOCODER_KEY || '',
+      // Ключ саджеста нужен клиенту для передачи в скрипт JS API.
+      // Оставить пустым, если Геосаджест подключён на тот же ключ, что JS API.
       yandexMapsSuggestKey: process.env.YANDEX_MAPS_SUGGEST_KEY || '',
     },
   },
@@ -32,7 +33,7 @@ export default defineNuxtConfig({
         headers: {
           'X-Frame-Options': 'DENY',
           'X-Content-Type-Options': 'nosniff',
-          'Referrer-Policy': 'strict-origin-when-cross-origin',
+          'Referrer-Policy': 'origin-when-cross-origin',
           'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
           'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
           // CSP: 'unsafe-inline' для style требуется Nuxt SSR (style hydration);
@@ -44,12 +45,18 @@ export default defineNuxtConfig({
             "frame-ancestors 'none'",
             "object-src 'none'",
             "form-action 'self'",
-            "img-src 'self' data: blob: https://*.maps.yandex.net https://static-maps.yandex.ru https://yastatic.net https://yandex.ru https://*.yandex.ru",
+            "img-src 'self' data: blob: https://*.maps.yandex.net https://static-maps.yandex.ru https://yastatic.net https://yandex.ru https://*.yandex.ru https://api-maps.yandex.ru https://*.api-maps.yandex.ru",
             "font-src 'self' https://fonts.gstatic.com",
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-            "script-src 'self' 'unsafe-inline' https://api-maps.yandex.ru https://yastatic.net https://core-renderer-tiles.maps.yandex.net https://cdn.jsdelivr.net",
-            "worker-src blob:",
-            "connect-src 'self' https://api.telegram.org https://api-maps.yandex.ru https://geocode-maps.yandex.ru https://suggest-maps.yandex.ru https://*.maps.yandex.net https://api.cdek.ru https://api.edu.cdek.ru",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://yastatic.net",
+            // 'unsafe-eval' требуется векторным движком Maps v3 для разбора тайлов.
+            // suggest-maps.yandex.ru — ymaps3.suggest работает через JSONP (инжект <script>),
+            // поэтому домен нужен именно в script-src, не только в connect-src.
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://suggest-maps.yandex.ru https://yastatic.net https://core-renderer-tiles.maps.yandex.net https://cdn.jsdelivr.net",
+            // data: нужен для воркеров Maps v3 (создаются из data: URL с importScripts из yastatic.net).
+            "worker-src blob: data: https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://yastatic.net",
+            // *.api-maps.yandex.ru покрывает log.api-maps.yandex.ru (телеметрия Maps v3).
+            // geocode-maps.yandex.ru нужен CDEK-виджету (прямой XHR для геокодирования).
+            "connect-src 'self' https://api.telegram.org https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://geocode-maps.yandex.ru https://suggest-maps.yandex.ru https://*.maps.yandex.net https://api.cdek.ru https://api.edu.cdek.ru",
             "frame-src 'self' https://yandex.ru https://*.yandex.ru https://*.yandex.net",
           ].join('; '),
         },

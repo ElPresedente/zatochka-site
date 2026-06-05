@@ -177,51 +177,53 @@ function handleCheckout() {
   })
 }
 
-// ── Yandex Maps lazy loading ──
+// ── Yandex Maps v3 lazy loading ──
+// В v3: координаты [lon, lat] (GeoJSON), глобал window.ymaps3,
+// карта через addChild(), suggest через ymaps3.suggest().
 
-function ensureYmaps(): Promise<void> {
+function ensureYmaps3(): Promise<void> {
   if (!import.meta.client) return Promise.resolve()
   const win = window as any
-  if (win.ymaps?.ready) {
-    if (ymapsReadyPromise) return ymapsReadyPromise
-    ymapsReadyPromise = new Promise(resolve => win.ymaps.ready(resolve))
+  // ymaps3 уже загружен (нами или CDEK-виджетом) — всегда берём актуальный ready,
+  // перезаписывая возможный старый rejected ymapsReadyPromise.
+  if (win.ymaps3) {
+    ymapsReadyPromise = win.ymaps3.ready as Promise<void>
     return ymapsReadyPromise
   }
+  // Загрузка уже в процессе
   if (ymapsReadyPromise) return ymapsReadyPromise
   const apiKey = config.public.yandexMapsJsApiKey
   if (!apiKey) return Promise.reject(new Error('YANDEX_MAPS_JS_API_KEY not set'))
   ymapsReadyPromise = new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-ymaps]')
-    if (existing) {
-      win.ymaps.ready(resolve)
-      return
-    }
     const script = document.createElement('script')
     script.setAttribute('data-ymaps', '1')
-    // В developer.tech.yandex.ru у каждого продукта свой ключ.
-    // JS API key грузит карту; ymaps.suggest() и ymaps.geocode() используют
-    // его же, если на ключ подключены Геосаджест/Геокодер.
-    // Если продукты на отдельных ключах — передаём их дополнительными параметрами.
-    const { yandexMapsSuggestKey: suggestKey, yandexMapsGeocoderKey: geocoderKey } = config.public
-    const extraParams = [
-      suggestKey ? `suggest_apikey=${suggestKey}` : '',
-      geocoderKey ? `geocode_apikey=${geocoderKey}` : '',
-    ].filter(Boolean).join('&')
-    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${apiKey}&lang=ru_RU${extraParams ? '&' + extraParams : ''}`
-    script.onload = () => win.ymaps.ready(resolve)
-    script.onerror = reject
+    // v3-загрузчик не принимает отдельный ключ саджеста (suggest_apikey/любое имя → HTTP 400,
+    // из-за чего срабатывал script.onerror → "[ymaps3] init failed"). В v3 ymaps3.suggest
+    // авторизуется основным JS-API-ключом — продукт «Геосаджест» включается на тот же ключ.
+    script.src = `https://api-maps.yandex.ru/v3/?apikey=${apiKey}&lang=ru_RU`
+    script.onload = () => win.ymaps3.ready.then(resolve).catch(reject)
+    script.onerror = (err) => {
+      ymapsReadyPromise = null  // Сбрасываем, чтобы следующая попытка могла повторить загрузку
+      reject(err)
+    }
     document.head.appendChild(script)
   })
   return ymapsReadyPromise
+}
+
+function makeMarkerEl(inZone: boolean | null): HTMLElement {
+  const el = document.createElement('div')
+  const color = inZone === false ? '#dc2626' : '#0988bd'
+  el.style.cssText = `width:14px;height:14px;background:${color};border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);transform:translate(-50%,-50%)`
+  return el
 }
 
 async function initOrelMap() {
   if (mapStatus.value === 'ready' || mapStatus.value === 'loading') return
   mapStatus.value = 'loading'
   try {
-    await ensureYmaps()
+    await ensureYmaps3()
 
-    // Fetch polygon if not cached
     if (!orelPolygon.value) {
       try {
         const data = await $fetch<{ coords: [number, number][] }>('/api/delivery/orel-polygon')
@@ -233,114 +235,68 @@ async function initOrelMap() {
     await nextTick()
     if (!mapContainerRef.value) { mapStatus.value = 'error'; return }
 
-    const ymaps = (window as any).ymaps
+    // Контролы (YMapZoomControl и пр.) не входят в ядро ymaps3 — они в отдельном пакете
+    // @yandex/ymaps3-controls, который грузится через ymaps3.import(). Для карты-показа зоны
+    // они не нужны: зум скроллом и перетаскивание работают по умолчанию.
+    const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapFeature, YMapMarker } = (window as any).ymaps3
 
-    mapInstance = new ymaps.Map(mapContainerRef.value, {
-      center: [52.971119, 36.059345],
-      zoom: 11,
-      controls: ['zoomControl'],
+    mapInstance = new YMap(mapContainerRef.value, {
+      location: { center: [36.059345, 52.971119], zoom: 11 },
     })
+    mapInstance.addChild(new YMapDefaultSchemeLayer({}))
+    mapInstance.addChild(new YMapDefaultFeaturesLayer({}))
 
-    // Draw polygon zone
+    // Полигон хранится как [lat, lon][] — конвертируем в v3 [lon, lat][]
     if (orelPolygon.value) {
-      const polygon = new ymaps.Polygon(
-        [orelPolygon.value],
-        { hintContent: 'Зона доставки' },
-        { fillColor: '#0988bd20', strokeColor: '#0988bd', strokeWidth: 2, opacity: 1 },
-      )
-      mapInstance.geoObjects.add(polygon)
+      const ring = orelPolygon.value.map(([lat, lon]) => [lon, lat])
+      const polygon = new YMapFeature({
+        geometry: { type: 'Polygon', coordinates: [ring] },
+        style: { fill: '#0988bd1a', stroke: [{ color: '#0988bd', width: 2 }] },
+      })
+      mapInstance.addChild(polygon)
     }
 
-    // Click on map to select address
-    mapInstance.events.add('click', async (e: any) => {
-      const coords: [number, number] = e.get('coords')
-      await selectFromCoords(coords)
-    })
+    if (selectedCoords.value) {
+      const c = [selectedCoords.value.lon, selectedCoords.value.lat]
+      mapPlacemark = new YMapMarker({ coordinates: c }, makeMarkerEl(addressInZone.value))
+      mapInstance.addChild(mapPlacemark)
+      mapInstance.update({ location: { center: c, zoom: 15 } })
+    }
 
     mapStatus.value = 'ready'
   }
   catch (err) {
-    console.error('[ymaps] init failed', err)
+    console.error('[ymaps3] init failed', err)
     mapStatus.value = 'error'
   }
 }
 
-async function selectFromCoords(coords: [number, number]) {
-  const ymaps = (window as any).ymaps
-  if (!ymaps) return
-
-  selectedCoords.value = { lat: coords[0], lon: coords[1] }
-
-  // Point-in-polygon check
-  if (orelPolygon.value) {
-    addressInZone.value = clientPointInPolygon(coords[0], coords[1], orelPolygon.value)
-  }
-  else {
-    addressInZone.value = true
-  }
-
-  // Update placemark
-  if (mapPlacemark) mapInstance?.geoObjects.remove(mapPlacemark)
-  mapPlacemark = new ymaps.Placemark(coords, {}, {
-    preset: addressInZone.value ? 'islands#blueDotIcon' : 'islands#redDotIcon',
-  })
-  mapInstance?.geoObjects.add(mapPlacemark)
-
-  // Reverse geocode
-  try {
-    const result = await ymaps.geocode(coords)
-    const obj = result.geoObjects.get(0)
-    if (obj) {
-      const addr = obj.getAddressLine()
-      selectedAddress.value = addr
-      addressInput.value = addr
-    }
-  }
-  catch {}
-}
-
 async function geocodeAndSelect(address: string) {
-  // Set address text immediately — don't wait for geocoding
   selectedAddress.value = address
   addressInput.value = address
   selectedCoords.value = null
   addressInZone.value = null
 
-  // Wait for ymaps to be ready if it is currently loading
-  if (!ymapsReadyPromise) return
   try {
-    await ymapsReadyPromise
-  }
-  catch {
-    return
-  }
+    const result = await $fetch<{ coords: { lat: number; lon: number } | null; inZone: boolean | null }>(
+      '/api/delivery/geocode',
+      { query: { q: address } },
+    )
+    if (!result.coords) return
+    selectedCoords.value = result.coords
+    addressInZone.value = result.inZone
 
-  const ymaps = (window as any).ymaps
-  if (!ymaps) return
-  try {
-    const result = await ymaps.geocode(address, { results: 1 })
-    const obj = result.geoObjects.get(0)
-    if (obj) {
-      const coords: [number, number] = obj.geometry.getCoordinates()
-      selectedCoords.value = { lat: coords[0], lon: coords[1] }
-
-      if (orelPolygon.value) {
-        addressInZone.value = clientPointInPolygon(coords[0], coords[1], orelPolygon.value)
-      }
-      else {
-        addressInZone.value = true
-      }
-
-      if (mapPlacemark) mapInstance?.geoObjects.remove(mapPlacemark)
-      mapPlacemark = new ymaps.Placemark(coords, {}, {
-        preset: addressInZone.value ? 'islands#blueDotIcon' : 'islands#redDotIcon',
-      })
-      mapInstance?.geoObjects.add(mapPlacemark)
-      mapInstance?.setCenter(coords, 15)
+    if (mapInstance) {
+      const { YMapMarker } = (window as any).ymaps3
+      const c = [result.coords.lon, result.coords.lat]
+      if (mapPlacemark) mapInstance.removeChild(mapPlacemark)
+      mapPlacemark = new YMapMarker({ coordinates: c }, makeMarkerEl(result.inZone))
+      mapInstance.addChild(mapPlacemark)
+      mapInstance.update({ location: { center: c, zoom: 15 } })
     }
   }
-  catch (e) {
-    console.error('[ymaps] geocode failed', e)
+  catch {
+    // Geocoder unavailable — address text is still set, zone unknown
   }
 }
 
@@ -355,20 +311,19 @@ function onAddressInput(val: string) {
   if (val.trim().length < 3) { addressSuggestions.value = []; return }
 
   debounceTimer = setTimeout(async () => {
-    const ymaps = (window as any).ymaps
-    if (!ymaps) return
+    const ymaps3 = (window as any).ymaps3
+    if (!ymaps3) return
     suggestLoading.value = true
     try {
-      const items: { displayName: string; value: string }[] = await ymaps.suggest(
-        'Орёл, ' + val,
-        {
-          boundedBy: [[52.85, 35.90], [53.10, 36.25]],
-          strictBounds: false,
-          results: 5,
-        },
+      const items: { title: { text: string }; subtitle?: { text: string } }[] = await ymaps3.suggest({
+        text: 'Орёл, ' + val,
+        boundingBox: { southWest: [35.90, 52.85], northEast: [36.25, 53.10] },
+        results: 5,
+      })
+      addressSuggestions.value = items.map(i =>
+        i.subtitle?.text ? `${i.title.text}, ${i.subtitle.text}` : i.title.text,
       )
-      addressSuggestions.value = items.map(i => i.displayName)
-      showSuggestions.value = items.length > 0
+      showSuggestions.value = addressSuggestions.value.length > 0
     }
     catch {
       addressSuggestions.value = []
@@ -384,28 +339,16 @@ async function selectSuggestion(addr: string) {
   await geocodeAndSelect(addr)
 }
 
-// Point-in-polygon (ray casting), client-side
-function clientPointInPolygon(lat: number, lon: number, polygon: [number, number][]): boolean {
-  let inside = false
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [yi, xi] = polygon[i]
-    const [yj, xj] = polygon[j]
-    if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
-      inside = !inside
-    }
-  }
-  return inside
-}
-
 // ── CDEK widget lazy loading ──
 
 async function initCdekWidget() {
   if (cdekStatus.value === 'ready' || cdekStatus.value === 'loading') return
   cdekStatus.value = 'loading'
   try {
-    // Load both scripts in parallel; ymaps must be ready before CDEKWidget
-    // initialises its own Yandex Maps layer (prevents double-init conflict)
-    await Promise.allSettled([ensureCdekScript(), ensureYmaps()])
+    // CDEK widget v3 uses vue-yandex-maps@2.1.2 which loads Yandex Maps v3 (ymaps3) internally.
+    // Don't pre-load ymaps v2.1 here — it uses a different global (ymaps vs ymaps3)
+    // and mixing both on the same page causes the instability CDEK warns about.
+    await ensureCdekScript()
     await nextTick()
     if (!cdekContainerRef.value) { cdekStatus.value = 'error'; return }
 
@@ -423,8 +366,18 @@ async function initCdekWidget() {
       root: cdekContainerRef.value.id,
       apiKey: config.public.yandexMapsJsApiKey,
       servicePath: '/api/delivery/cdek-proxy',
-      defaultLocation: 'Орёл',
-      from: 'Орёл',
+      // Координаты [lon, lat] Орла — избегаем строки, иначе виджет вызывает
+      // geocode-maps.yandex.ru напрямую из браузера (ключ JS API для этого не подходит).
+      defaultLocation: [36.059345, 52.971119],
+      // from как строку CDEK не распознаёт (v2_sender_location_not_recognized).
+      // Передаём объект с postal_code — он универсален (коды городов CDEK
+      // могут отличаться между тестом и продом, индекс — нет).
+      from: { country_code: 'RU', city: 'Орёл', postal_code: 302000 },
+      // Только ПВЗ/постаматы. Курьер «до двери» отключён: он требует геокодирования
+      // адреса получателя, а виджет геокодит своим JS-API-ключом (geocode-maps.yandex.ru
+      // 403 — Геокодер HTTP API висит на отдельном ключе, не на JS API). Без курьера
+      // геокодер не нужен, и уходит переключатель «До двери/До склада».
+      hideDeliveryOptions: { door: true, office: false },
       goods,
       onReady() {
         cdekStatus.value = 'ready'
@@ -655,7 +608,7 @@ watch([deliveryScope, deliveryType], async ([scope, type]) => {
                     <span v-if="orelDeliveryCost === 0"> — доставка бесплатна</span>
                     <span v-else> — стоимость доставки {{ formatPrice(orelDeliveryCost) }}</span>
                   </p>
-                  <p v-else class="text-xs text-[#aaa] mt-1">Введите адрес или кликните на карте</p>
+                  <p v-else class="text-xs text-[#aaa] mt-1">Введите адрес и выберите из подсказок</p>
                 </div>
 
                 <!-- Map -->
@@ -718,9 +671,9 @@ watch([deliveryScope, deliveryType], async ([scope, type]) => {
                 <div
                   id="cdek-widget-container"
                   ref="cdekContainerRef"
-                  class="rounded-xl overflow-hidden border border-[#e0e0e0]"
+                  class="rounded-xl border border-[#e0e0e0]"
                   :class="cdekStatus !== 'ready' && cdekStatus !== 'loading' ? 'hidden' : ''"
-                  style="min-height: 280px"
+                  style="min-height: 520px"
                 />
                 <!-- Selected PVZ info -->
                 <div v-if="cdekPvz" class="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm">

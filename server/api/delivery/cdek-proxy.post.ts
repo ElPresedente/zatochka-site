@@ -1,30 +1,23 @@
-import { cdekRequest } from '~/server/utils/cdek'
+import { cdekWidgetRequest } from '~/server/utils/cdek'
 
+// Виджет CDEK v3 шлёт POST с JSON-телом, где action и данные лежат вместе
+// (например calculate для расчёта тарифа). Эталонный service.php делает json_decode
+// СЫРОГО тела независимо от content-type — повторяем, чтобы не зависеть от парсера h3,
+// если виджет выставит content-type вроде text/plain.
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
-  const { url, method, body: requestBody, params } = body ?? {}
+  const query = getQuery(event)
+  let body: Record<string, any> = {}
 
-  if (!url || typeof url !== 'string' || !url.startsWith('/v2/')) {
-    throw createError({ statusCode: 400, message: 'Invalid CDEK request' })
-  }
-
-  // params can arrive as a query string "?key=val" or as a plain object {key: val}
-  let queryString = ''
-  if (params) {
-    if (typeof params === 'string') {
-      queryString = params.startsWith('?') ? params : `?${params}`
+  const raw = await readRawBody(event)
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') body = parsed
     }
-    else if (typeof params === 'object') {
-      const qs = new URLSearchParams(params as Record<string, string>).toString()
-      if (qs) queryString = `?${qs}`
+    catch {
+      // не JSON — оставляем body пустым, action может прийти в query
     }
   }
 
-  try {
-    return await cdekRequest(url, method ?? 'GET', requestBody, queryString)
-  }
-  catch (err: any) {
-    const status = err?.statusCode ?? err?.response?.status ?? 500
-    throw createError({ statusCode: status, message: 'CDEK API error' })
-  }
+  return cdekWidgetRequest({ ...query, ...body })
 })

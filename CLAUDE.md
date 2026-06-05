@@ -239,6 +239,34 @@ Webhook `POST /api/yookassa/webhook`:
 
 В ЛК ЮKassa настроить вебхук: `POST https://your-site.ru/api/yookassa/webhook` (события: `payment.succeeded`, `payment.canceled`).
 
+## Доставка
+
+Три способа доставки, вся клиентская логика — в `components/shop/CartDrawer.vue` (монтируется в корзине на `/shop`):
+
+1. **Самовывоз** — адрес мастерской, ссылка на карты. Адрес клиента не запрашивается.
+2. **По Орлу** — Яндекс.Карты v3 с полигоном зоны доставки + адресный саджест. Стоимость считается на сервере (`server/utils/delivery.ts`): фикс. тариф `delivery_orel_fee`, бесплатно от `delivery_orel_free_threshold`.
+3. **По России** — виджет СДЭК (`@cdek-it/widget@3`), выбор ПВЗ/тарифа. Все запросы виджета идут через прокси.
+
+Серверная часть:
+
+- `server/utils/cdek.ts` — CDEK API client (OAuth, кэш токена). Прокси автоматически роутит в `api.edu.cdek.ru` (тест) или `api.cdek.ru` (прод) по `CDEK_TEST_MODE`.
+- `server/api/delivery/cdek-proxy.get.ts` и `cdek-proxy.post.ts` — прокси виджета. **Протокол виджета v3** (эталон — `dist/service.php` из репо `cdek-it/widget`): запрос содержит поле `action` в query-параметрах ИЛИ в JSON-теле (сервис мёржит оба), и диспатчится по имени действия — НЕ по `{ url, method }`. Реализовано в `cdekWidgetRequest()` (`server/utils/cdek.ts`): `offices` → GET `/v2/deliverypoints` (params из query), `calculate` (это `getPrice` для расчёта тарифа) → POST `/v2/calculator/tarifflist` с JSON-телом. GET-хэндлер — для `offices`, POST-хэндлер — для `calculate`.
+- `server/api/delivery/geocode.get.ts` — серверный геокодер Орла. Вызывает `geocode-maps.yandex.ru` приватным ключом `YANDEX_MAPS_GEOCODER_KEY`, проверяет попадание в полигон через `pointInPolygon()`. **Ключ геокодера приватный — не в `runtimeConfig.public`.**
+- `server/api/delivery/orel-polygon.get.ts` — полигон Орла. Кэш в `site_settings.delivery_orel_polygon` (JSON `[lat, lon][]`), фетч из Nominatim при первом обращении, hardcode-fallback.
+- `server/api/orders/index.post.ts` — принимает delivery-поля, повторно валидирует полигон и пересчитывает стоимость/тариф на сервере (нельзя доверять клиенту).
+- `server/api/yookassa/webhook.post.ts` — после `payment.succeeded` для СДЭК автосоздаёт заказ в СДЭК.
+
+**Яндекс.Карты v3 (`ymaps3`) — критичные нюансы:**
+
+- Координаты в v3 — `[lon, lat]` (GeoJSON-порядок). Полигон в БД хранится как `[lat, lon][]` и конвертируется при отрисовке.
+- Загрузчик `https://api-maps.yandex.ru/v3/?apikey=...&lang=ru_RU` **НЕ принимает отдельный ключ саджеста** — любой параметр вида `suggest_apikey`/`suggestApikey` даёт HTTP 400 и роняет загрузку скрипта (`script.onerror` → `[ymaps3] init failed`). `ymaps3.suggest` авторизуется ОСНОВНЫМ JS-API-ключом: продукт «Геосаджест» включается на тот же ключ `YANDEX_MAPS_JS_API_KEY` в кабинете. `ymaps3.suggest` ходит на `suggest-maps.yandex.ru` через **JSONP** (инжект `<script>`), поэтому этот домен обязан быть в `script-src` CSP, а не только в `connect-src`.
+- **Геокодер — только server-side.** Клиентский `ymaps.geocode`/HTTP-геокодер с JS-API-ключом даёт 403. Геокодирование адреса Орла идёт через `/api/delivery/geocode` приватным `YANDEX_MAPS_GEOCODER_KEY` (формат ответа `pos` = «lon lat»). CSP для него не нужен.
+- Поле **HTTP Referer** ключа в кабинете Яндекса — переключатель версии API: пустое = v2.1, заполненное (формат `localhost` без протокола/порта) = v3.
+- Контролы (`YMapZoomControl`, `YMapGeolocationControl` и пр.) **не входят в ядро `ymaps3`** — они в отдельном пакете `@yandex/ymaps3-controls`, грузятся через `ymaps3.import()`. В ядре есть только контейнер `YMapControls`. Сейчас карта Орла кнопок зума не имеет (зум скроллом/перетаскивание работают по умолчанию) — чтобы их добавить, нужен `ymaps3.import('@yandex/ymaps3-controls')`.
+- **CDEK-виджет геокодит сам, своим JS-API-ключом.** В конфиге виджета v3 `apiKey` — единственный ключ Яндекс.Карт (отдельной опции для ключа геокодера НЕТ), и виджет шлёт прямой XHR на `geocode-maps.yandex.ru/1.x/` этим ключом. Если на ключе не включён продукт «Геокодер HTTP API» → 403 (адрес по клику/точке не определяется). Лечится только в кабинете: включить «Геокодер HTTP API» на том же ключе `YANDEX_MAPS_JS_API_KEY`. Через наш `/api/delivery/geocode` это не переопределить — виджет туда не ходит.
+- CDEK-виджет v3 тянет `ymaps3` сам (через `vue-yandex-maps`). Наш `ensureYmaps3()` и виджет делят один глобал `window.ymaps3` — поэтому `ensureYmaps3()` сначала проверяет `window.ymaps3` и берёт актуальный `.ready`, иначе инжектит скрипт сам.
+- CSP под Maps v3 настроен в `nuxt.config.ts` (`script-src` с `unsafe-eval`, `worker-src data:`, `*.api-maps.yandex.ru` и др.). При изменениях карты сверяться с `yandex.ru/maps-api/docs/js-api/common/connection/csp.html`.
+
 ## Rate limiting
 
 Утилиты в `server/utils/rate-limit.ts`: `assertRateLimit`, `recordRateLimitHit`, `clearRateLimit`. Используют Nitro storage (`rate-limit` namespace). Вызывать `assertRateLimit` перед обработкой и `recordRateLimitHit` после успешной проверки.
@@ -293,6 +321,11 @@ Webhook `POST /api/yookassa/webhook`:
 - `YOOKASSA_SHOP_ID` — shopId из личного кабинета ЮKassa.
 - `YOOKASSA_SECRET_KEY` — секретный ключ API ЮKassa.
 - `SITE_URL` — базовый URL сайта (например `https://example.ru`), используется для формирования `return_url` платежей.
+- `YANDEX_MAPS_JS_API_KEY` — ключ JS API v3 (public). На ключе в кабинете должны быть включены продукты «JavaScript API» и «Геосаджест»; в поле HTTP Referer — `localhost` для dev, прод-домен для прода.
+- `YANDEX_MAPS_GEOCODER_KEY` — ключ Geocoder HTTP API (приватный, **не** public). Отдельный продукт/ключ для серверного геокодера Орла.
+- `YANDEX_MAPS_SUGGEST_KEY` — устаревшая переменная: в v3 отдельный ключ саджеста загрузчику не передаётся (см. раздел «Доставка»). Не используется в загрузчике карты.
+- `CDEK_ACCOUNT` / `CDEK_SECURE` — логин/пароль CDEK API (по умолчанию — тестовые credentials).
+- `CDEK_TEST_MODE` — `false` = боевой СДЭК (`api.cdek.ru`); `true`/пусто = тест (`api.edu.cdek.ru`).
 
 ## Запланированные изменения
 
