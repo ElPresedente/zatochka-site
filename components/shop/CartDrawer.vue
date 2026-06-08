@@ -37,6 +37,7 @@ export interface CheckoutParams {
   cdekPvzCode?: string
   cdekPvzAddress?: string
   cdekPvzCity?: string
+  cdekPvzCityCode?: number
   cdekTariffCode?: number
   cdekDeliveryDaysMin?: number
   cdekDeliveryDaysMax?: number
@@ -70,19 +71,37 @@ function onAddressBlur() {
   setTimeout(() => { showSuggestions.value = false }, 200)
 }
 
-// CDEK
+// CDEK (доставка по России): город → ПВЗ города → выбор
+interface CdekCity { code: number; city: string; region: string; lon: number; lat: number }
+interface CdekOffice { code: string; name: string; address: string; city: string; lon: number; lat: number; workTime: string; type: string }
+
+const cityQuery = ref('')
+const cityResults = ref<CdekCity[]>([])
+const showCityResults = ref(false)
+const cityLoading = ref(false)
+const selectedCity = ref<CdekCity | null>(null)
+const offices = ref<CdekOffice[]>([])
+const officesStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+const tariffLoading = ref(false)
 const cdekPvz = ref<{ code: string; address: string; city: string } | null>(null)
 const cdekTariff = ref<{ code: number; sum: number; daysMin: number; daysMax: number } | null>(null)
+let cityDebounce: ReturnType<typeof setTimeout> | null = null
 
-// Map state
+// Map state — Орёл
 const mapContainerRef = ref<HTMLElement | null>(null)
-const cdekContainerRef = ref<HTMLElement | null>(null)
 const mapStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
-const cdekStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 let mapInstance: any = null
 let mapPlacemark: any = null
 let ymapsReadyPromise: Promise<void> | null = null
-let cdekWidgetInstance: any = null
+
+// Map state — СДЭК (карта города с ПВЗ)
+const cdekMapContainerRef = ref<HTMLElement | null>(null)
+const cdekMapStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
+let cdekMapInstance: any = null
+let officeMarkers: { code: string; el: HTMLElement; marker: any }[] = []
+
+// Грузы для расчёта тарифа (вес/габариты — фикс., как и в проверке заказа на сервере)
+const cdekGoods = computed(() => props.cart.map(() => ({ weight: 1000, length: 10, width: 10, height: 10 })))
 
 // Delivery thresholds from settings
 const orelFee = computed(() => Number(props.settings?.delivery_orel_fee ?? 200))
@@ -119,25 +138,35 @@ watch(() => props.cart.length, (len) => {
   if (len === 0) step.value = 'cart'
 })
 
+function resetCdekState() {
+  cityQuery.value = ''
+  cityResults.value = []
+  showCityResults.value = false
+  selectedCity.value = null
+  offices.value = []
+  officesStatus.value = 'idle'
+  cdekPvz.value = null
+  cdekTariff.value = null
+  cdekMapStatus.value = 'idle'
+  cdekMapInstance = null
+  officeMarkers = []
+}
+
 // Reset delivery state on scope change
 watch(deliveryScope, () => {
   selectedAddress.value = ''
   selectedCoords.value = null
   addressInZone.value = null
-  cdekPvz.value = null
-  cdekTariff.value = null
   mapStatus.value = 'idle'
-  cdekStatus.value = 'idle'
   mapInstance = null
-  cdekWidgetInstance = null
+  resetCdekState()
 })
 
 watch(deliveryType, () => {
   if (deliveryType.value === 'pickup') {
     mapStatus.value = 'idle'
-    cdekStatus.value = 'idle'
     mapInstance = null
-    cdekWidgetInstance = null
+    resetCdekState()
   }
 })
 
@@ -171,6 +200,7 @@ function handleCheckout() {
     cdekPvzCode: cdekPvz.value?.code,
     cdekPvzAddress: cdekPvz.value?.address,
     cdekPvzCity: cdekPvz.value?.city,
+    cdekPvzCityCode: selectedCity.value?.code,
     cdekTariffCode: cdekTariff.value?.code,
     cdekDeliveryDaysMin: cdekTariff.value?.daysMin,
     cdekDeliveryDaysMax: cdekTariff.value?.daysMax,
@@ -339,94 +369,138 @@ async function selectSuggestion(addr: string) {
   await geocodeAndSelect(addr)
 }
 
-// ── CDEK widget lazy loading ──
+// ── СДЭК: выбор города → ПВЗ города → точка на карте/в списке ──
+// Виджет СДЭК грузил все ~10 500 ПВЗ России разом (≈40 с фриза рендера). Вместо него
+// свой пикер: грузим ПВЗ только выбранного города (даже Москва ≈ 486 точек).
 
-async function initCdekWidget() {
-  if (cdekStatus.value === 'ready' || cdekStatus.value === 'loading') return
-  cdekStatus.value = 'loading'
+function onCityInput(val: string) {
+  cityQuery.value = val
+  selectedCity.value = null
+  offices.value = []
+  officesStatus.value = 'idle'
+  cdekPvz.value = null
+  cdekTariff.value = null
+  cdekMapStatus.value = 'idle'
+
+  if (cityDebounce) clearTimeout(cityDebounce)
+  if (val.trim().length < 2) { cityResults.value = []; showCityResults.value = false; return }
+
+  cityDebounce = setTimeout(async () => {
+    cityLoading.value = true
+    try {
+      cityResults.value = await $fetch<CdekCity[]>('/api/delivery/cdek-cities', { query: { q: val.trim() } })
+      showCityResults.value = cityResults.value.length > 0
+    }
+    catch {
+      cityResults.value = []
+    }
+    finally {
+      cityLoading.value = false
+    }
+  }, 300)
+}
+
+function onCityBlur() {
+  setTimeout(() => { showCityResults.value = false }, 200)
+}
+
+async function selectCity(city: CdekCity) {
+  selectedCity.value = city
+  cityQuery.value = city.city
+  cityResults.value = []
+  showCityResults.value = false
+  cdekPvz.value = null
+  cdekTariff.value = null
+  offices.value = []
+  officesStatus.value = 'loading'
   try {
-    // CDEK widget v3 uses vue-yandex-maps@2.1.2 which loads Yandex Maps v3 (ymaps3) internally.
-    // Don't pre-load ymaps v2.1 here — it uses a different global (ymaps vs ymaps3)
-    // and mixing both on the same page causes the instability CDEK warns about.
-    await ensureCdekScript()
+    offices.value = await $fetch<CdekOffice[]>('/api/delivery/cdek-city-offices', { query: { cityCode: city.code } })
+    officesStatus.value = 'ready'
+    await initCdekMap()
+  }
+  catch {
+    officesStatus.value = 'error'
+  }
+}
+
+function makeOfficeMarkerEl(selected: boolean): HTMLElement {
+  const el = document.createElement('div')
+  el.style.cssText = `width:14px;height:14px;background:${selected ? '#16a34a' : '#0988bd'};border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);transform:translate(-50%,-50%);cursor:pointer`
+  return el
+}
+
+function renderOfficeMarkers() {
+  if (!cdekMapInstance) return
+  const { YMapMarker } = (window as any).ymaps3
+  officeMarkers.forEach(m => cdekMapInstance.removeChild(m.marker))
+  officeMarkers = []
+  for (const o of offices.value) {
+    const el = makeOfficeMarkerEl(o.code === cdekPvz.value?.code)
+    el.onclick = () => selectOffice(o)
+    const marker = new YMapMarker({ coordinates: [o.lon, o.lat] }, el)
+    cdekMapInstance.addChild(marker)
+    officeMarkers.push({ code: o.code, el, marker })
+  }
+}
+
+async function initCdekMap() {
+  cdekMapStatus.value = 'loading'
+  try {
+    await ensureYmaps3()
     await nextTick()
-    if (!cdekContainerRef.value) { cdekStatus.value = 'error'; return }
+    if (!cdekMapContainerRef.value || !selectedCity.value) { cdekMapStatus.value = 'error'; return }
 
-    const CDEKWidget = (window as any).CDEKWidget
-    if (!CDEKWidget) { cdekStatus.value = 'error'; return }
+    // При смене города уничтожаем прежнюю карту, чтобы не плодить инстансы на контейнере
+    if (cdekMapInstance) { cdekMapInstance.destroy?.(); cdekMapInstance = null; officeMarkers = [] }
 
-    const goods = props.cart.map(item => ({
-      weight: 1000,
-      length: 10,
-      width: 10,
-      height: 10,
-    }))
-
-    cdekWidgetInstance = new CDEKWidget({
-      root: cdekContainerRef.value.id,
-      apiKey: config.public.yandexMapsJsApiKey,
-      servicePath: '/api/delivery/cdek-proxy',
-      // Координаты [lon, lat] Орла — избегаем строки, иначе виджет вызывает
-      // geocode-maps.yandex.ru напрямую из браузера (ключ JS API для этого не подходит).
-      defaultLocation: [36.059345, 52.971119],
-      // from как строку CDEK не распознаёт (v2_sender_location_not_recognized).
-      // Передаём объект с postal_code — он универсален (коды городов CDEK
-      // могут отличаться между тестом и продом, индекс — нет).
-      from: { country_code: 'RU', city: 'Орёл', postal_code: 302000 },
-      // Только ПВЗ/постаматы. Курьер «до двери» отключён: он требует геокодирования
-      // адреса получателя, а виджет геокодит своим JS-API-ключом (geocode-maps.yandex.ru
-      // 403 — Геокодер HTTP API висит на отдельном ключе, не на JS API). Без курьера
-      // геокодер не нужен, и уходит переключатель «До двери/До склада».
-      hideDeliveryOptions: { door: true, office: false },
-      goods,
-      onReady() {
-        cdekStatus.value = 'ready'
-      },
-      onChoose(_type: string, tariff: any, point: any) {
-        cdekPvz.value = {
-          code: point?.code ?? '',
-          address: point?.address_full ?? point?.location?.address ?? '',
-          city: point?.location?.city ?? point?.city ?? '',
-        }
-        cdekTariff.value = {
-          code: tariff?.tariff_code ?? 0,
-          sum: Math.round(tariff?.delivery_sum ?? 0),
-          daysMin: tariff?.period_min ?? 0,
-          daysMax: tariff?.period_max ?? 0,
-        }
-      },
+    const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer } = (window as any).ymaps3
+    cdekMapInstance = new YMap(cdekMapContainerRef.value, {
+      location: { center: [selectedCity.value.lon, selectedCity.value.lat], zoom: 11 },
     })
+    cdekMapInstance.addChild(new YMapDefaultSchemeLayer({}))
+    cdekMapInstance.addChild(new YMapDefaultFeaturesLayer({}))
+    renderOfficeMarkers()
+    cdekMapStatus.value = 'ready'
   }
   catch (err) {
-    console.error('[cdek] widget init failed', err)
-    cdekStatus.value = 'error'
+    console.error('[cdek] map init failed', err)
+    cdekMapStatus.value = 'error'
   }
 }
 
-let cdekScriptPromise: Promise<void> | null = null
-function ensureCdekScript(): Promise<void> {
-  if (!import.meta.client) return Promise.resolve()
-  if ((window as any).CDEKWidget) return Promise.resolve()
-  if (cdekScriptPromise) return cdekScriptPromise
-  cdekScriptPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/@cdek-it/widget@3'
-    script.onload = () => resolve()
-    script.onerror = reject
-    document.head.appendChild(script)
+async function selectOffice(office: CdekOffice) {
+  cdekPvz.value = { code: office.code, address: office.address, city: office.city }
+  cdekTariff.value = null
+  // Перекрашиваем маркеры (выбранный — зелёный) и центрируем карту
+  officeMarkers.forEach((m) => {
+    m.el.style.background = m.code === office.code ? '#16a34a' : '#0988bd'
   })
-  return cdekScriptPromise
+  if (cdekMapInstance) cdekMapInstance.update({ location: { center: [office.lon, office.lat], zoom: 14 } })
+
+  if (!selectedCity.value) return
+  tariffLoading.value = true
+  try {
+    const t = await $fetch<{ code: number; sum: number; daysMin: number; daysMax: number }>(
+      '/api/delivery/cdek-tariff',
+      { method: 'POST', body: { cityCode: selectedCity.value.code, goods: cdekGoods.value } },
+    )
+    cdekTariff.value = t
+  }
+  catch {
+    cdekTariff.value = null
+  }
+  finally {
+    tariffLoading.value = false
+  }
 }
 
-// Watch for scope change to auto-init map/widget
+// Карта Орла авто-инициализируется при выборе зоны. Для СДЭК карта грузится
+// после выбора города (в selectCity), поэтому здесь — только Орёл.
 watch([deliveryScope, deliveryType], async ([scope, type]) => {
   if (type !== 'delivery') return
   await nextTick()
   if (scope === 'orel' && mapStatus.value === 'idle') {
     initOrelMap()
-  }
-  else if (scope === 'russia' && cdekStatus.value === 'idle') {
-    initCdekWidget()
   }
 })
 </script>
@@ -644,47 +718,94 @@ watch([deliveryScope, deliveryType], async ([scope, type]) => {
                 </div>
               </template>
 
-              <!-- Доставка по России (CDEK) -->
+              <!-- Доставка по России (СДЭК): город → ПВЗ -->
               <template v-if="deliveryScope === 'russia'">
-                <div
-                  v-if="cdekStatus === 'idle'"
-                  class="h-[280px] bg-[#f0f4f8] rounded-xl flex items-center justify-center cursor-pointer border border-[#e0e0e0] hover:border-brand transition-colors"
-                  @click="initCdekWidget"
-                >
-                  <div class="flex flex-col items-center gap-2 text-[#888]">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                    <span class="text-sm font-medium">Выбрать пункт выдачи СДЭК</span>
+                <!-- Город получения с автодополнением -->
+                <div class="relative">
+                  <label class="block text-xs font-semibold text-[#777] mb-1.5 uppercase tracking-wide">
+                    Город получения <span class="text-red-400">*</span>
+                  </label>
+                  <input
+                    :value="cityQuery"
+                    type="text"
+                    autocomplete="off"
+                    placeholder="Введите город"
+                    class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand transition-colors"
+                    @input="onCityInput(($event.target as HTMLInputElement).value)"
+                    @focus="showCityResults = cityResults.length > 0"
+                    @blur="onCityBlur"
+                  >
+                  <div
+                    v-if="showCityResults && cityResults.length > 0"
+                    class="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg overflow-hidden max-h-[240px] overflow-y-auto"
+                  >
+                    <button
+                      v-for="c in cityResults"
+                      :key="c.code"
+                      class="w-full px-4 py-2.5 text-left text-sm border-b last:border-0 border-[#f0f0f0] hover:bg-[#f5f5f5] transition-colors"
+                      @mousedown.prevent="selectCity(c)"
+                    >
+                      {{ c.city }}<span class="text-[#999]"> — {{ c.region }}</span>
+                    </button>
                   </div>
+                  <p v-if="cityLoading" class="text-xs text-[#aaa] mt-1">Поиск города…</p>
+                  <p v-else-if="!selectedCity" class="text-xs text-[#aaa] mt-1">Начните вводить город и выберите из списка</p>
                 </div>
-                <div
-                  v-if="cdekStatus === 'loading'"
-                  class="h-[280px] bg-[#f0f4f8] rounded-xl flex items-center justify-center border border-[#e0e0e0]"
-                >
-                  <span class="text-sm text-[#888]">Загрузка виджета СДЭК…</span>
-                </div>
-                <div
-                  v-if="cdekStatus === 'error'"
-                  class="h-[280px] bg-[#f0f4f8] rounded-xl flex items-center justify-center border border-[#e0e0e0]"
-                >
-                  <span class="text-sm text-red-500">Не удалось загрузить виджет СДЭК.</span>
-                </div>
-                <div
-                  id="cdek-widget-container"
-                  ref="cdekContainerRef"
-                  class="rounded-xl border border-[#e0e0e0]"
-                  :class="cdekStatus !== 'ready' && cdekStatus !== 'loading' ? 'hidden' : ''"
-                  style="min-height: 520px"
-                />
-                <!-- Selected PVZ info -->
+
+                <!-- Карта города с ПВЗ + статусы загрузки -->
+                <template v-if="selectedCity">
+                  <div
+                    v-if="officesStatus === 'loading'"
+                    class="h-[240px] bg-[#f0f4f8] rounded-xl flex items-center justify-center border border-[#e0e0e0]"
+                  >
+                    <span class="text-sm text-[#888]">Загрузка пунктов выдачи…</span>
+                  </div>
+                  <div
+                    v-else-if="officesStatus === 'error'"
+                    class="h-[240px] bg-[#f0f4f8] rounded-xl flex items-center justify-center border border-[#e0e0e0]"
+                  >
+                    <span class="text-sm text-red-500">Не удалось загрузить пункты выдачи.</span>
+                  </div>
+                  <template v-else-if="officesStatus === 'ready'">
+                    <div
+                      v-if="offices.length > 0"
+                      id="cdek-city-map"
+                      ref="cdekMapContainerRef"
+                      class="h-[240px] rounded-xl overflow-hidden border border-[#e0e0e0]"
+                      :class="cdekMapStatus !== 'ready' ? 'hidden' : ''"
+                    />
+                    <!-- Список ПВЗ -->
+                    <div
+                      v-if="offices.length > 0"
+                      class="border border-[#e0e0e0] rounded-xl divide-y divide-[#f0f0f0] max-h-[260px] overflow-y-auto"
+                    >
+                      <button
+                        v-for="o in offices"
+                        :key="o.code"
+                        class="w-full text-left px-3.5 py-2.5 text-sm transition-colors"
+                        :class="cdekPvz?.code === o.code ? 'bg-brand/10' : 'hover:bg-[#f7f9fb]'"
+                        @click="selectOffice(o)"
+                      >
+                        <div class="font-semibold text-[#333]">{{ o.address }}</div>
+                        <div class="text-xs text-[#888] mt-0.5">
+                          <span v-if="o.type === 'POSTAMAT'">Постамат · </span>{{ o.workTime }}
+                        </div>
+                      </button>
+                    </div>
+                    <p v-else class="text-sm text-[#888]">В этом городе нет пунктов выдачи СДЭК.</p>
+                  </template>
+                </template>
+
+                <!-- Выбранный ПВЗ + стоимость -->
                 <div v-if="cdekPvz" class="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm">
                   <div class="font-semibold text-green-800">ПВЗ выбран: {{ cdekPvz.city }}</div>
                   <div class="text-green-700 mt-0.5">{{ cdekPvz.address }}</div>
-                  <div v-if="cdekTariff" class="text-green-600 mt-1 font-semibold">
+                  <div v-if="tariffLoading" class="text-green-600 mt-1">Расчёт стоимости…</div>
+                  <div v-else-if="cdekTariff" class="text-green-600 mt-1 font-semibold">
                     Стоимость доставки: {{ formatPrice(cdekTariff.sum) }}
                     <span v-if="cdekTariff.daysMin">· {{ cdekTariff.daysMin }}–{{ cdekTariff.daysMax }} дн.</span>
                   </div>
                 </div>
-                <p v-else-if="cdekStatus !== 'idle'" class="text-xs text-[#aaa]">Выберите пункт выдачи на карте</p>
               </template>
             </template>
 

@@ -2,7 +2,7 @@ import { and, eq, ne } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { orders, orderItems } from '~/server/db/schema'
 import { fetchYookassaPayment } from '~/server/utils/yookassa'
-import { cdekCreateOrder } from '~/server/utils/cdek'
+import { cdekCreateOrder, CDEK_SENDER_CITY_CODE } from '~/server/utils/cdek'
 
 export default defineEventHandler(async (event) => {
   let body: any
@@ -64,7 +64,7 @@ export default defineEventHandler(async (event) => {
               phones: [{ number: updatedOrder.customerPhone }],
               email: updatedOrder.customerEmail || undefined,
             },
-            from_location: { code: 270 },
+            from_location: { code: CDEK_SENDER_CITY_CODE },
             delivery_point: updatedOrder.cdekPvzCode,
             packages: [{
               number: String(orderId),

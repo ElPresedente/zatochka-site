@@ -8,7 +8,7 @@ import { parseOptionalString, parseEmail } from '~/server/utils/validators'
 import { parseProductPhotos, parseProductServices } from '~/server/utils/json-shapes'
 import { createYookassaPayment, buildReceiptItems } from '~/server/utils/yookassa'
 import { getOrelDeliveryConfig, pointInPolygon, calcOrelDeliveryCost } from '~/server/utils/delivery'
-import { cdekCalculateTariff } from '~/server/utils/cdek'
+import { cdekOfficeTariff } from '~/server/utils/cdek'
 
 const WINDOW_MS = 60 * 60 * 1000
 const MAX_ORDERS = 10
@@ -81,6 +81,7 @@ export default defineEventHandler(async (event) => {
   const cdekPvzCode = typeof body?.cdekPvzCode === 'string' ? body.cdekPvzCode.trim() : ''
   const cdekPvzAddress = typeof body?.cdekPvzAddress === 'string' ? body.cdekPvzAddress.trim().slice(0, 500) : ''
   const cdekPvzCity = typeof body?.cdekPvzCity === 'string' ? body.cdekPvzCity.trim().slice(0, 100) : ''
+  const cdekPvzCityCode = Number.isInteger(body?.cdekPvzCityCode) ? body.cdekPvzCityCode as number : null
   const cdekTariffCodeInput = Number.isInteger(body?.cdekTariffCode) ? body.cdekTariffCode as number : null
   const cdekDaysMin = Number.isInteger(body?.cdekDeliveryDaysMin) ? body.cdekDeliveryDaysMin as number : null
   const cdekDaysMax = Number.isInteger(body?.cdekDeliveryDaysMax) ? body.cdekDeliveryDaysMax as number : null
@@ -146,6 +147,10 @@ export default defineEventHandler(async (event) => {
 
     // Server-side delivery cost calculation
     let deliveryCostCalc = 0
+    // Тариф/срок СДЭК пересчитываем на сервере — клиентским значениям не доверяем.
+    let cdekTariffCodeResolved = cdekTariffCodeInput
+    let cdekDaysMinResolved = cdekDaysMin
+    let cdekDaysMaxResolved = cdekDaysMax
     if (deliveryMethod === 'delivery') {
       if (deliveryScope === 'orel') {
         const orelConfig = await getOrelDeliveryConfig()
@@ -157,20 +162,21 @@ export default defineEventHandler(async (event) => {
         }
         deliveryCostCalc = calcOrelDeliveryCost(goodsTotal, orelConfig)
       }
-      else if (deliveryScope === 'russia' && cdekTariffCodeInput) {
+      else if (deliveryScope === 'russia' && cdekPvzCityCode) {
         try {
-          const goods = itemsToInsert.map(item => ({
+          const goods = itemsToInsert.map(() => ({
             weight: 1000, length: 10, width: 10, height: 10,
           }))
-          const tariffs = await cdekCalculateTariff({
-            tariff_code: cdekTariffCodeInput,
-            from_location: { code: 270 },
-            to_location: { address: cdekPvzCity || cdekPvzAddress },
-            packages: goods,
-          })
-          const matched = tariffs.find(t => t.tariff_code === cdekTariffCodeInput)
-          if (matched) deliveryCostCalc = Math.round(matched.delivery_sum)
-          else if (tariffs.length > 0) deliveryCostCalc = Math.round(tariffs[0].delivery_sum)
+          const tariff = await cdekOfficeTariff(cdekPvzCityCode, goods)
+          if (tariff) {
+            deliveryCostCalc = tariff.sum
+            cdekTariffCodeResolved = tariff.code
+            cdekDaysMinResolved = tariff.daysMin
+            cdekDaysMaxResolved = tariff.daysMax
+          }
+          else {
+            deliveryCostCalc = typeof body?.cdekDeliveryCost === 'number' ? body.cdekDeliveryCost : 0
+          }
         }
         catch (err) {
           console.error('[cdek] Tariff verification failed, using client value', err)
@@ -199,9 +205,9 @@ export default defineEventHandler(async (event) => {
       cdekPvzCode: cdekPvzCode || null,
       cdekPvzAddress: cdekPvzAddress || null,
       cdekPvzCity: cdekPvzCity || null,
-      cdekTariffCode: cdekTariffCodeInput,
-      cdekDeliveryDaysMin: cdekDaysMin,
-      cdekDeliveryDaysMax: cdekDaysMax,
+      cdekTariffCode: cdekTariffCodeResolved,
+      cdekDeliveryDaysMin: cdekDaysMinResolved,
+      cdekDeliveryDaysMax: cdekDaysMaxResolved,
     }).returning()
 
     await tx.insert(orderItems).values(itemsToInsert.map(item => ({
