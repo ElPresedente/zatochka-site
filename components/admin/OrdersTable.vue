@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { OrderRowDto } from '~/types/api'
-import { ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES } from '~/types/api'
+import { ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_CLASSES } from '~/types/api'
 
 defineProps<{ orders: OrderRowDto[] | null }>()
 const emit = defineEmits<{ select: [order: OrderRowDto] }>()
@@ -9,6 +9,14 @@ const { formatPrice, formatDate, formatPhone } = useFormatters()
 
 function customerName(order: Pick<OrderRowDto, 'customerFirstName' | 'customerLastName'>) {
   return `${order.customerFirstName} ${order.customerLastName}`.trim()
+}
+
+// Короткий ярлык доставки для списка.
+function deliveryShort(order: OrderRowDto) {
+  if (order.deliveryMethod === 'pickup') return 'Самовывоз'
+  if (order.deliveryScope === 'orel') return 'Орёл'
+  if (order.deliveryScope === 'russia') return 'СДЭК'
+  return 'Доставка'
 }
 </script>
 
@@ -23,6 +31,7 @@ function customerName(order: Pick<OrderRowDto, 'customerFirstName' | 'customerLa
             <th class="text-left px-5 py-3 font-semibold text-[#555]">Клиент</th>
             <th class="text-left px-5 py-3 font-semibold text-[#555]">Телефон</th>
             <th class="text-left px-5 py-3 font-semibold text-[#555]">Сумма</th>
+            <th class="text-left px-5 py-3 font-semibold text-[#555]">Оплата / Доставка</th>
             <th class="text-left px-5 py-3 font-semibold text-[#555]">Дата и время</th>
             <th class="text-left px-5 py-3 font-semibold text-[#555]">Статус</th>
           </tr>
@@ -38,6 +47,16 @@ function customerName(order: Pick<OrderRowDto, 'customerFirstName' | 'customerLa
             <td class="px-5 py-4 font-semibold text-[#222]">{{ customerName(order) }}</td>
             <td class="px-5 py-4 text-[#555]">{{ formatPhone(order.customerPhone) }}</td>
             <td class="px-5 py-4 font-bold text-brand">{{ formatPrice(order.totalAmount) }}</td>
+            <td class="px-5 py-4">
+              <div class="flex flex-col gap-1 items-start">
+                <span class="px-2 py-0.5 rounded-lg font-semibold text-[10px] whitespace-nowrap" :class="PAYMENT_STATUS_CLASSES[order.paymentStatus]">
+                  {{ PAYMENT_STATUS_LABELS[order.paymentStatus] }}
+                </span>
+                <span class="px-2 py-0.5 rounded-lg font-semibold text-[10px] whitespace-nowrap bg-slate-100 text-slate-600">
+                  {{ deliveryShort(order) }}
+                </span>
+              </div>
+            </td>
             <td class="px-5 py-4 text-[#777]">{{ formatDate(order.createdAt) }}</td>
             <td class="px-5 py-4">
               <span class="px-2.5 py-1 rounded-lg font-semibold text-xs" :class="ORDER_STATUS_CLASSES[order.status]">
@@ -66,6 +85,14 @@ function customerName(order: Pick<OrderRowDto, 'customerFirstName' | 'customerLa
         </div>
         <div class="font-semibold text-[#222] text-sm">{{ customerName(order) }}</div>
         <div class="text-sm text-[#555]">{{ formatPhone(order.customerPhone) }}</div>
+        <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
+          <span class="px-2 py-0.5 rounded-lg font-semibold text-[10px] whitespace-nowrap" :class="PAYMENT_STATUS_CLASSES[order.paymentStatus]">
+            {{ PAYMENT_STATUS_LABELS[order.paymentStatus] }}
+          </span>
+          <span class="px-2 py-0.5 rounded-lg font-semibold text-[10px] whitespace-nowrap bg-slate-100 text-slate-600">
+            {{ deliveryShort(order) }}
+          </span>
+        </div>
         <div class="flex items-center justify-between gap-2 mt-1">
           <span class="text-xs text-[#888]">{{ formatDate(order.createdAt) }}</span>
           <span class="font-bold text-brand">{{ formatPrice(order.totalAmount) }}</span>

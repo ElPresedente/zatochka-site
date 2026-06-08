@@ -255,6 +255,8 @@ async function setStatus(status: OrderStatus) {
         <div v-else-if="selectedOrder" class="flex-1 overflow-y-auto">
           <AdminOrderHeader :order="selectedOrder" />
 
+          <AdminOrderPaymentDelivery :order="selectedOrder" />
+
           <AdminOrderEditForm
             v-model:seller-comment="sellerCommentForm"
             :user-comment="selectedOrder.userComment"

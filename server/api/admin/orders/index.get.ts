@@ -31,6 +31,10 @@ export default defineEventHandler(async (event) => {
       sellerComment: orders.sellerComment,
       status: orders.status,
       totalAmount: orders.totalAmount,
+      paymentMethod: orders.paymentMethod,
+      paymentStatus: orders.paymentStatus,
+      deliveryMethod: orders.deliveryMethod,
+      deliveryScope: orders.deliveryScope,
       createdAt: orders.createdAt,
       updatedAt: orders.updatedAt,
     }).from(orders)

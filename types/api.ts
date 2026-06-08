@@ -159,3 +159,20 @@ export const ORDER_STATUS_CLASSES: Record<OrderStatus, string> = {
   ready: 'bg-purple-100 text-purple-700',
   completed: 'bg-slate-100 text-slate-600',
 }
+
+export const DELIVERY_METHOD_LABELS: Record<DeliveryMethod, string> = {
+  pickup: 'Самовывоз',
+  delivery: 'Доставка',
+}
+
+export const DELIVERY_SCOPE_LABELS: Record<DeliveryScope, string> = {
+  orel: 'По Орлу',
+  russia: 'По России (СДЭК)',
+}
+
+export const EXTRA_PAYMENT_STATUS_LABELS: Record<ExtraPaymentStatus, string> = {
+  none: '—',
+  pending: 'Ожидает доплаты',
+  paid: 'Доплачено',
+  failed: 'Ошибка доплаты',
+}
