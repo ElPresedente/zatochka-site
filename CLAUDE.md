@@ -186,6 +186,13 @@ accepted/in_progress/ready -> cancelled
   - Сумма увеличилась → создаётся extra-платёж ЮKassa на разницу; клиент видит кнопку «Доплатить» в ЛК.
   - При ошибке ЮKassa пишется запись в историю заказа с пометкой ВНИМАНИЕ.
 
+**Отображение оплаты и доставки в админке** (`/admin/orders`):
+- Карточка заказа: блок `components/admin/OrderPaymentDelivery.vue` (между `OrderHeader` и формой) — способ/статус оплаты, дата оплаты, ссылка на платёж в ЮKassa, доплата; способ/направление доставки, стоимость, адрес (Орёл), ПВЗ/срок/номер заказа СДЭК (Россия). Блок read-only.
+- Список заказов: `components/admin/OrdersTable.vue` — колонка «Оплата / Доставка» (десктоп) и строка бейджей (мобильный): статус оплаты + короткий ярлык доставки.
+- Ярлыки: `DELIVERY_METHOD_LABELS`, `DELIVERY_SCOPE_LABELS`, `EXTRA_PAYMENT_STATUS_LABELS`, `PAYMENT_*_LABELS/CLASSES` — все в `types/api.ts`.
+- **Важно:** `GET /api/admin/orders` (список) селектит НЕ все поля заказа, а явный набор колонок. Карточка (`GET /api/admin/orders/[id]`) возвращает строку целиком (`...order`). Если в список нужен новый бейдж по полю заказа — добавь это поле в `select` в `server/api/admin/orders/index.get.ts` (иначе оно придёт `undefined`, хотя в `OrderRowDto` объявлено).
+- Номер заказа СДЭК в карточке — это `cdekOrderUuid` (внутренний UUID из ответа `POST /v2/orders`), а НЕ публичный трек-номер `cdek_number`. Для трек-номера/статуса посылки нужен отдельный запрос `GET /v2/orders/<uuid>` к СДЭК (пока не реализован).
+
 ## Товары
 
 Поля `photos`, `specs`, `services` в таблице `products` хранятся как `text` (JSON-строки). Аналогично `services` в `order_items`. Для их парсинга использовать типизированные хелперы из `server/utils/json-shapes.ts` — они никогда не бросают и возвращают безопасный fallback при битых данных:
@@ -251,6 +258,11 @@ Webhook `POST /api/yookassa/webhook`:
 
 - `server/utils/cdek.ts` — CDEK API client (OAuth, кэш токена). Прокси автоматически роутит в `api.edu.cdek.ru` (тест) или `api.cdek.ru` (прод) по `CDEK_TEST_MODE`.
 - `server/api/delivery/cdek-proxy.get.ts` и `cdek-proxy.post.ts` — прокси виджета. **Протокол виджета v3** (эталон — `dist/service.php` из репо `cdek-it/widget`): запрос содержит поле `action` в query-параметрах ИЛИ в JSON-теле (сервис мёржит оба), и диспатчится по имени действия — НЕ по `{ url, method }`. Реализовано в `cdekWidgetRequest()` (`server/utils/cdek.ts`): `offices` → GET `/v2/deliverypoints` (params из query), `calculate` (это `getPrice` для расчёта тарифа) → POST `/v2/calculator/tarifflist` с JSON-телом. GET-хэндлер — для `offices`, POST-хэндлер — для `calculate`.
+- **`offices` (список ПВЗ) — особый путь, НЕ через `cdekWidgetRequest`.** На боевом СДЭК полный список ≈18 МБ JSON (≈10 500 ПВЗ). Чтобы не блокировать event loop парсингом/пересериализацией и не качать лишнее:
+  - GET-хэндлер для `action=offices` зовёт `cdekOfficesRaw()` (`server/utils/cdek.ts`), которая тянет страницу низкоуровневым `node:https` как СЫРЫЕ gzip-байты (обычный `$fetch`/undici распаковал бы в 18 МБ) и отдаёт их браузеру **как есть** с `Content-Encoding: gzip` — сервер ничего не распаковывает/не парсит/не пересериализует. Fallback `gunzipOfficesBody()` для редкого клиента без gzip.
+  - **Критично форвардить заголовки `X-Total-Elements` / `X-Total-Pages`.** СДЭК поддерживает пагинацию (`page`/`size`); виджет читает `x-total-elements` из пробного запроса (`page=1&size=1`) и грузит список страницами по 500 (≈22 мелких запроса). Без форварда заголовков виджет уходит в else-ветку `getOffices()` и качает весь список одним запросом (18 МБ) — это и подвешивало сайт.
+  - Кэш `Map` в памяти процесса, TTL 6 ч, ключ — из ОТСОРТИРОВАННЫХ параметров (`page`/`size` в ключе различают пробный запрос и страницы).
+  - **Прогрев при старте:** `server/plugins/cdek-warmup.ts` зовёт `warmCdekOfficesCache()` — повторяет логику виджета (пробный запрос → `x-total-elements` → все страницы по 500), чтобы первый пользователь получил список из кэша мгновенно. В dev пропускается (`import.meta.dev`), чтобы не дёргать СДЭК на каждый рестарт — поэтому на dev первая загрузка «холодная». **На dev изменения server/utils и новый плагин подхватываются только после полного перезапуска `npm run dev`.**
 - `server/api/delivery/geocode.get.ts` — серверный геокодер Орла. Вызывает `geocode-maps.yandex.ru` приватным ключом `YANDEX_MAPS_GEOCODER_KEY`, проверяет попадание в полигон через `pointInPolygon()`. **Ключ геокодера приватный — не в `runtimeConfig.public`.**
 - `server/api/delivery/orel-polygon.get.ts` — полигон Орла. Кэш в `site_settings.delivery_orel_polygon` (JSON `[lat, lon][]`), фетч из Nominatim при первом обращении, hardcode-fallback.
 - `server/api/orders/index.post.ts` — принимает delivery-поля, повторно валидирует полигон и пересчитывает стоимость/тариф на сервере (нельзя доверять клиенту).
