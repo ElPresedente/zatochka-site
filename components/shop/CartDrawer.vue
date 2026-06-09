@@ -74,6 +74,7 @@ function onAddressBlur() {
 // CDEK (доставка по России): город → ПВЗ города → выбор
 interface CdekCity { code: number; city: string; region: string; lon: number; lat: number }
 interface CdekOffice { code: string; name: string; address: string; city: string; lon: number; lat: number; workTime: string; type: string }
+interface OfficeGroup { key: string; lon: number; lat: number; offices: CdekOffice[] }
 
 const cityQuery = ref('')
 const cityResults = ref<CdekCity[]>([])
@@ -98,7 +99,9 @@ let ymapsReadyPromise: Promise<void> | null = null
 const cdekMapContainerRef = ref<HTMLElement | null>(null)
 const cdekMapStatus = ref<'idle' | 'loading' | 'ready' | 'error'>('idle')
 let cdekMapInstance: any = null
-let officeMarkers: { code: string; el: HTMLElement; marker: any }[] = []
+let officeMarkers: { key: string; group: OfficeGroup; el: HTMLElement; marker: any }[] = []
+let popupMarker: any = null
+const activeOfficeCode = ref<string | null>(null)
 
 // Грузы для расчёта тарифа (вес/габариты — фикс., как и в проверке заказа на сервере)
 const cdekGoods = computed(() => props.cart.map(() => ({ weight: 1000, length: 10, width: 10, height: 10 })))
@@ -150,6 +153,8 @@ function resetCdekState() {
   cdekMapStatus.value = 'idle'
   cdekMapInstance = null
   officeMarkers = []
+  popupMarker = null
+  activeOfficeCode.value = null
 }
 
 // Reset delivery state on scope change
@@ -423,10 +428,58 @@ async function selectCity(city: CdekCity) {
   }
 }
 
-function makeOfficeMarkerEl(selected: boolean): HTMLElement {
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))
+}
+
+// Группируем ПВЗ/постаматы по совпадающим координатам: на одном адресе часто стоят
+// и ПВЗ, и постамат — рисуем ОДИН пин, по клику даём выбрать конкретный.
+function groupOffices(list: CdekOffice[]): OfficeGroup[] {
+  const map = new Map<string, OfficeGroup>()
+  for (const o of list) {
+    const key = `${o.lon.toFixed(5)},${o.lat.toFixed(5)}`
+    let g = map.get(key)
+    if (!g) { g = { key, lon: o.lon, lat: o.lat, offices: [] }; map.set(key, g) }
+    g.offices.push(o)
+  }
+  return [...map.values()]
+}
+
+function groupSelected(group: OfficeGroup): boolean {
+  return group.offices.some(o => o.code === cdekPvz.value?.code)
+}
+
+// Стиль обёртки пина: выбранный — крупнее, якорь — нижний кончик. Цвет — внутри SVG.
+function applyMarkerStyle(el: HTMLElement, selected: boolean) {
+  el.style.cssText = `cursor:pointer;line-height:0;transform-origin:center bottom;transform:translate(-50%,-100%)${selected ? ' scale(1.4)' : ''}`
+}
+
+let markerUid = 0
+const PVZ_COLOR = '#16a34a'
+const POSTAMAT_COLOR = '#0988bd'
+
+// Пин-капля. Если в точке и ПВЗ, и постамат — заливка пополам (зелёный/синий).
+function makeGroupMarkerEl(group: OfficeGroup, selected: boolean): HTMLElement {
+  const hasPvz = group.offices.some(o => o.type !== 'POSTAMAT')
+  const hasPostamat = group.offices.some(o => o.type === 'POSTAMAT')
+  let defs = ''
+  let fill: string
+  if (hasPvz && hasPostamat) {
+    const id = `pin${markerUid++}`
+    defs = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="50%" stop-color="${PVZ_COLOR}"/><stop offset="50%" stop-color="${POSTAMAT_COLOR}"/></linearGradient></defs>`
+    fill = `url(#${id})`
+  }
+  else {
+    fill = hasPvz ? PVZ_COLOR : POSTAMAT_COLOR
+  }
   const el = document.createElement('div')
-  el.style.cssText = `width:14px;height:14px;background:${selected ? '#16a34a' : '#0988bd'};border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);transform:translate(-50%,-50%);cursor:pointer`
+  el.innerHTML = `<svg width="26" height="26" viewBox="0 0 24 24" stroke="#fff" stroke-width="1.2" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))">${defs}<path fill="${fill}" d="M12 2c-3.9 0-7 3.1-7 7 0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z"/><circle cx="12" cy="9" r="2.6" fill="#fff" stroke="none"/></svg>`
+  applyMarkerStyle(el, selected)
   return el
+}
+
+function repaintMarkers() {
+  officeMarkers.forEach(m => applyMarkerStyle(m.el, groupSelected(m.group)))
 }
 
 function renderOfficeMarkers() {
@@ -434,13 +487,61 @@ function renderOfficeMarkers() {
   const { YMapMarker } = (window as any).ymaps3
   officeMarkers.forEach(m => cdekMapInstance.removeChild(m.marker))
   officeMarkers = []
-  for (const o of offices.value) {
-    const el = makeOfficeMarkerEl(o.code === cdekPvz.value?.code)
-    el.onclick = () => selectOffice(o)
-    const marker = new YMapMarker({ coordinates: [o.lon, o.lat] }, el)
+  for (const g of groupOffices(offices.value)) {
+    const el = makeGroupMarkerEl(g, groupSelected(g))
+    el.onclick = (e) => { e.stopPropagation(); openGroupPopup(g) }
+    const marker = new YMapMarker({ coordinates: [g.lon, g.lat], zIndex: 2 }, el)
     cdekMapInstance.addChild(marker)
-    officeMarkers.push({ code: o.code, el, marker })
+    officeMarkers.push({ key: g.key, group: g, el, marker })
   }
+}
+
+function closeOfficePopup() {
+  if (popupMarker && cdekMapInstance) cdekMapInstance.removeChild(popupMarker)
+  popupMarker = null
+  activeOfficeCode.value = null
+}
+
+// Карточка точки: один офис — обычная карточка, несколько (ПВЗ+постамат) — список
+// с отдельной кнопкой «Выбрать» у каждого.
+function openGroupPopup(group: OfficeGroup) {
+  if (!cdekMapInstance) return
+  closeOfficePopup()
+  activeOfficeCode.value = group.key
+
+  const { YMapMarker } = (window as any).ymaps3
+  const multi = group.offices.length > 1
+  const el = document.createElement('div')
+  el.style.cssText = `transform:translate(-50%,calc(-100% - 22px));width:${multi ? 205 : 192}px;max-height:240px;overflow-y:auto;background:#fff;border-radius:10px;box-shadow:0 5px 16px rgba(0,0,0,.22);font-size:11px;position:relative`
+
+  const card = (o: CdekOffice, border: boolean) => {
+    const typeLabel = o.type === 'POSTAMAT' ? 'Постамат' : 'Пункт выдачи'
+    const typeColor = o.type === 'POSTAMAT' ? POSTAMAT_COLOR : PVZ_COLOR
+    return `<div style="padding:10px${border ? ';border-top:1px solid #f0f0f0' : ''}">
+      <div style="font-weight:600;color:${typeColor};font-size:9px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px">${typeLabel}</div>
+      <div style="font-weight:600;color:#222;margin-bottom:3px;padding-right:12px">${escapeHtml(o.address)}</div>
+      <div style="color:#777;margin-bottom:8px;line-height:1.3">${escapeHtml(o.workTime || 'Часы работы не указаны')}</div>
+      <button data-select="${escapeHtml(o.code)}" style="width:100%;background:${typeColor};color:#fff;border:0;border-radius:7px;padding:6px;font-weight:600;cursor:pointer">Выбрать</button>
+    </div>`
+  }
+
+  el.innerHTML
+    = `<button data-close style="position:absolute;top:4px;right:6px;border:0;background:none;font-size:17px;line-height:1;color:#bbb;cursor:pointer;z-index:1">&times;</button>`
+    + group.offices.map((o, i) => card(o, multi && i > 0)).join('')
+    + `<div style="position:absolute;left:50%;bottom:-7px;width:14px;height:14px;background:#fff;transform:translateX(-50%) rotate(45deg);box-shadow:3px 3px 6px rgba(0,0,0,.08)"></div>`
+
+  el.onclick = e => e.stopPropagation()
+  ;(el.querySelector('[data-close]') as HTMLElement).onclick = (e) => { e.stopPropagation(); closeOfficePopup() }
+  el.querySelectorAll('[data-select]').forEach((btn) => {
+    const code = btn.getAttribute('data-select')
+    const office = group.offices.find(o => o.code === code)
+    ;(btn as HTMLElement).onclick = (e) => { e.stopPropagation(); if (office) selectOffice(office) }
+  })
+
+  popupMarker = new YMapMarker({ coordinates: [group.lon, group.lat], zIndex: 1000 }, el)
+  cdekMapInstance.addChild(popupMarker)
+  // Центрируем точку, чтобы карточка над пином не обрезалась краем карты
+  cdekMapInstance.update({ location: { center: [group.lon, group.lat], duration: 200 } })
 }
 
 async function initCdekMap() {
@@ -451,14 +552,28 @@ async function initCdekMap() {
     if (!cdekMapContainerRef.value || !selectedCity.value) { cdekMapStatus.value = 'error'; return }
 
     // При смене города уничтожаем прежнюю карту, чтобы не плодить инстансы на контейнере
-    if (cdekMapInstance) { cdekMapInstance.destroy?.(); cdekMapInstance = null; officeMarkers = [] }
+    if (cdekMapInstance) { cdekMapInstance.destroy?.(); cdekMapInstance = null; officeMarkers = []; popupMarker = null; activeOfficeCode.value = null }
 
-    const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer } = (window as any).ymaps3
+    const ymaps3 = (window as any).ymaps3
+    const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapControls } = ymaps3
     cdekMapInstance = new YMap(cdekMapContainerRef.value, {
       location: { center: [selectedCity.value.lon, selectedCity.value.lat], zoom: 11 },
     })
     cdekMapInstance.addChild(new YMapDefaultSchemeLayer({}))
     cdekMapInstance.addChild(new YMapDefaultFeaturesLayer({}))
+
+    // Кнопки зума (+/−) — отдельный пакет, грузится через ymaps3.import. Не критично:
+    // если не загрузится, карта работает (зум колесом/жестами), поэтому в try/catch.
+    try {
+      const { YMapZoomControl } = await ymaps3.import('@yandex/ymaps3-controls@0.0.1')
+      const controls = new YMapControls({ position: 'right' })
+      controls.addChild(new YMapZoomControl({}))
+      cdekMapInstance.addChild(controls)
+    }
+    catch (e) {
+      console.warn('[cdek] zoom controls not loaded', e)
+    }
+
     renderOfficeMarkers()
     cdekMapStatus.value = 'ready'
   }
@@ -471,10 +586,8 @@ async function initCdekMap() {
 async function selectOffice(office: CdekOffice) {
   cdekPvz.value = { code: office.code, address: office.address, city: office.city }
   cdekTariff.value = null
-  // Перекрашиваем маркеры (выбранный — зелёный) и центрируем карту
-  officeMarkers.forEach((m) => {
-    m.el.style.background = m.code === office.code ? '#16a34a' : '#0988bd'
-  })
+  closeOfficePopup()
+  repaintMarkers() // выбранный пин — зелёный
   if (cdekMapInstance) cdekMapInstance.update({ location: { center: [office.lon, office.lat], zoom: 14 } })
 
   if (!selectedCity.value) return
@@ -756,24 +869,40 @@ watch([deliveryScope, deliveryType], async ([scope, type]) => {
                 <template v-if="selectedCity">
                   <div
                     v-if="officesStatus === 'loading'"
-                    class="h-[240px] bg-[#f0f4f8] rounded-xl flex items-center justify-center border border-[#e0e0e0]"
+                    class="h-[360px] bg-[#f0f4f8] rounded-xl flex items-center justify-center border border-[#e0e0e0]"
                   >
                     <span class="text-sm text-[#888]">Загрузка пунктов выдачи…</span>
                   </div>
                   <div
                     v-else-if="officesStatus === 'error'"
-                    class="h-[240px] bg-[#f0f4f8] rounded-xl flex items-center justify-center border border-[#e0e0e0]"
+                    class="h-[360px] bg-[#f0f4f8] rounded-xl flex items-center justify-center border border-[#e0e0e0]"
                   >
                     <span class="text-sm text-red-500">Не удалось загрузить пункты выдачи.</span>
                   </div>
                   <template v-else-if="officesStatus === 'ready'">
-                    <div
-                      v-if="offices.length > 0"
-                      id="cdek-city-map"
-                      ref="cdekMapContainerRef"
-                      class="h-[240px] rounded-xl overflow-hidden border border-[#e0e0e0]"
-                      :class="cdekMapStatus !== 'ready' ? 'hidden' : ''"
-                    />
+                    <!-- Контейнер карты НЕ скрываем во время инициализации: ymaps3
+                         замеряет размеры контейнера при создании, и если он display:none,
+                         карта получает height:0 и не восстанавливается. Держим видимым. -->
+                    <div v-if="offices.length > 0" class="relative">
+                      <div
+                        id="cdek-city-map"
+                        ref="cdekMapContainerRef"
+                        class="h-[360px] rounded-xl overflow-hidden border border-[#e0e0e0] bg-[#f0f4f8]"
+                      />
+                      <div
+                        v-if="cdekMapStatus === 'loading'"
+                        class="absolute inset-0 flex items-center justify-center text-sm text-[#888] pointer-events-none"
+                      >Загрузка карты…</div>
+                      <div
+                        v-else-if="cdekMapStatus === 'error'"
+                        class="absolute inset-0 flex items-center justify-center text-sm text-red-500 pointer-events-none"
+                      >Карта недоступна — выберите ПВЗ из списка ниже</div>
+                    </div>
+                    <!-- Легенда цветов маркеров -->
+                    <div v-if="offices.length > 0" class="flex items-center gap-4 text-xs text-[#888] -mt-1">
+                      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#16a34a]" /> Пункт выдачи</span>
+                      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#0988bd]" /> Постамат</span>
+                    </div>
                     <!-- Список ПВЗ -->
                     <div
                       v-if="offices.length > 0"
@@ -782,14 +911,18 @@ watch([deliveryScope, deliveryType], async ([scope, type]) => {
                       <button
                         v-for="o in offices"
                         :key="o.code"
-                        class="w-full text-left px-3.5 py-2.5 text-sm transition-colors"
+                        class="w-full text-left px-3.5 py-2.5 text-sm transition-colors flex items-start gap-2"
                         :class="cdekPvz?.code === o.code ? 'bg-brand/10' : 'hover:bg-[#f7f9fb]'"
                         @click="selectOffice(o)"
                       >
-                        <div class="font-semibold text-[#333]">{{ o.address }}</div>
-                        <div class="text-xs text-[#888] mt-0.5">
-                          <span v-if="o.type === 'POSTAMAT'">Постамат · </span>{{ o.workTime }}
-                        </div>
+                        <span
+                          class="shrink-0 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded mt-0.5"
+                          :class="o.type === 'POSTAMAT' ? 'bg-sky-100 text-sky-700' : 'bg-green-100 text-green-700'"
+                        >{{ o.type === 'POSTAMAT' ? 'Постамат' : 'ПВЗ' }}</span>
+                        <span class="min-w-0">
+                          <span class="block font-semibold text-[#333]">{{ o.address }}</span>
+                          <span class="block text-xs text-[#888] mt-0.5">{{ o.workTime }}</span>
+                        </span>
                       </button>
                     </div>
                     <p v-else class="text-sm text-[#888]">В этом городе нет пунктов выдачи СДЭК.</p>
