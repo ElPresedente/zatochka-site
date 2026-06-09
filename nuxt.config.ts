@@ -51,12 +51,13 @@ export default defineNuxtConfig({
             // 'unsafe-eval' требуется векторным движком Maps v3 для разбора тайлов.
             // suggest-maps.yandex.ru — ymaps3.suggest работает через JSONP (инжект <script>),
             // поэтому домен нужен именно в script-src, не только в connect-src.
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://suggest-maps.yandex.ru https://yastatic.net https://core-renderer-tiles.maps.yandex.net https://cdn.jsdelivr.net",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://suggest-maps.yandex.ru https://yastatic.net https://core-renderer-tiles.maps.yandex.net",
             // data: нужен для воркеров Maps v3 (создаются из data: URL с importScripts из yastatic.net).
             "worker-src blob: data: https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://yastatic.net",
             // *.api-maps.yandex.ru покрывает log.api-maps.yandex.ru (телеметрия Maps v3).
-            // geocode-maps.yandex.ru нужен CDEK-виджету (прямой XHR для геокодирования).
-            "connect-src 'self' https://api.telegram.org https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://geocode-maps.yandex.ru https://suggest-maps.yandex.ru https://*.maps.yandex.net https://api.cdek.ru https://api.edu.cdek.ru",
+            // К api.cdek.ru/geocode-maps браузер не ходит напрямую — всё через свои
+            // same-origin эндпоинты (/api/delivery/*), серверный геокодер CSP не касается.
+            "connect-src 'self' https://api.telegram.org https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://suggest-maps.yandex.ru https://*.maps.yandex.net",
             "frame-src 'self' https://yandex.ru https://*.yandex.ru https://*.yandex.net",
           ].join('; '),
         },
