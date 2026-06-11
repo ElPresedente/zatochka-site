@@ -9,7 +9,7 @@ function isSecureRequest(event: H3Event) {
 
 export async function getAuthSession(event: H3Event) {
   // SESSION_SECRET валидируется на старте в server/plugins/check-config.ts
-  return useSession<{ userId: number }>(event, {
+  return useSession<{ userId: number; sv?: number }>(event, {
     password: useRuntimeConfig().sessionSecret,
     name: 'sid',
     maxAge: 60 * 60 * 24 * 7,

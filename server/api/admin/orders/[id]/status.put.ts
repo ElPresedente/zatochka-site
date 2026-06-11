@@ -1,7 +1,8 @@
 import { eq, sql } from 'drizzle-orm'
 import { useDb } from '~/server/db'
-import { orderHistory, orderItems, orders, orderStatuses, products, type OrderStatus } from '~/server/db/schema'
+import { orderHistory, orderItems, orders, orderStatuses, products, users, type OrderStatus } from '~/server/db/schema'
 import { createYookassaRefund } from '~/server/utils/yookassa'
+import { sendOrderReadyEmail } from '~/server/utils/auth-emails'
 import { ORDER_STATUS_LABELS } from '~/types/api'
 
 const FINAL_STATUSES = new Set<OrderStatus>(['cancelled', 'completed'])
@@ -137,6 +138,23 @@ export default defineEventHandler(async (event) => {
 
     return updated
   })
+
+  // Письмо клиенту о готовности заказа (на email заказа либо аккаунта).
+  // Только при реальном переходе в ready, не на повторном выставлении того же статуса.
+  if (nextStatus === 'ready' && preOrder.status !== 'ready') {
+    let recipientEmail = updatedOrder.customerEmail
+    if (!recipientEmail && updatedOrder.userId) {
+      const [u] = await db.select({ email: users.email }).from(users).where(eq(users.id, updatedOrder.userId))
+      recipientEmail = u?.email ?? ''
+    }
+    if (recipientEmail) {
+      await sendOrderReadyEmail({
+        email: recipientEmail,
+        firstName: updatedOrder.customerFirstName,
+        orderId: updatedOrder.id,
+      })
+    }
+  }
 
   return updatedOrder
 })

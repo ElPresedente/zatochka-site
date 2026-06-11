@@ -14,6 +14,14 @@ export default defineNuxtConfig({
     yookassaShopId: process.env.YOOKASSA_SHOP_ID || '',
     yookassaSecretKey: process.env.YOOKASSA_SECRET_KEY || '',
     siteUrl: process.env.SITE_URL || '',
+    // Базовый URL для ссылок в письмах (verify/reset). Падает на siteUrl, если не задан.
+    appUrl: process.env.APP_URL || '',
+    // Транзакционная почта (см. server/utils/mailer.ts). Пусто на dev = письма логируются в консоль.
+    mailFrom: process.env.MAIL_FROM || '',
+    smtpHost: process.env.SMTP_HOST || '',
+    smtpPort: process.env.SMTP_PORT || '587',
+    smtpUser: process.env.SMTP_USER || '',
+    smtpPass: process.env.SMTP_PASS || '',
     cdekAccount: process.env.CDEK_ACCOUNT || 'EMscd6r9JnFiQ3bLoyjJY6eM',
     cdekSecure: process.env.CDEK_SECURE || 'PjLZkKBHEiLK3YsjtNrt3TGNG0ahs3kG',
     cdekTestMode: process.env.CDEK_TEST_MODE !== 'false',

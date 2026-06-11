@@ -23,3 +23,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Сгенерированные превью писем (локальные)
+email-previews/

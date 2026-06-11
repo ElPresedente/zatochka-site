@@ -12,6 +12,7 @@ interface ProfileDto {
   lastName: string
   phone: string
   email: string | null
+  pendingEmail: string | null
   deletionRequestedAt: string | null
 }
 
@@ -59,19 +60,27 @@ watch(profile, (p) => {
 const saving = ref(false)
 const saveError = ref('')
 const saveSuccess = ref(false)
+const emailPendingNotice = ref('')
 
 async function saveProfile() {
   saving.value = true
   saveError.value = ''
   saveSuccess.value = false
+  emailPendingNotice.value = ''
   try {
-    await $fetch('/api/account/profile', {
+    const res = await $fetch<{ emailChangePending?: boolean, pendingEmail?: string | null }>('/api/account/profile', {
       method: 'PATCH',
       body: { firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim() },
     })
     await Promise.all([refreshProfile(), fetchUser(true)])
-    saveSuccess.value = true
-    setTimeout(() => { saveSuccess.value = false }, 3000)
+    if (res?.emailChangePending) {
+      // Новый email применится только после перехода по ссылке из письма.
+      emailPendingNotice.value = `На ${res.pendingEmail} отправлено письмо. Перейдите по ссылке, чтобы подтвердить новый email — пока он не подтверждён, остаётся прежний адрес.`
+      form.email = profile.value?.email ?? ''
+    } else {
+      saveSuccess.value = true
+      setTimeout(() => { saveSuccess.value = false }, 3000)
+    }
   } catch (e: any) {
     saveError.value = e?.data?.message ?? 'Ошибка при сохранении'
   } finally {
@@ -268,10 +277,13 @@ async function payExtraOrder(orderId: number) {
                 class="border border-[#ddd] rounded-xl px-4 py-2.5 text-base outline-none focus:border-brand transition-colors"
                 placeholder="you@example.com"
               />
-              <p class="text-xs text-[#aaa]">Используется для получения чека при онлайн-оплате</p>
+              <p class="text-xs text-[#aaa]">Используется для уведомлений о заказе и получения чека при онлайн-оплате</p>
+              <p v-if="profile?.pendingEmail" class="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                Ожидает подтверждения новый email: <span class="font-semibold">{{ profile.pendingEmail }}</span>. Перейдите по ссылке из письма, отправленного на этот адрес.
+              </p>
             </div>
 
-            <div class="flex items-center gap-4 pt-1">
+            <div class="flex items-center gap-4 pt-1 flex-wrap">
               <button
                 type="submit"
                 class="btn-primary px-8 py-2.5 text-base disabled:opacity-50"
@@ -282,6 +294,9 @@ async function payExtraOrder(orderId: number) {
                 <span v-else-if="saveError" class="text-red-500 text-sm">{{ saveError }}</span>
               </Transition>
             </div>
+            <p v-if="emailPendingNotice" class="text-sm text-amber-700 bg-amber-50 rounded-xl px-4 py-2.5">
+              {{ emailPendingNotice }}
+            </p>
           </form>
         </div>
 

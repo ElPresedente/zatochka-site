@@ -127,6 +127,20 @@
       "when": 1748995200000,
       "tag": "0017_product_dimensions",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1749081600000,
+      "tag": "0018_email_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1749168000000,
+      "tag": "0019_pending_email",
+      "breakpoints": true
     }
   ]
 }

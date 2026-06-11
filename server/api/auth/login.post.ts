@@ -52,6 +52,9 @@ export default defineEventHandler(async (event) => {
         firstName: users.firstName,
         lastName: users.lastName,
         phone: users.phone,
+        email: users.email,
+        emailVerified: users.emailVerified,
+        sessionVersion: users.sessionVersion,
         passwordHash: users.passwordHash,
       })
       .from(users)
@@ -64,8 +67,17 @@ export default defineEventHandler(async (event) => {
 
     await clearRateLimit(loginKey)
 
+    // Вход заблокирован, пока email не подтверждён (для аккаунтов с привязанной почтой).
+    if (user.email && !user.emailVerified) {
+      throw createError({
+        statusCode: 403,
+        message: 'Подтвердите email, чтобы войти. Мы отправили ссылку на вашу почту.',
+        data: { code: 'email_not_verified', email: user.email },
+      })
+    }
+
     const session = await getAuthSession(event)
-    await session.update({ userId: user.id })
+    await session.update({ userId: user.id, sv: user.sessionVersion })
 
     const [admin] = await db.select({ userId: admins.userId }).from(admins).where(eq(admins.userId, user.id))
 

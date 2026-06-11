@@ -8,6 +8,9 @@ const loginInput = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+const needsVerify = ref(false)
+const verifyEmail = ref('')
+const resendState = ref<'idle' | 'sending' | 'sent'>('idle')
 
 await fetchUser()
 
@@ -17,15 +20,37 @@ if (user.value) {
 
 async function submit() {
   error.value = ''
+  needsVerify.value = false
+  resendState.value = 'idle'
   loading.value = true
 
   try {
     await authLogin(loginInput.value, password.value)
     await navigateTo(typeof route.query.next === 'string' ? route.query.next : '/shop')
   } catch (e: any) {
-    error.value = e?.data?.message ?? 'Неверный телефон или пароль'
+    if (e?.data?.data?.code === 'email_not_verified') {
+      needsVerify.value = true
+      verifyEmail.value = e?.data?.data?.email ?? ''
+      error.value = e?.data?.message ?? 'Подтвердите email, чтобы войти.'
+    } else {
+      error.value = e?.data?.message ?? 'Неверный телефон или пароль'
+    }
   } finally {
     loading.value = false
+  }
+}
+
+async function resendVerification() {
+  if (resendState.value === 'sending' || !verifyEmail.value) return
+  resendState.value = 'sending'
+  try {
+    await $fetch('/api/auth/resend-verification', {
+      method: 'POST',
+      body: { email: verifyEmail.value },
+    })
+    resendState.value = 'sent'
+  } catch {
+    resendState.value = 'idle'
   }
 }
 </script>
@@ -58,8 +83,20 @@ async function submit() {
         </div>
 
         <Transition name="fade">
-          <div v-if="error" class="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2.5">
+          <div v-if="error" class="text-sm rounded-xl px-4 py-2.5" :class="needsVerify ? 'text-amber-700 bg-amber-50' : 'text-red-500 bg-red-50'">
             {{ error }}
+            <div v-if="needsVerify" class="mt-2">
+              <button
+                v-if="resendState !== 'sent'"
+                type="button"
+                :disabled="resendState === 'sending'"
+                class="font-semibold underline hover:no-underline disabled:opacity-50"
+                @click="resendVerification"
+              >
+                {{ resendState === 'sending' ? 'Отправка...' : 'Отправить письмо повторно' }}
+              </button>
+              <span v-else class="text-green-600 font-semibold">Письмо отправлено</span>
+            </div>
           </div>
         </Transition>
       </div>

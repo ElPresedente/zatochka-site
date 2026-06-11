@@ -14,7 +14,8 @@ const form = ref({
 const error = ref('')
 const loading = ref(false)
 const success = ref(false)
-const { fetchUser } = useAuth()
+const registeredEmail = ref('')
+const resendState = ref<'idle' | 'sending' | 'sent'>('idle')
 
 async function submit() {
   error.value = ''
@@ -45,12 +46,26 @@ async function submit() {
         consentGiven: form.value.consentGiven,
       },
     })
-    await fetchUser(true)
+    registeredEmail.value = form.value.email.trim()
     success.value = true
   } catch (e: any) {
     error.value = e?.data?.message ?? 'Ошибка регистрации'
   } finally {
     loading.value = false
+  }
+}
+
+async function resend() {
+  if (resendState.value === 'sending') return
+  resendState.value = 'sending'
+  try {
+    await $fetch('/api/auth/resend-verification', {
+      method: 'POST',
+      body: { email: registeredEmail.value },
+    })
+    resendState.value = 'sent'
+  } catch {
+    resendState.value = 'idle'
   }
 }
 
@@ -71,9 +86,32 @@ const canSubmit = computed(() =>
   <div class="max-w-[480px] mx-auto px-4 py-10 lg:py-16">
     <h1 class="text-2xl font-bold text-[#222] mb-6 lg:mb-8">Регистрация</h1>
 
-    <div v-if="success" class="bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
-      <div class="text-green-600 font-bold text-lg mb-2">Вы успешно зарегистрированы!</div>
-      <NuxtLink to="/shop" class="text-brand text-sm no-underline hover:underline">Перейти в магазин →</NuxtLink>
+    <div v-if="success" class="bg-white rounded-2xl shadow-sm border border-[#eee] p-6 lg:p-8 text-center">
+      <div class="text-4xl mb-4">📧</div>
+      <div class="font-bold text-lg text-[#222] mb-2">Подтвердите email</div>
+      <p class="text-sm text-[#666] mb-2">
+        Мы отправили письмо со ссылкой подтверждения на
+        <span class="font-semibold text-[#222]">{{ registeredEmail }}</span>.
+      </p>
+      <p class="text-sm text-[#666] mb-6">
+        Перейдите по ссылке из письма, чтобы активировать аккаунт и войти.
+      </p>
+
+      <div class="flex flex-col items-center gap-3">
+        <NuxtLink to="/login" class="inline-block px-7 py-3 rounded-xl bg-brand text-white font-bold text-sm hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)] no-underline">
+          Перейти ко входу
+        </NuxtLink>
+        <button
+          v-if="resendState !== 'sent'"
+          type="button"
+          :disabled="resendState === 'sending'"
+          class="text-sm text-[#999] hover:text-[#555] transition-colors disabled:opacity-50"
+          @click="resend"
+        >
+          {{ resendState === 'sending' ? 'Отправка...' : 'Не пришло письмо? Отправить повторно' }}
+        </button>
+        <span v-else class="text-sm text-green-600">Письмо отправлено повторно</span>
+      </div>
     </div>
 
     <form v-else class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden" @submit.prevent="submit">

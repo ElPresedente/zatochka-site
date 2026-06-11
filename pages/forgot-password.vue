@@ -1,7 +1,7 @@
 <script setup lang="ts">
 useHead({ title: 'Восстановление пароля — Острый край' })
 
-const phone = ref('')
+const email = ref('')
 const error = ref('')
 const loading = ref(false)
 const sent = ref(false)
@@ -10,7 +10,7 @@ async function submit() {
   error.value = ''
   loading.value = true
   try {
-    await $fetch('/api/auth/forgot-password', { method: 'POST', body: { phone: phone.value } })
+    await $fetch('/api/auth/forgot-password', { method: 'POST', body: { email: email.value } })
     sent.value = true
   } catch (e: any) {
     error.value = e?.data?.message ?? 'Произошла ошибка. Попробуйте позже.'
@@ -24,7 +24,7 @@ async function submit() {
   <div class="max-w-[440px] mx-auto px-4 py-10 lg:py-16">
     <h1 class="text-2xl font-bold text-[#222] mb-2">Восстановление пароля</h1>
     <p class="text-[#888] text-sm mb-6 lg:mb-8">
-      Укажите телефон, привязанный к аккаунту. Мы получим заявку и свяжемся с вами.
+      Укажите email, привязанный к аккаунту. Мы отправим ссылку для смены пароля.
     </p>
 
     <Transition name="fade" mode="out-in">
@@ -33,7 +33,7 @@ async function submit() {
         <div class="text-4xl mb-4">✅</div>
         <div class="font-bold text-[#222] mb-2">Заявка отправлена</div>
         <p class="text-sm text-[#666] mb-6">
-          Ваша заявка принята. Мы позвоним вам в рабочее время и поможем восстановить доступ.
+          Если аккаунт с таким email существует, мы отправили на него ссылку для смены пароля. Проверьте почту.
         </p>
         <NuxtLink to="/login" class="btn-primary text-sm px-6 py-2.5">
           Вернуться ко входу
@@ -44,12 +44,12 @@ async function submit() {
       <form v-else class="bg-white rounded-2xl shadow-sm border border-[#eee] overflow-hidden" @submit.prevent="submit">
         <div class="px-5 py-5 lg:px-7 lg:py-6 flex flex-col gap-4">
           <div>
-            <label class="block text-xs font-semibold text-[#777] mb-1.5">Телефон</label>
+            <label class="block text-xs font-semibold text-[#777] mb-1.5">Email</label>
             <input
-              v-model="phone"
-              type="tel"
-              placeholder="+7 (910) 304-30-40"
-              autocomplete="tel"
+              v-model="email"
+              type="email"
+              placeholder="you@example.com"
+              autocomplete="email"
               class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand transition-colors"
             />
           </div>
@@ -67,10 +67,10 @@ async function submit() {
           </NuxtLink>
           <button
             type="submit"
-            :disabled="loading || !phone.trim()"
+            :disabled="loading || !email.trim()"
             class="px-7 py-3 rounded-xl bg-brand text-white font-bold text-sm hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)] disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"
           >
-            {{ loading ? 'Отправка...' : 'Отправить заявку' }}
+            {{ loading ? 'Отправка...' : 'Отправить ссылку' }}
           </button>
         </div>
       </form>

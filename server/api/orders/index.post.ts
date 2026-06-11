@@ -7,6 +7,7 @@ import { assertRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
 import { parseOptionalString, parseEmail } from '~/server/utils/validators'
 import { parseProductPhotos, parseProductServices } from '~/server/utils/json-shapes'
 import { createYookassaPayment, buildReceiptItems } from '~/server/utils/yookassa'
+import { sendOrderCreatedEmail } from '~/server/utils/auth-emails'
 import { getOrelDeliveryConfig, pointInPolygon, calcOrelDeliveryCost } from '~/server/utils/delivery'
 import { cdekOfficeTariff } from '~/server/utils/cdek'
 
@@ -221,10 +222,10 @@ export default defineEventHandler(async (event) => {
       description: 'Заказ оформлен',
     })
 
-    return { createdOrder, itemsToInsert }
+    return { createdOrder, itemsToInsert, userEmail: user.email }
   })
 
-  const { createdOrder, itemsToInsert: notifyItems } = txResult
+  const { createdOrder, itemsToInsert: notifyItems, userEmail } = txResult
 
   // Сохранить email в профиле если предоставлен
   if (emailInput) {
@@ -235,17 +236,33 @@ export default defineEventHandler(async (event) => {
 
   await recordRateLimitHit(rateLimit)
 
+  const notifyItemsParsed = notifyItems.map(item => ({
+    productName: item.productName,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    totalPrice: item.totalPrice,
+    services: JSON.parse(item.services) as { name: string; price: number }[],
+  }))
+
   await notifyOrderCreated({
     id: createdOrder.id,
     totalAmount: createdOrder.totalAmount,
     status: createdOrder.status as OrderStatus,
     paymentMethod: paymentMethodInput,
-    items: notifyItems.map(item => ({
+    items: notifyItemsParsed,
+  })
+
+  // Письмо клиенту о принятом заказе (на email заказа либо аккаунта).
+  await sendOrderCreatedEmail({
+    email: createdOrder.customerEmail || userEmail || '',
+    firstName: createdOrder.customerFirstName,
+    orderId: createdOrder.id,
+    totalAmount: createdOrder.totalAmount,
+    items: notifyItemsParsed.map(item => ({
       productName: item.productName,
       quantity: item.quantity,
-      unitPrice: item.unitPrice,
       totalPrice: item.totalPrice,
-      services: JSON.parse(item.services) as { name: string; price: number }[],
+      services: item.services,
     })),
   })
 

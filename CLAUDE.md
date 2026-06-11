@@ -57,8 +57,10 @@ Composables:
 - Пользователи: `users` (телефон + хэш пароля + необязательный `email`).
 - Вход: по номеру телефона **или** по email — `POST /api/auth/login` принимает поле `login`, определяет тип по наличию `@`.
 - Регистрация: email обязателен для новых пользователей. Уникальный частичный индекс `users_email_unique` не затрагивает старые аккаунты без email.
+- **Подтверждение email (см. раздел «Транзакционная почта»):** при регистрации аккаунт создаётся с `email_verified = false`, сессия НЕ создаётся (нет авто-логина). Вход заблокирован (403, `data.code = 'email_not_verified'`), пока email не подтверждён — для аккаунтов с привязанной почтой. Старые аккаунты на момент миграции `0018` помечены verified, чтобы не заблокировать их.
 - Админы: отдельная таблица `admins`, связанная с `users` (userId PK, onDelete cascade).
-- Сессия: `server/utils/session.ts`, cookie `sid`, 7 дней, httpOnly, sameSite: lax, secure по протоколу.
+- Сессия: `server/utils/session.ts`, cookie `sid`, 7 дней, httpOnly, sameSite: lax, secure по протоколу. Полезная нагрузка — `{ userId, sv }`, где `sv` = `users.session_version`.
+- **Инвалидация сессий:** кука stateless-подписанная, серверной таблицы сессий нет. При сбросе пароля `users.session_version` инкрементируется. `server/middleware/0.session-version.ts` (запускается ПЕРВЫМ, до `admin-auth`) сверяет `sv` сессии с БД для `/api/**` при наличии `userId`; при расхождении гасит сессию.
 - `SESSION_SECRET` должен быть не короче 32 символов; приложение падает на старте, если секрет дефолтный.
 - Публичные auth endpoints: `server/api/auth/*`.
 - `server/middleware/same-origin.ts` — same-origin guard для всех небезопасных методов (POST/PUT/PATCH/DELETE) на `/api/**`. **Исключение: `/api/yookassa/webhook`** — ЮKassa шлёт POST без Origin.
@@ -72,7 +74,7 @@ Composables:
 Все `/api/account/*` требуют авторизации (проверяют `session.data.userId`).
 
 - `GET /api/account/profile` — имя, фамилия, телефон, email текущего пользователя.
-- `PATCH /api/account/profile` — обновление имени, фамилии и email.
+- `PATCH /api/account/profile` — обновление имени, фамилии и email. **Смена email требует подтверждения:** новый адрес кладётся в `users.pending_email` (текущий email не меняется), на новый адрес уходит письмо со ссылкой; ответ содержит `emailChangePending: true`. Переход по ссылке (`verify-email`) применяет `pending_email` → `email` и помечает verified. Очистка email — без подтверждения.
 - `GET /api/account/orders` — история заказов пользователя (с позициями и историей).
 - `GET /api/account/orders/[id]` — один заказ пользователя по ID.
 - `POST /api/account/orders/[id]/pay` — создать платёж ЮKassa для неоплаченного заказа. Работает для любого способа оплаты (в т.ч. `cash` — тогда `paymentMethod` автоматически меняется на `online_card`).
@@ -91,8 +93,10 @@ Composables:
 | `/about` | О мастерской |
 | `/shop` | Магазин, корзина, создание заказов |
 | `/login` | Публичная авторизация |
-| `/register` | Регистрация |
-| `/forgot-password` | Заявка на восстановление пароля |
+| `/register` | Регистрация (после неё — экран «подтвердите email») |
+| `/forgot-password` | Восстановление пароля по email |
+| `/confirm` | Результат подтверждения email (`?status=ok\|invalid`) |
+| `/reset` | Форма нового пароля по ссылке из письма (`?token=...`) |
 | `/account` | Личный кабинет (история заказов, профиль) |
 | `/payment/return` | Страница возврата после оплаты ЮKassa (`?order_id=X`) |
 | `/offer` | Публичная оферта |
@@ -113,7 +117,8 @@ Composables:
 
 | Таблица | Назначение |
 |---|---|
-| `users` | Пользователи: телефон, имя, фамилия, хэш пароля, `email` (nullable), `consentGivenAt`, `consentVersion`, `deletionRequestedAt` |
+| `users` | Пользователи: телефон, имя, фамилия, хэш пароля, `email` (nullable), `emailVerified`, `pendingEmail` (новый email до подтверждения), `sessionVersion`, `consentGivenAt`, `consentVersion`, `deletionRequestedAt` |
+| `email_tokens` | Одноразовые токены подтверждения email/сброса пароля: `userId`, `purpose` (`verify\|reset`), `tokenHash` (SHA-256), `expiresAt`, `consumedAt` |
 | `admins` | Привязка userId → роль администратора (userId PK, onDelete cascade) |
 | `orders` | Заказы: клиентские данные, сумма, статус, `userComment`, `sellerComment`, поля оплаты (см. ниже) |
 | `order_items` | Снимок состава заказа: название, фото, цена, `stockDeducted`, `services` (JSON) |
@@ -286,8 +291,29 @@ Webhook `POST /api/yookassa/webhook`:
 Эндпоинты с rate limiting:
 - `POST /api/auth/login` — 10 попыток / 15 мин (ключ: IP + raw login input)
 - `POST /api/auth/register` — 5 попыток / 1 час (ключ: IP)
-- `POST /api/auth/forgot-password` — 3 попытки / 1 час (ключ: IP)
+- `POST /api/auth/forgot-password` — 5 / 1 час по IP и 5 / 1 час по email (без энумерации)
+- `POST /api/auth/resend-verification` — 5 / 1 час по IP и 5 / 1 час по email (без энумерации)
 - `POST /api/orders` — 10 заказов / 1 час (ключ: IP + userId)
+
+## Транзакционная почта (email)
+
+Провайдеро-независимый слой отправки поверх `nodemailer` (SMTP → наш MTA). На dev без SMTP письма пишутся в консоль вместо доставки. Инфраструктура MTA (Postfix/OpenDKIM, DNS, PTR, порт 25) — вне репозитория приложения.
+
+Утилиты:
+- `server/utils/mailer.ts` — `sendMail({ to, subject, html, text })`. Транспорт из env `SMTP_*`; если `SMTP_HOST` пуст — лог в консоль.
+- `server/utils/email-templates.ts` — шаблоны `verify / reset / orderCreated / orderReady`, каждый отдаёт `{ subject, html, text }` (multipart обязателен).
+- `server/utils/email-tokens.ts` — `issueToken(userId, purpose)` / `consumeToken(rawToken, purpose)`. Токен — 32 случайных байта (base64url), в БД хранится только SHA-256-хеш. Гашение атомарно (`WHERE consumed_at IS NULL`). TTL: `verify` 24 ч, `reset` 1 ч.
+- `server/utils/auth-emails.ts` — `sendVerificationEmail`, `sendPasswordResetEmail`, `sendOrderCreatedEmail`, `sendOrderReadyEmail`. Ссылки строятся из `APP_URL` (fallback `SITE_URL`).
+
+Таблица `email_tokens` (`server/db/schema/email-tokens.ts`): `userId` (FK cascade), `purpose` (`verify|reset`), `tokenHash`, `expiresAt`, `consumedAt`, `createdAt`; индексы по `token_hash` и `(user_id, purpose)`.
+
+Флоу:
+- **Подтверждение email:** `register` шлёт письмо со ссылкой на `GET /api/auth/verify-email?token=` → помечает `email_verified`, redirect на `/confirm?status=ok|invalid`. Повторная отправка — `POST /api/auth/resend-verification { email }`. Тот же хендлер применяет `pending_email` при смене email (см. «Личный кабинет»).
+- **Смена email:** один токен `purpose='verify'` обслуживает и регистрацию, и смену адреса. Различие — наличие `users.pending_email`: если он есть, `verify-email` переносит его в `email`; иначе просто verified.
+- **Сброс пароля:** `POST /api/auth/forgot-password { email }` (одинаковый ответ всегда) → письмо со ссылкой на страницу `/reset?token=`. `POST /api/auth/reset-password { token, password }` (пароль ≥ 8) ставит новый bcrypt-хеш, помечает `email_verified`, инкрементирует `session_version` (инвалидирует сессии).
+- **Уведомления о заказе:** письмо клиенту при создании заказа (`POST /api/orders`) и при переходе в `ready` (`status.put.ts`). Получатель — `customerEmail` заказа либо email аккаунта. Ошибки отправки не ломают основной поток.
+
+Страницы: `/confirm` (результат подтверждения), `/reset` (форма нового пароля).
 
 ## Миграции
 
@@ -331,6 +357,9 @@ Webhook `POST /api/yookassa/webhook`:
 - `YOOKASSA_SHOP_ID` — shopId из личного кабинета ЮKassa.
 - `YOOKASSA_SECRET_KEY` — секретный ключ API ЮKassa.
 - `SITE_URL` — базовый URL сайта (например `https://example.ru`), используется для формирования `return_url` платежей.
+- `APP_URL` — базовый URL для ссылок в письмах (verify/reset). Если пусто — fallback на `SITE_URL`.
+- `MAIL_FROM` — отправитель писем (на проде — адрес отправляющего поддомена, напр. `Острый край <noreply@mail.example.ru>`).
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — submission нашего MTA. Если `SMTP_HOST` пуст — на dev письма пишутся в консоль, доставка не выполняется.
 - `YANDEX_MAPS_JS_API_KEY` — ключ JS API v3 (public). На ключе в кабинете должны быть включены продукты «JavaScript API» и «Геосаджест»; в поле HTTP Referer — `localhost` для dev, прод-домен для прода.
 - `YANDEX_MAPS_GEOCODER_KEY` — ключ Geocoder HTTP API (приватный, **не** public). Отдельный продукт/ключ для серверного геокодера Орла.
 - `YANDEX_MAPS_SUGGEST_KEY` — устаревшая переменная: в v3 отдельный ключ саджеста загрузчику не передаётся (см. раздел «Доставка»). Не используется в загрузчике карты.

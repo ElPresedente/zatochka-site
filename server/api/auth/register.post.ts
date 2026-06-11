@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 import type { H3Event } from 'h3'
 import { handleDbConnectionError, useDb } from '~/server/db'
 import { users } from '~/server/db/schema'
+import { sendVerificationEmail } from '~/server/utils/auth-emails'
 import { assertRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
 import { normalizePhone, parseEmail, parseTrimmedString } from '~/server/utils/validators'
 
@@ -51,17 +52,24 @@ export default defineEventHandler(async (event) => {
       firstName,
       phone,
       email,
+      // emailVerified остаётся false (default) — вход заблокирован до подтверждения почты.
       passwordHash,
       consentGivenAt: new Date(),
       consentVersion: CONSENT_VERSION,
     }).returning()
 
-    const session = await getAuthSession(event)
-    await session.update({ userId: user.id })
-
     await recordRateLimitHit(rateLimit)
 
-    return { id: user.id, firstName: user.firstName, lastName: user.lastName, phone: user.phone }
+    // Не логиним пользователя сразу: вход открывается только после подтверждения email.
+    // Ошибку отправки письма не пробрасываем — аккаунт уже создан, можно запросить письмо повторно.
+    try {
+      await sendVerificationEmail({ id: user.id, firstName: user.firstName, email })
+    }
+    catch (mailErr) {
+      console.error('[auth] verification email failed for user', user.id, mailErr)
+    }
+
+    return { emailVerificationRequired: true, email }
   } catch (e: any) {
     handleDbConnectionError(e)
     const pgCode = e?.code ?? e?.cause?.code
