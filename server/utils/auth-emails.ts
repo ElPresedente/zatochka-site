@@ -4,6 +4,7 @@ import {
   verifyEmailTemplate,
   emailChangeTemplate,
   passwordResetTemplate,
+  newPasswordTemplate,
   orderCreatedTemplate,
   orderReadyTemplate,
   type OrderEmailItem,
@@ -39,6 +40,15 @@ export async function sendPasswordResetEmail(user: { id: number; firstName: stri
   const token = await issueToken(user.id, 'reset')
   const link = `${appUrl()}/reset?token=${encodeURIComponent(token)}`
   const content = passwordResetTemplate({ firstName: user.firstName, link })
+  await sendMail({ to: user.email, ...content })
+}
+
+/**
+ * Письмо со сгенерированным новым паролем (сброс пользователем в ЛК или админом).
+ * Пароль уже сохранён в БД к моменту отправки.
+ */
+export async function sendNewPasswordEmail(user: { firstName?: string; email: string }, password: string): Promise<void> {
+  const content = newPasswordTemplate({ firstName: user.firstName, password })
   await sendMail({ to: user.email, ...content })
 }
 

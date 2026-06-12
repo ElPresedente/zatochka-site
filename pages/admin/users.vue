@@ -36,6 +36,7 @@ async function toggleAdmin(u: UserRow) {
 
 const resetPasswordUserId = ref<number | null>(null)
 const resetPasswordValue = ref('')
+const resetPasswordEmailed = ref(false)
 const resetPasswordCopied = ref(false)
 const resetPasswordLoading = ref(false)
 
@@ -44,10 +45,12 @@ async function resetPassword(u: UserRow) {
   resetPasswordLoading.value = true
   resetPasswordUserId.value = u.id
   resetPasswordValue.value = ''
+  resetPasswordEmailed.value = false
   resetPasswordCopied.value = false
   try {
-    const res = await $fetch<{ password: string }>(`/api/admin/users/${u.id}/reset-password`, { method: 'POST' })
+    const res = await $fetch<{ password: string; emailed: boolean }>(`/api/admin/users/${u.id}/reset-password`, { method: 'POST' })
     resetPasswordValue.value = res.password
+    resetPasswordEmailed.value = res.emailed
   } finally {
     resetPasswordLoading.value = false
   }
@@ -62,6 +65,7 @@ async function copyPassword() {
 function closeResetPassword() {
   resetPasswordUserId.value = null
   resetPasswordValue.value = ''
+  resetPasswordEmailed.value = false
   resetPasswordCopied.value = false
 }
 
@@ -237,8 +241,11 @@ async function deleteUser(u: UserRow) {
       >
         <div class="bg-white rounded-2xl shadow-xl border border-[#eee] w-full max-w-sm p-6">
           <div class="text-base font-bold text-[#222] mb-1">Новый пароль</div>
-          <p class="text-xs text-[#888] mb-4">
-            Скопируйте пароль и передайте пользователю. После закрытия он больше не будет доступен.
+          <p v-if="resetPasswordEmailed" class="text-xs text-green-600 mb-4">
+            Пароль отправлен пользователю на почту. После закрытия он больше не будет доступен здесь.
+          </p>
+          <p v-else class="text-xs text-[#888] mb-4">
+            У пользователя нет привязанной почты — скопируйте пароль и передайте его лично. После закрытия он больше не будет доступен.
           </p>
 
           <div class="flex items-center gap-2 bg-[#f5f5f5] rounded-xl px-4 py-3 mb-4">

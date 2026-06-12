@@ -113,6 +113,24 @@ export function passwordResetTemplate(params: { firstName?: string; link: string
   return { subject, html, text }
 }
 
+export function newPasswordTemplate(params: { firstName?: string; password: string }): EmailContent {
+  const subject = `Новый пароль — ${BRAND}`
+  const html = layout('Пароль сброшен', `
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">${greeting(params.firstName)}<br>
+    Ваш пароль был сброшен. Используйте новый пароль для входа:</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 20px;"><tr>
+      <td style="border-radius:12px;background:#f4f4f5;border:1px solid #eee;padding:14px 28px;font-family:'Courier New',Courier,monospace;font-size:20px;font-weight:bold;letter-spacing:2px;color:#222;">${escapeHtml(params.password)}</td>
+    </tr></table>
+    <p style="margin:0;font-size:13px;color:#666;line-height:1.6;">Рекомендуем изменить пароль в настройках личного кабинета позже.</p>
+    <p style="margin:16px 0 0;font-size:13px;color:#999;">Если вы не запрашивали сброс пароля — срочно свяжитесь с нами.</p>
+  `)
+  const text = `${params.firstName ? `Здравствуйте, ${params.firstName}!` : 'Здравствуйте!'}\n\n`
+    + `Ваш пароль на сайте «${BRAND}» был сброшен. Новый пароль для входа:\n\n${params.password}\n\n`
+    + `Рекомендуем изменить пароль в настройках личного кабинета позже.\n\n`
+    + `Если вы не запрашивали сброс пароля — срочно свяжитесь с нами.`
+  return { subject, html, text }
+}
+
 export function orderCreatedTemplate(params: {
   firstName?: string
   orderId: number

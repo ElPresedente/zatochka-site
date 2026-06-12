@@ -38,7 +38,7 @@ interface OrderWithItems {
 }
 
 const { formatPrice, formatDate, formatPhone } = useFormatters()
-const { fetchUser } = useAuth()
+const { fetchUser, logout } = useAuth()
 
 const router = useRouter()
 const route = useRoute()
@@ -132,6 +132,8 @@ async function requestPasswordReset() {
   try {
     await $fetch('/api/account/password-reset', { method: 'POST' })
     resetRequestSent.value = true
+    // Сброс инвалидирует текущую сессию — даём прочитать сообщение и выходим.
+    setTimeout(() => { logout('/login') }, 4000)
   } catch (e: any) {
     resetRequestError.value = e?.data?.message ?? 'Ошибка при отправке запроса'
   } finally {
@@ -351,16 +353,16 @@ async function payExtraOrder(orderId: number) {
           </form>
 
           <div class="mt-5 pt-5 border-t border-[#f0f0f0]">
-            <p class="text-sm text-[#888] mb-3">Не помните текущий пароль? Мы сбросим его вручную и свяжемся с вами.</p>
+            <p class="text-sm text-[#888] mb-3">Не помните текущий пароль? Мы сгенерируем новый и отправим его на вашу почту.</p>
             <template v-if="resetRequestSent">
-              <p class="text-sm text-green-600 font-semibold">Запрос отправлен — ожидайте звонка</p>
+              <p class="text-sm text-green-600 font-semibold">Новый пароль отправлен на вашу почту. Сейчас вы выйдете из аккаунта — войдите с новым паролем.</p>
             </template>
             <template v-else>
               <button
                 class="text-sm font-semibold text-brand hover:underline disabled:opacity-50"
                 :disabled="resetRequesting"
                 @click="requestPasswordReset"
-              >{{ resetRequesting ? 'Отправка...' : 'Запросить сброс пароля' }}</button>
+              >{{ resetRequesting ? 'Отправка...' : 'Сбросить пароль' }}</button>
               <p v-if="resetRequestError" class="text-xs text-red-500 mt-1">{{ resetRequestError }}</p>
             </template>
           </div>

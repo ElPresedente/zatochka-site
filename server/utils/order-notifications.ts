@@ -115,15 +115,7 @@ export async function notifyDeletionRequest(payload: DeletionRequestPayload) {
   }
 }
 
-export async function notifyPasswordResetRequest(payload: PasswordResetRequestPayload) {
-  // TODO: Replace with Nodemailer + Yandex SMTP once email field is added to users.
-  // Steps:
-  //   1. Add `email` field to users table (migration + register form)
-  //   2. Generate a signed reset token, store in password_reset_tokens table with expiresAt
-  //   3. Send email via nodemailer with transporter = createTransport({ host: 'smtp.yandex.ru', port: 465, ... })
-  //   4. Create page /reset-password?token=... to validate token and set new password
-  //   5. Remove Telegram fallback below
-
+export async function notifyPasswordReset(payload: PasswordResetRequestPayload) {
   const config = useRuntimeConfig()
   const token = config.telegramBotToken
   const chatId = config.telegramChatId
@@ -134,12 +126,9 @@ export async function notifyPasswordResetRequest(payload: PasswordResetRequestPa
   }
 
   const parts = [
-    '🔑 <b>Заявка на сброс пароля</b>',
+    '🔑 <b>Сброс пароля</b>',
     '',
-    `👤 ${payload.lastName} ${payload.firstName} (ID: ${payload.userId})`,
-    `📞 ${payload.phone}`,
-    '',
-    'Свяжитесь с пользователем и сбросьте пароль вручную в разделе <b>Пользователи</b> в админке.',
+    `Пользователь ${payload.lastName} ${payload.firstName} (ID: ${payload.userId}, ${payload.phone}) сбросил пароль. Новый пароль отправлен ему на почту.`,
   ]
 
   try {
