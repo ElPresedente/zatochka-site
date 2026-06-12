@@ -74,20 +74,13 @@ onBeforeUnmount(() => {
       </nav>
 
       <!-- Desktop contacts and auth -->
-      <div class="hidden lg:flex flex-col gap-2 items-end">
+      <div class="hidden lg:flex flex-col gap-1.5 items-end">
         <a
           :href="settings?.phone_href || 'tel:+79103043040'"
-          class="flex items-center gap-2 no-underline text-black text-base"
+          class="flex items-center gap-2 no-underline text-black text-sm"
         >
-          <img src="/images/phone_icon.png" class="w-5 h-4 object-contain" alt="" />
+          <img src="/images/phone_icon.png" class="w-4 h-3.5 object-contain" alt="" />
           {{ settings?.phone || '+7 (910) 304-30-40' }}
-        </a>
-        <a
-          :href="`mailto:${settings?.email || 'zatochka_test@yandex.ru'}`"
-          class="flex items-center gap-2 no-underline text-black text-base"
-        >
-          <img src="/images/email_icon.png" class="w-5 h-4 object-contain" alt="" />
-          {{ settings?.email || 'zatochka_test@yandex.ru' }}
         </a>
         <AuthStatus />
       </div>
@@ -145,7 +138,7 @@ onBeforeUnmount(() => {
           </NuxtLink>
         </nav>
 
-        <div class="border-t border-black/5 px-4 py-4 flex flex-col gap-2">
+        <div class="border-t border-black/5 px-4 py-4 flex flex-col gap-3">
           <a
             :href="settings?.phone_href || 'tel:+79103043040'"
             class="flex items-center gap-2 no-underline text-black text-base"
@@ -153,17 +146,7 @@ onBeforeUnmount(() => {
             <img src="/images/phone_icon.png" class="w-5 h-4 object-contain" alt="" />
             {{ settings?.phone || '+7 (910) 304-30-40' }}
           </a>
-          <a
-            :href="`mailto:${settings?.email || 'zatochka_test@yandex.ru'}`"
-            class="flex items-center gap-2 no-underline text-black text-base break-all"
-          >
-            <img src="/images/email_icon.png" class="w-5 h-4 object-contain shrink-0" alt="" />
-            {{ settings?.email || 'zatochka_test@yandex.ru' }}
-          </a>
-        </div>
-
-        <div class="border-t border-black/5 px-4 py-4">
-          <AuthStatus />
+          <AuthStatus mode="inline" />
         </div>
       </div>
     </Transition>
