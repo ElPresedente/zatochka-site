@@ -238,3 +238,18 @@ export interface CdekOrderInput {
 export async function cdekCreateOrder(order: CdekOrderInput): Promise<{ entity?: { uuid: string }; requests?: Array<{ errors?: unknown[] }> }> {
   return cdekRequest('/v2/orders', 'POST', order)
 }
+
+// Удаление (отмена) заказа в СДЭК по внутреннему UUID.
+// СДЭК отвечает 200 даже если удаление невозможно (посылка уже принята в работу) —
+// в этом случае ошибки приходят в requests[].errors, поэтому бросаем, чтобы вызывающий
+// мог залогировать необходимость ручной отмены.
+export async function cdekDeleteOrder(uuid: string): Promise<void> {
+  const resp = await cdekRequest<{ requests?: Array<{ errors?: unknown[] }> }>(
+    `/v2/orders/${uuid}`,
+    'DELETE',
+  )
+  const errors = (resp?.requests ?? []).flatMap(r => r.errors ?? [])
+  if (errors.length) {
+    throw new Error(`CDEK delete rejected: ${JSON.stringify(errors)}`)
+  }
+}

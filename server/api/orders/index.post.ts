@@ -93,6 +93,10 @@ export default defineEventHandler(async (event) => {
   if (deliveryMethod === 'delivery' && deliveryScope === 'orel' && !deliveryAddressInput) {
     throw createError({ statusCode: 400, message: 'Укажите адрес доставки' })
   }
+  // Оплата на месте доступна только при самовывозе; доставка — только картой онлайн.
+  if (deliveryMethod === 'delivery' && paymentMethodInput !== 'online_card') {
+    throw createError({ statusCode: 400, message: 'Для доставки доступна только оплата картой онлайн' })
+  }
 
   const productIds = [...new Set(cartItems.map(item => item.id))]
 

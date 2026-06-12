@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm'
 import { useDb } from '~/server/db'
 import { orderHistory, orderItems, orders, orderStatuses, products, users, type OrderStatus } from '~/server/db/schema'
 import { createYookassaRefund } from '~/server/utils/yookassa'
+import { cdekDeleteOrder } from '~/server/utils/cdek'
 import { sendOrderReadyEmail } from '~/server/utils/auth-emails'
 import { ORDER_STATUS_LABELS } from '~/types/api'
 
@@ -58,6 +59,22 @@ export default defineEventHandler(async (event) => {
         statusCode: 502,
         message: 'Не удалось выполнить возврат в ЮKassa. Попробуйте ещё раз или выполните возврат вручную в личном кабинете ЮKassa.',
       })
+    }
+  }
+
+  // Отмена заявки на доставку СДЭК (внешний вызов — вне транзакции).
+  // В отличие от возврата, неудача здесь НЕ блокирует отмену заказа: посылку могли уже
+  // принять в работу. Просто фиксируем в истории, что нужна ручная отмена.
+  let cdekCancelled = false
+  let cdekCancelFailed = false
+  if (nextStatus === 'cancelled' && preOrder.cdekOrderUuid) {
+    try {
+      await cdekDeleteOrder(preOrder.cdekOrderUuid)
+      cdekCancelled = true
+    }
+    catch (err) {
+      console.error('[cdek] failed to cancel order', preOrder.cdekOrderUuid, err)
+      cdekCancelFailed = true
     }
   }
 
@@ -130,11 +147,22 @@ export default defineEventHandler(async (event) => {
     if (refundDone) {
       historyDesc.push('возврат средств выполнен через ЮKassa')
     }
+    if (cdekCancelled) {
+      historyDesc.push('заявка на доставку СДЭК отменена')
+    }
     await tx.insert(orderHistory).values({
       orderId: id,
       adminId,
       description: historyDesc.join(', ') + '.',
     })
+
+    if (cdekCancelFailed) {
+      await tx.insert(orderHistory).values({
+        orderId: id,
+        adminId,
+        description: 'ВНИМАНИЕ: не удалось автоматически отменить заявку СДЭК (возможно, посылка уже принята в работу). Отмените её вручную в личном кабинете СДЭК.',
+      })
+    }
 
     return updated
   })

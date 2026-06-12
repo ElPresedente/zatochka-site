@@ -173,6 +173,10 @@ watch(deliveryType, () => {
     mapInstance = null
     resetCdekState()
   }
+  else {
+    // Доставка — только оплата картой онлайн (наличными нельзя).
+    paymentMethod.value = 'online_card'
+  }
 })
 
 const emailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailInput.value.trim()))
@@ -952,12 +956,14 @@ watch([deliveryScope, deliveryType], async ([scope, type]) => {
                   @click="paymentMethod = 'online_card'"
                 >Картой онлайн</button>
                 <button
+                  v-if="deliveryType === 'pickup'"
                   class="flex-1 py-2.5 text-sm font-semibold border-l border-[#e0e0e0] transition-colors"
                   :class="paymentMethod === 'cash' ? 'bg-brand text-white' : 'bg-white text-[#444] hover:bg-[#f5f5f5]'"
                   @click="paymentMethod = 'cash'"
-                >Наличными</button>
+                >При получении</button>
               </div>
               <p v-if="paymentMethod === 'online_card'" class="text-xs text-[#888] mt-1.5 px-0.5">Безопасная оплата через ЮKassa</p>
+              <p v-if="deliveryType === 'delivery'" class="text-xs text-[#888] mt-1.5 px-0.5">При доставке доступна только оплата картой онлайн</p>
             </div>
 
             <!-- Email для чека -->
