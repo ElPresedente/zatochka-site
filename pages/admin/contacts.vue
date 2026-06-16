@@ -3,6 +3,9 @@ definePageMeta({ layout: 'admin' })
 useHead({ title: 'Админ — Настройки' })
 
 const { data: settings, refresh } = await useFetch<Record<string, string>>('/api/settings')
+// Приватные настройки (адреса для уведомлений) — отдельным запросом под admin-auth,
+// т.к. публичный /api/settings их не отдаёт.
+const { data: adminSettings, refresh: refreshAdmin } = await useFetch<Record<string, string>>('/api/admin/settings')
 
 const defaultMapEmbedUrl = 'https://yandex.ru/map-widget/v1/org/ostry_kray/96290816208/?from=mapframe&ll=36.059318%2C52.970957&utm_source=share&z=19'
 const defaultYandexMapUrl = 'https://yandex.ru/maps/org/ostry_kray/96290816208/'
@@ -20,7 +23,13 @@ const form = ref({
   dgis_url: '',
   legal_name: '',
   inn: '',
+  private_order_notification_emails: '',
 })
+
+watch(adminSettings, (s) => {
+  if (!s) return
+  form.value.private_order_notification_emails = s.private_order_notification_emails ?? ''
+}, { immediate: true })
 
 watch(settings, (s) => {
   if (!s) return
@@ -44,7 +53,7 @@ async function save() {
   saving.value = true
   try {
     await $fetch('/api/admin/settings', { method: 'PUT', body: form.value })
-    await refresh()
+    await Promise.all([refresh(), refreshAdmin()])
     saved.value = true
     setTimeout(() => { saved.value = false }, 2500)
   } finally {
@@ -111,17 +120,34 @@ async function save() {
           </div>
         </div>
 
-        <div class="flex items-center gap-4 pt-2">
-          <button
-            class="px-7 py-3 rounded-xl bg-brand text-white font-bold text-sm hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)] disabled:opacity-60"
-            :disabled="saving"
-            @click="save"
-          >{{ saving ? 'Сохранение...' : 'Сохранить' }}</button>
-          <Transition name="fade">
-            <span v-if="saved" class="text-sm text-green-600 font-semibold">Сохранено</span>
-          </Transition>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-[#eee] max-w-[600px] mt-5 lg:mt-6">
+      <div class="px-5 lg:px-7 py-4 lg:py-6 border-b border-[#eee] font-semibold text-[#555]">Уведомления о заказах</div>
+      <div class="px-5 lg:px-7 py-5 lg:py-6 flex flex-col gap-4 lg:gap-5">
+        <div>
+          <label class="block text-xs font-semibold text-[#777] mb-1.5">Email для уведомлений о новых заказах</label>
+          <textarea
+            v-model="form.private_order_notification_emails"
+            rows="3"
+            placeholder="manager@example.ru&#10;owner@example.ru"
+            class="w-full border border-[#ddd] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand resize-y"
+          ></textarea>
+          <p class="text-xs text-[#999] mt-1.5">По одному адресу на строку или через запятую. На эти адреса приходит письмо при оформлении нового заказа.</p>
         </div>
       </div>
+    </div>
+
+    <div class="max-w-[600px] flex items-center gap-4 mt-5 lg:mt-6">
+      <button
+        class="px-7 py-3 rounded-xl bg-brand text-white font-bold text-sm hover:brightness-110 transition-all shadow-[0_3px_0_rgba(9,136,189,0.5)] disabled:opacity-60"
+        :disabled="saving"
+        @click="save"
+      >{{ saving ? 'Сохранение...' : 'Сохранить' }}</button>
+      <Transition name="fade">
+        <span v-if="saved" class="text-sm text-green-600 font-semibold">Сохранено</span>
+      </Transition>
     </div>
   </div>
 </template>

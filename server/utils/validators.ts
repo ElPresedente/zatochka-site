@@ -114,6 +114,23 @@ export function parseEmail(value: unknown, fieldName: string, opts: { required?:
   return trimmed
 }
 
+/**
+ * Разбивает строку с email-адресами (разделители: запятая, точка с запятой, перенос строки)
+ * в массив валидных уникальных адресов в нижнем регистре. Невалидные — отбрасываются.
+ */
+export function splitEmails(raw: unknown): string[] {
+  if (typeof raw !== 'string') return []
+  const seen = new Set<string>()
+  for (const part of raw.split(/[,;\n\r]+/)) {
+    const email = part.trim().toLowerCase()
+    if (!email) continue
+    if (email.length > 255) continue
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) continue
+    seen.add(email)
+  }
+  return [...seen]
+}
+
 export function parseRouteId(value: string | undefined, entity = 'записи'): number {
   const parsed = Number(value)
   if (!Number.isInteger(parsed) || parsed <= 0) {

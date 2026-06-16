@@ -7,7 +7,7 @@ import { assertRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
 import { parseOptionalString, parseEmail } from '~/server/utils/validators'
 import { parseProductPhotos, parseProductServices } from '~/server/utils/json-shapes'
 import { createYookassaPayment, buildReceiptItems } from '~/server/utils/yookassa'
-import { sendOrderCreatedEmail } from '~/server/utils/auth-emails'
+import { sendOrderCreatedEmail, sendOrderAdminEmail } from '~/server/utils/auth-emails'
 import { getOrelDeliveryConfig, pointInPolygon, calcOrelDeliveryCost } from '~/server/utils/delivery'
 import { cdekOfficeTariff } from '~/server/utils/cdek'
 
@@ -254,6 +254,31 @@ export default defineEventHandler(async (event) => {
     status: createdOrder.status as OrderStatus,
     paymentMethod: paymentMethodInput,
     items: notifyItemsParsed,
+  })
+
+  // Уведомление администратору(ам) о новом заказе на email (параллельно Telegram).
+  await sendOrderAdminEmail({
+    orderId: createdOrder.id,
+    totalAmount: createdOrder.totalAmount,
+    paymentMethod: paymentMethodInput,
+    customerName: [createdOrder.customerFirstName, createdOrder.customerLastName].filter(Boolean).join(' '),
+    customerPhone: createdOrder.customerPhone,
+    customerEmail: createdOrder.customerEmail || userEmail || '',
+    comment: createdOrder.userComment || '',
+    items: notifyItemsParsed.map(item => ({
+      productName: item.productName,
+      quantity: item.quantity,
+      totalPrice: item.totalPrice,
+      services: item.services,
+    })),
+    delivery: {
+      method: createdOrder.deliveryMethod as 'pickup' | 'delivery',
+      scope: createdOrder.deliveryScope as 'orel' | 'russia' | null,
+      address: createdOrder.deliveryAddress,
+      pvzCity: createdOrder.cdekPvzCity,
+      pvzAddress: createdOrder.cdekPvzAddress,
+      cost: createdOrder.deliveryCost,
+    },
   })
 
   // Письмо клиенту о принятом заказе (на email заказа либо аккаунта).

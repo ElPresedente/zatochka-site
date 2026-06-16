@@ -171,6 +171,106 @@ export function orderCreatedTemplate(params: {
   return { subject, html, text }
 }
 
+export interface OrderAdminDelivery {
+  method: 'pickup' | 'delivery'
+  scope?: 'orel' | 'russia' | null
+  address?: string | null
+  pvzCity?: string | null
+  pvzAddress?: string | null
+  cost?: number | null
+}
+
+export function orderAdminNotificationTemplate(params: {
+  orderId: number
+  totalAmount: number
+  paymentMethod: 'cash' | 'online_card'
+  customerName: string
+  customerPhone: string
+  customerEmail?: string
+  comment?: string
+  items: OrderEmailItem[]
+  delivery?: OrderAdminDelivery
+}): EmailContent {
+  const subject = `Новый заказ №${params.orderId} — ${BRAND}`
+  const paymentLabel = params.paymentMethod === 'online_card' ? 'Картой онлайн' : 'Наличными'
+
+  const itemRows = params.items.map((item) => {
+    const svc = item.services.length
+      ? `<div style="color:#888;font-size:12px;">${item.services.map(s => `+ ${escapeHtml(s.name)} (${fmt(s.price)})`).join('<br>')}</div>`
+      : ''
+    return `<tr>
+      <td style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">${escapeHtml(item.productName)} × ${item.quantity}${svc}</td>
+      <td style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:right;white-space:nowrap;">${fmt(item.totalPrice)}</td>
+    </tr>`
+  }).join('')
+
+  function infoRow(label: string, value: string): string {
+    return `<tr>
+      <td style="padding:4px 0;font-size:13px;color:#888;white-space:nowrap;vertical-align:top;">${label}</td>
+      <td style="padding:4px 0 4px 12px;font-size:13px;color:#222;">${value}</td>
+    </tr>`
+  }
+
+  const deliveryHtml = (() => {
+    const d = params.delivery
+    if (!d) return ''
+    if (d.method === 'pickup') return infoRow('Доставка', 'Самовывоз')
+    const scopeLabel = d.scope === 'russia' ? 'По России (СДЭК)' : 'По Орлу'
+    const where = d.scope === 'russia'
+      ? [d.pvzCity, d.pvzAddress].filter(Boolean).map(escapeHtml).join(', ')
+      : (d.address ? escapeHtml(d.address) : '')
+    const cost = d.cost ? ` (${fmt(d.cost)})` : ''
+    return infoRow('Доставка', `${scopeLabel}${cost}${where ? `<br>${where}` : ''}`)
+  })()
+
+  const html = layout(`Новый заказ №${params.orderId}`, `
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">Поступил новый заказ на сайте.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
+      ${infoRow('Клиент', escapeHtml(params.customerName) || '—')}
+      ${infoRow('Телефон', escapeHtml(params.customerPhone) || '—')}
+      ${params.customerEmail ? infoRow('Email', escapeHtml(params.customerEmail)) : ''}
+      ${infoRow('Оплата', paymentLabel)}
+      ${deliveryHtml}
+      ${params.comment ? infoRow('Комментарий', escapeHtml(params.comment)) : ''}
+    </table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
+      ${itemRows}
+      <tr><td style="padding:12px 0 0;font-size:15px;font-weight:bold;">Итого</td>
+      <td style="padding:12px 0 0;font-size:15px;font-weight:bold;text-align:right;">${fmt(params.totalAmount)}</td></tr>
+    </table>
+  `)
+
+  const lines: string[] = []
+  lines.push(`Новый заказ №${params.orderId} на сайте «${BRAND}».`)
+  lines.push('')
+  lines.push(`Клиент: ${params.customerName || '—'}`)
+  lines.push(`Телефон: ${params.customerPhone || '—'}`)
+  if (params.customerEmail) lines.push(`Email: ${params.customerEmail}`)
+  lines.push(`Оплата: ${paymentLabel}`)
+  if (params.delivery) {
+    const d = params.delivery
+    if (d.method === 'pickup') lines.push('Доставка: Самовывоз')
+    else {
+      const scopeLabel = d.scope === 'russia' ? 'По России (СДЭК)' : 'По Орлу'
+      const where = d.scope === 'russia'
+        ? [d.pvzCity, d.pvzAddress].filter(Boolean).join(', ')
+        : (d.address || '')
+      const cost = d.cost ? ` (${fmt(d.cost)})` : ''
+      lines.push(`Доставка: ${scopeLabel}${cost}${where ? ` — ${where}` : ''}`)
+    }
+  }
+  if (params.comment) lines.push(`Комментарий: ${params.comment}`)
+  lines.push('')
+  lines.push(...params.items.map((item) => {
+    const svc = item.services.map(s => `\n    + ${s.name} (${fmt(s.price)})`).join('')
+    return `- ${item.productName} × ${item.quantity} — ${fmt(item.totalPrice)}${svc}`
+  }))
+  lines.push('')
+  lines.push(`Итого: ${fmt(params.totalAmount)}`)
+
+  return { subject, html, text: lines.join('\n') }
+}
+
 export function orderReadyTemplate(params: { firstName?: string; orderId: number }): EmailContent {
   const subject = `Заказ №${params.orderId} готов — ${BRAND}`
   const html = layout(`Заказ №${params.orderId} готов`, `

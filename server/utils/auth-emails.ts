@@ -1,5 +1,10 @@
+import { eq } from 'drizzle-orm'
+import { useDb } from '~/server/db'
+import { siteSettings } from '~/server/db/schema'
 import { issueToken } from '~/server/utils/email-tokens'
 import { sendMail } from '~/server/utils/mailer'
+import { splitEmails } from '~/server/utils/validators'
+import { ORDER_NOTIFICATION_EMAILS_KEY } from '~/server/utils/settings-keys'
 import {
   verifyEmailTemplate,
   emailChangeTemplate,
@@ -7,7 +12,9 @@ import {
   newPasswordTemplate,
   orderCreatedTemplate,
   orderReadyTemplate,
+  orderAdminNotificationTemplate,
   type OrderEmailItem,
+  type OrderAdminDelivery,
 } from '~/server/utils/email-templates'
 
 function appUrl(): string {
@@ -69,6 +76,40 @@ export async function sendOrderCreatedEmail(params: {
   }
   catch (err) {
     console.error('[mail] order-created email failed for order', params.orderId, err)
+  }
+}
+
+/**
+ * Уведомление администратору(ам) о новом заказе на email. Адреса берутся из
+ * site_settings (private_order_notification_emails), несколько через запятую/строки.
+ * Параллельно Telegram-уведомлению. Ошибки не должны ломать оформление заказа.
+ */
+export async function sendOrderAdminEmail(params: {
+  orderId: number
+  totalAmount: number
+  paymentMethod: 'cash' | 'online_card'
+  customerName: string
+  customerPhone: string
+  customerEmail?: string
+  comment?: string
+  items: OrderEmailItem[]
+  delivery?: OrderAdminDelivery
+}): Promise<void> {
+  try {
+    const db = useDb()
+    const [row] = await db.select({ value: siteSettings.value })
+      .from(siteSettings)
+      .where(eq(siteSettings.key, ORDER_NOTIFICATION_EMAILS_KEY))
+    const emails = splitEmails(row?.value)
+    if (emails.length === 0) {
+      console.info('[mail] order-admin email skipped: no recipients configured')
+      return
+    }
+    const content = orderAdminNotificationTemplate(params)
+    await sendMail({ to: emails.join(','), ...content })
+  }
+  catch (err) {
+    console.error('[mail] order-admin email failed for order', params.orderId, err)
   }
 }
 
