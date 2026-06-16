@@ -57,9 +57,10 @@ const workingHours = [
   <section class="relative min-h-[520px] lg:h-[520px] overflow-hidden">
     <div class="absolute inset-0 bg-[url('/images/banner.png')] bg-center bg-cover" />
     <div
-      class="absolute inset-0 flex flex-col lg:flex-row items-stretch"
+      class="absolute inset-0"
       style="background: linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.15) 52%, rgba(0,0,0,0.60) 100%)"
-    >
+    />
+    <div class="absolute inset-0 max-w-[1440px] mx-auto flex flex-col lg:flex-row items-stretch">
       <!-- Left: text content -->
       <div class="flex flex-col justify-center px-5 pt-8 pb-4 lg:pl-20 lg:pr-5 lg:pt-0 lg:pb-0">
         <h1 class="text-white text-[32px] lg:text-[60px] font-bold leading-[1.15] max-w-[640px] mb-3 lg:mb-5">
