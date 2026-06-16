@@ -6,7 +6,7 @@ import { sendVerificationEmail } from '~/server/utils/auth-emails'
 import { assertRateLimit, recordRateLimitHit } from '~/server/utils/rate-limit'
 import { normalizePhone, parseEmail, parseTrimmedString } from '~/server/utils/validators'
 
-const CONSENT_VERSION = '1.0'
+const CONSENT_VERSION = '1.1'
 const WINDOW_MS = 60 * 60 * 1000
 const MAX_ATTEMPTS = 5
 
