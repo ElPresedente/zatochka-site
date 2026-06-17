@@ -3,7 +3,7 @@ import { useDb } from '~/server/db'
 import { orderHistory, orderItems, orders, orderStatuses, products, users, type OrderStatus } from '~/server/db/schema'
 import { createYookassaRefund } from '~/server/utils/yookassa'
 import { cdekDeleteOrder } from '~/server/utils/cdek'
-import { sendOrderReadyEmail } from '~/server/utils/auth-emails'
+import { sendOrderReadyEmail, sendOrderCancelledEmail } from '~/server/utils/auth-emails'
 import { ORDER_STATUS_LABELS } from '~/types/api'
 
 const FINAL_STATUSES = new Set<OrderStatus>(['cancelled', 'completed'])
@@ -180,6 +180,24 @@ export default defineEventHandler(async (event) => {
         email: recipientEmail,
         firstName: updatedOrder.customerFirstName,
         orderId: updatedOrder.id,
+      })
+    }
+  }
+
+  // Письмо клиенту об отмене заказа (на email заказа либо аккаунта).
+  // Только при реальном переходе в cancelled, не на повторном выставлении того же статуса.
+  if (nextStatus === 'cancelled' && preOrder.status !== 'cancelled') {
+    let recipientEmail = updatedOrder.customerEmail
+    if (!recipientEmail && updatedOrder.userId) {
+      const [u] = await db.select({ email: users.email }).from(users).where(eq(users.id, updatedOrder.userId))
+      recipientEmail = u?.email ?? ''
+    }
+    if (recipientEmail) {
+      await sendOrderCancelledEmail({
+        email: recipientEmail,
+        firstName: updatedOrder.customerFirstName,
+        orderId: updatedOrder.id,
+        refunded: refundDone,
       })
     }
   }

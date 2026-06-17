@@ -12,6 +12,7 @@ import {
   newPasswordTemplate,
   orderCreatedTemplate,
   orderReadyTemplate,
+  orderCancelledTemplate,
   orderAdminNotificationTemplate,
   type OrderEmailItem,
   type OrderAdminDelivery,
@@ -125,5 +126,21 @@ export async function sendOrderReadyEmail(params: {
   }
   catch (err) {
     console.error('[mail] order-ready email failed for order', params.orderId, err)
+  }
+}
+
+export async function sendOrderCancelledEmail(params: {
+  email: string
+  firstName?: string
+  orderId: number
+  refunded?: boolean
+}): Promise<void> {
+  if (!params.email) return
+  try {
+    const content = orderCancelledTemplate(params)
+    await sendMail({ to: params.email, ...content })
+  }
+  catch (err) {
+    console.error('[mail] order-cancelled email failed for order', params.orderId, err)
   }
 }

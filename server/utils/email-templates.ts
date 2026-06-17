@@ -281,3 +281,17 @@ export function orderReadyTemplate(params: { firstName?: string; orderId: number
     + `Ваш заказ №${params.orderId} в «${BRAND}» готов. Мы свяжемся с вами по поводу выдачи или доставки.`
   return { subject, html, text }
 }
+
+export function orderCancelledTemplate(params: { firstName?: string; orderId: number; refunded?: boolean }): EmailContent {
+  const subject = `Заказ №${params.orderId} отменён — ${BRAND}`
+  const refundLine = params.refunded
+    ? ' Денежные средства возвращены на карту, которой производилась оплата.'
+    : ''
+  const html = layout(`Заказ №${params.orderId} отменён`, `
+    <p style="margin:0 0 8px;font-size:14px;line-height:1.6;">${greeting(params.firstName)}<br>
+    Ваш заказ №${params.orderId} отменён.${refundLine} Если у вас есть вопросы, свяжитесь с нами.</p>
+  `)
+  const text = `${params.firstName ? `Здравствуйте, ${params.firstName}!` : 'Здравствуйте!'}\n\n`
+    + `Ваш заказ №${params.orderId} в «${BRAND}» отменён.${refundLine} Если у вас есть вопросы, свяжитесь с нами.`
+  return { subject, html, text }
+}
