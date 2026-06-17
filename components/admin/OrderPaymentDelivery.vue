@@ -5,8 +5,8 @@ import {
   DELIVERY_SCOPE_LABELS,
   EXTRA_PAYMENT_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
-  PAYMENT_STATUS_CLASSES,
   PAYMENT_STATUS_LABELS,
+  paymentStatusBadgeClass,
 } from '~/types/api'
 
 const props = defineProps<{ order: OrderRowDto }>()
@@ -38,7 +38,7 @@ async function copy(value: string, key: string) {
 
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-sm text-[#222] font-semibold">{{ PAYMENT_METHOD_LABELS[order.paymentMethod] }}</span>
-        <span class="px-2 py-0.5 rounded-lg font-semibold text-xs" :class="PAYMENT_STATUS_CLASSES[order.paymentStatus]">
+        <span class="px-2 py-0.5 rounded-lg font-semibold text-xs" :class="paymentStatusBadgeClass(order.paymentStatus, order.paymentMethod, order.status)">
           {{ PAYMENT_STATUS_LABELS[order.paymentStatus] }}
         </span>
       </div>

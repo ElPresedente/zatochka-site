@@ -262,7 +262,6 @@ export default defineEventHandler(async (event) => {
     totalAmount: createdOrder.totalAmount,
     paymentMethod: paymentMethodInput,
     customerName: [createdOrder.customerFirstName, createdOrder.customerLastName].filter(Boolean).join(' '),
-    customerPhone: createdOrder.customerPhone,
     customerEmail: createdOrder.customerEmail || userEmail || '',
     comment: createdOrder.userComment || '',
     items: notifyItemsParsed.map(item => ({

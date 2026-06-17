@@ -1,6 +1,19 @@
 <script setup lang="ts">
-defineProps<{ orderId: number | null }>()
+const props = defineProps<{ orderId: number | null }>()
 const emit = defineEmits<{ close: [] }>()
+
+const message = computed(() => {
+  // День недели по московскому времени, независимо от часового пояса клиента.
+  const mskWeekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Moscow',
+    weekday: 'short',
+  }).format(new Date())
+  const isWeekend = mskWeekday === 'Sat' || mskWeekday === 'Sun'
+  if (isWeekend) {
+    return `Вашему заказу присвоен номер ${props.orderId}. Начнём работу по вашему заказу по прошествии выходных. Во время сборки заказа наши работники могут связаться с вами для уточнения деталей.`
+  }
+  return `Вашему заказу присвоен номер ${props.orderId}. Мы уже начали собирать ваш заказ! Во время сборки наши работники могут связаться с вами для уточнения деталей.`
+})
 </script>
 
 <template>
@@ -13,7 +26,7 @@ const emit = defineEmits<{ close: [] }>()
         <div class="text-5xl lg:text-[64px] mb-3 lg:mb-4">✅</div>
         <div class="text-xl lg:text-[26px] font-bold mb-2 lg:mb-3">Заказ оформлен!</div>
         <p class="text-[#555] text-base lg:text-lg leading-relaxed mb-5 lg:mb-6">
-          Заказ №{{ orderId }} сохранен. Мы свяжемся с вами в ближайшее время для подтверждения.
+          {{ message }}
         </p>
         <div class="flex flex-col gap-3">
           <button class="btn-primary px-8 lg:px-10 py-2.5 lg:py-3 text-base lg:text-lg" @click="emit('close')">Закрыть</button>

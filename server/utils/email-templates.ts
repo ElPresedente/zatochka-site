@@ -185,7 +185,6 @@ export function orderAdminNotificationTemplate(params: {
   totalAmount: number
   paymentMethod: 'cash' | 'online_card'
   customerName: string
-  customerPhone: string
   customerEmail?: string
   comment?: string
   items: OrderEmailItem[]
@@ -227,7 +226,6 @@ export function orderAdminNotificationTemplate(params: {
     <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">Поступил новый заказ на сайте.</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
       ${infoRow('Клиент', escapeHtml(params.customerName) || '—')}
-      ${infoRow('Телефон', escapeHtml(params.customerPhone) || '—')}
       ${params.customerEmail ? infoRow('Email', escapeHtml(params.customerEmail)) : ''}
       ${infoRow('Оплата', paymentLabel)}
       ${deliveryHtml}
@@ -244,7 +242,6 @@ export function orderAdminNotificationTemplate(params: {
   lines.push(`Новый заказ №${params.orderId} на сайте «${BRAND}».`)
   lines.push('')
   lines.push(`Клиент: ${params.customerName || '—'}`)
-  lines.push(`Телефон: ${params.customerPhone || '—'}`)
   if (params.customerEmail) lines.push(`Email: ${params.customerEmail}`)
   lines.push(`Оплата: ${paymentLabel}`)
   if (params.delivery) {

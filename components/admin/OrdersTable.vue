@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { OrderRowDto } from '~/types/api'
-import { ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_CLASSES } from '~/types/api'
+import { ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES, PAYMENT_STATUS_LABELS, paymentStatusBadgeClass } from '~/types/api'
 
 defineProps<{ orders: OrderRowDto[] | null }>()
 const emit = defineEmits<{ select: [order: OrderRowDto] }>()
@@ -49,7 +49,7 @@ function deliveryShort(order: OrderRowDto) {
             <td class="px-5 py-4 font-bold text-brand">{{ formatPrice(order.totalAmount) }}</td>
             <td class="px-5 py-4">
               <div class="flex flex-col gap-1 items-start">
-                <span class="px-2 py-0.5 rounded-lg font-semibold text-[10px] whitespace-nowrap" :class="PAYMENT_STATUS_CLASSES[order.paymentStatus]">
+                <span class="px-2 py-0.5 rounded-lg font-semibold text-[10px] whitespace-nowrap" :class="paymentStatusBadgeClass(order.paymentStatus, order.paymentMethod, order.status)">
                   {{ PAYMENT_STATUS_LABELS[order.paymentStatus] }}
                 </span>
                 <span class="px-2 py-0.5 rounded-lg font-semibold text-[10px] whitespace-nowrap bg-slate-100 text-slate-600">
@@ -86,7 +86,7 @@ function deliveryShort(order: OrderRowDto) {
         <div class="font-semibold text-[#222] text-sm">{{ customerName(order) }}</div>
         <div class="text-sm text-[#555]">{{ formatPhone(order.customerPhone) }}</div>
         <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
-          <span class="px-2 py-0.5 rounded-lg font-semibold text-[10px] whitespace-nowrap" :class="PAYMENT_STATUS_CLASSES[order.paymentStatus]">
+          <span class="px-2 py-0.5 rounded-lg font-semibold text-[10px] whitespace-nowrap" :class="paymentStatusBadgeClass(order.paymentStatus, order.paymentMethod, order.status)">
             {{ PAYMENT_STATUS_LABELS[order.paymentStatus] }}
           </span>
           <span class="px-2 py-0.5 rounded-lg font-semibold text-[10px] whitespace-nowrap bg-slate-100 text-slate-600">

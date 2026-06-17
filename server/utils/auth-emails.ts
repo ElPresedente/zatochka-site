@@ -90,7 +90,6 @@ export async function sendOrderAdminEmail(params: {
   totalAmount: number
   paymentMethod: 'cash' | 'online_card'
   customerName: string
-  customerPhone: string
   customerEmail?: string
   comment?: string
   items: OrderEmailItem[]

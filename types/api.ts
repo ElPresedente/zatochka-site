@@ -142,6 +142,24 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   online_card: 'Картой онлайн',
 }
 
+/**
+ * Класс бейджа статуса оплаты с учётом контекста заказа.
+ * «Не оплачен» не должен «гореть» оранжевым, когда оплата ещё не ожидается:
+ * у отменённых заказов и у заказов с оплатой при получении (наличные/самовывоз) —
+ * там бейдж нейтрально-серый. Оранжевый остаётся только у неоплаченных
+ * онлайн-заказов, которые действительно ждут оплаты.
+ */
+export function paymentStatusBadgeClass(
+  paymentStatus: PaymentStatus,
+  paymentMethod: PaymentMethod,
+  orderStatus: OrderStatus,
+): string {
+  if (paymentStatus === 'unpaid' && (orderStatus === 'cancelled' || paymentMethod === 'cash')) {
+    return 'bg-slate-100 text-slate-600'
+  }
+  return PAYMENT_STATUS_CLASSES[paymentStatus]
+}
+
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   created: 'Создан',
   cancelled: 'Отменён',
